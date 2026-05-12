@@ -35,6 +35,26 @@ function Field({ label, error, children }) {
   )
 }
 
+function GeneratingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-bg/90 px-6 backdrop-blur">
+      <div className="w-full max-w-md rounded-lg border border-line bg-card p-6 text-center shadow-2xl shadow-black/60">
+        <p className="font-heading text-3xl uppercase text-white">Generating Program</p>
+        <div className="mx-auto mt-5 flex justify-center gap-2">
+          {[0, 1, 2].map((dot) => (
+            <span
+              key={dot}
+              className="h-3 w-3 animate-pulse rounded-full bg-accent"
+              style={{ animationDelay: `${dot * 150}ms` }}
+            />
+          ))}
+        </div>
+        <p className="mt-5 text-body">Apex is building your 8-week plan from the assessment.</p>
+      </div>
+    </div>
+  )
+}
+
 function PillGroup({ options, value, onChange, columns = 'sm:grid-cols-2' }) {
   return (
     <div className={`grid gap-3 ${columns}`}>
@@ -137,6 +157,7 @@ export default function Onboarding({ onComplete, isLoading, error }) {
 
   return (
     <main className="min-h-screen bg-bg px-4 py-6 text-body sm:px-6 lg:px-8">
+      {isLoading ? <GeneratingOverlay /> : null}
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col justify-center">
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>

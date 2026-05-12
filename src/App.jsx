@@ -25,11 +25,18 @@ function App() {
     setError('')
     setIsLoading(true)
     setProfile(nextProfile)
+    setStage('chat')
+    setMessages([
+      createMessage(
+        'assistant',
+        `## Building ${nextProfile.name}'s program\n\nI am analyzing the assessment and generating a complete 8-week training plan now.`,
+        { type: 'status' },
+      ),
+    ])
 
     try {
       const program = await openAI.generateProgram(nextProfile)
       setMessages([createMessage('assistant', program, { type: 'program' })])
-      setStage('chat')
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to generate the program.')
     } finally {
