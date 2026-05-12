@@ -1,12 +1,20 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, ChevronDown, Dumbbell, HeartPulse, LineChart, Sparkles, Trophy } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ChevronDown, Dumbbell, HeartPulse, LineChart, Lock, Sparkles, Trophy } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
 const views = [
   { id: 'today', label: 'Today', icon: Dumbbell },
+  { id: 'workouts', label: 'Workouts', icon: CheckCircle2 },
   { id: 'week', label: 'Week', icon: CalendarDays },
   { id: 'recover', label: 'Recover', icon: HeartPulse },
   { id: 'track', label: 'Track', icon: LineChart },
+]
+
+const completionItems = [
+  'I finished the warmup.',
+  'I completed every exercise I could safely do.',
+  'I wrote down the weight, reps, or effort for my main exercises.',
+  'I checked how my body feels after the workout.',
 ]
 
 function extractSection(content, keywords, fallbackLength = 900) {
@@ -66,6 +74,123 @@ function Checklist({ items }) {
   )
 }
 
+function parseWorkouts(content, fallbackItems) {
+  const workoutSection = extractSection(content, ['workouts', 'session', 'day'], 3000)
+  const lines = compactLines(workoutSection, 40)
+  const headingIndexes = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /workout|session|day\s+\d|upper|lower|full body|push|pull|legs/i.test(line))
+
+  if (!headingIndexes.length) {
+    return fallbackItems.slice(0, 6).map((item, index) => ({
+      title: index === 0 ? 'Workout one' : `Workout ${index + 1}`,
+      summary: item,
+      details: fallbackItems.slice(index, index + 4),
+    }))
+  }
+
+  return headingIndexes.slice(0, 8).map(({ line, index }, itemIndex) => {
+    const next = headingIndexes[itemIndex + 1]?.index || lines.length
+    const details = lines.slice(index + 1, next).filter((item) => item !== line).slice(0, 8)
+
+    return {
+      title: line,
+      summary: details[0] || 'A focused workout from your plan.',
+      details: details.length ? details : ['Follow the exercises listed in your full plan.', 'Move with control.', 'Stop if anything feels unsafe.'],
+    }
+  })
+}
+
+function WorkoutTracker({ workouts }) {
+  const [currentWorkout, setCurrentWorkout] = useState(0)
+  const [completedWorkouts, setCompletedWorkouts] = useState([])
+  const [checks, setChecks] = useState({})
+  const activeWorkout = workouts[currentWorkout] || workouts[0]
+  const checkedCount = completionItems.filter((_, index) => checks[index]).length
+  const canComplete = checkedCount === completionItems.length
+
+  function toggleCheck(index) {
+    setChecks((current) => ({ ...current, [index]: !current[index] }))
+  }
+
+  function completeWorkout() {
+    if (!canComplete) return
+    setCompletedWorkouts((current) => [...new Set([...current, currentWorkout])])
+    setChecks({})
+    setCurrentWorkout((current) => Math.min(current + 1, workouts.length - 1))
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
+        <p className="font-heading text-sm uppercase text-accent">Current workout</p>
+        <h4 className="mt-1 font-heading text-3xl uppercase text-white">{activeWorkout.title}</h4>
+        <div className="mt-4 grid gap-3">
+          {activeWorkout.details.map((detail, index) => (
+            <div key={`${detail}-${index}`} className="rounded-lg border border-line bg-[#111] p-3 text-body">
+              {detail}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-line bg-[#111] p-4">
+        <p className="font-heading text-2xl uppercase text-white">Finish checklist</p>
+        <p className="mt-1 text-sm text-body">Complete these before the next workout unlocks.</p>
+        <div className="mt-4 grid gap-2">
+          {completionItems.map((item, index) => (
+            <label key={item} className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-card p-3">
+              <input
+                type="checkbox"
+                checked={Boolean(checks[index])}
+                onChange={() => toggleCheck(index)}
+                className="h-5 w-5 accent-[#e8ff47]"
+              />
+              <span className="text-body">{item}</span>
+            </label>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={!canComplete}
+          onClick={completeWorkout}
+          className="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-heading text-xl uppercase text-black disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {currentWorkout >= workouts.length - 1 && canComplete ? 'Complete Final Workout' : 'Unlock Next Workout'}
+        </button>
+      </div>
+
+      <div className="grid gap-3">
+        <p className="font-heading text-2xl uppercase text-white">Upcoming workouts</p>
+        {workouts.map((workout, index) => {
+          const isCurrent = index === currentWorkout
+          const isDone = completedWorkouts.includes(index)
+          const isLocked = index > currentWorkout
+
+          return (
+            <div
+              key={`${workout.title}-${index}`}
+              className={`rounded-lg border p-3 ${isCurrent ? 'border-accent bg-accent/10' : 'border-line bg-[#111]'}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-heading text-xl uppercase text-white">{workout.title}</p>
+                  <p className="mt-1 text-sm text-body">
+                    {isLocked ? workout.summary : isDone ? 'Completed.' : 'Available now.'}
+                  </p>
+                </div>
+                {isLocked ? <Lock className="shrink-0 text-body" size={18} /> : null}
+                {isDone ? <CheckCircle2 className="shrink-0 text-accent" size={20} /> : null}
+              </div>
+              {isLocked ? <p className="mt-2 text-xs text-body">Details unlock after you complete your current workout.</p> : null}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
   return (
     <button
@@ -94,6 +219,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
     () => ({
       today: compactLines(extractSection(message.content, ['session', 'day 1', 'workout a', 'upper', 'lower']), 6),
       week: compactLines(extractSection(message.content, ['weekly', 'split', 'week 1']), 7),
+      workouts: compactLines(extractSection(message.content, ['workouts', 'session', 'day 1']), 8),
       recover: compactLines(extractSection(message.content, ['recovery', 'sleep', 'nutrition', 'deload']), 6),
       track: compactLines(extractSection(message.content, ['kpi', 'performance indicator', 'measure', 'track']), 6),
     }),
@@ -103,6 +229,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
   const activeItems = sections[activeView].length
     ? sections[activeView]
     : ['Open your full plan below, then use the buttons to make it simpler.']
+  const workouts = useMemo(() => parseWorkouts(message.content, sections.today), [message.content, sections.today])
 
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'today'
   const topAction = {
@@ -171,7 +298,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
             <ActionButton action={topAction} pendingAction={pendingAction} isLoading={isLoading} onQuickAction={onQuickAction} />
           </div>
 
-          <Checklist items={activeItems} />
+          {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : <Checklist items={activeItems} />}
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {helperActions.map((action) => (
