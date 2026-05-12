@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Chat from './components/Chat.jsx'
 import Onboarding from './components/Onboarding.jsx'
-import { useClaude } from './hooks/useClaude.js'
+import { useOpenAI } from './hooks/useOpenAI.js'
 
 function createMessage(role, content, meta = {}) {
   return {
@@ -19,7 +19,7 @@ function App() {
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const claude = useClaude()
+  const openAI = useOpenAI()
 
   async function generateProgram(nextProfile) {
     setError('')
@@ -27,7 +27,7 @@ function App() {
     setProfile(nextProfile)
 
     try {
-      const program = await claude.generateProgram(nextProfile)
+      const program = await openAI.generateProgram(nextProfile)
       setMessages([createMessage('assistant', program, { type: 'program' })])
       setStage('chat')
     } catch (caughtError) {
@@ -45,7 +45,7 @@ function App() {
     setIsLoading(true)
 
     try {
-      const response = await claude.sendMessage(messages, text)
+      const response = await openAI.sendMessage(messages, text)
       setMessages([...nextMessages, createMessage('assistant', response)])
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to send this message.')
@@ -63,7 +63,7 @@ function App() {
     setIsLoading(true)
 
     try {
-      const response = await claude.analyzeMedia(messages, mediaPayload)
+      const response = await openAI.analyzeMedia(messages, mediaPayload)
       setMessages([...nextMessages, createMessage('assistant', response, { type: 'analysis' })])
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to analyze this media.')

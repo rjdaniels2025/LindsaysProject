@@ -1,62 +1,82 @@
 const SYSTEM_PROMPT =
   'You are an elite sports scientist and certified strength & conditioning specialist (CSCS) with deep expertise in exercise physiology, biomechanics, and evidence-based training. Always provide highly specific, science-backed recommendations referencing rep ranges tied to specific adaptations, progressive overload percentages, RPE/RIR guidance, energy system training, recovery science, and periodization models. Never give generic advice — tailor everything precisely.'
 
-const API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-20250514'
-const MAX_TOKENS = 8096
+const API_URL = 'https://api.openai.com/v1/responses'
+const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.5'
+const MAX_OUTPUT_TOKENS = 8096
 
 function getApiKey() {
-  return import.meta.env.VITE_ANTHROPIC_API_KEY
+  return import.meta.env.VITE_OPENAI_API_KEY
 }
 
-function normalizeContent(content) {
+function dataUrl(mediaType, base64) {
+  return `data:${mediaType};base64,${base64}`
+}
+
+function toOpenAIContent(content, role) {
   if (Array.isArray(content)) return content
-  return [{ type: 'text', text: String(content || '') }]
+
+  if (role === 'assistant') {
+    return String(content || '')
+  }
+
+  return [
+    {
+      type: 'input_text',
+      text: String(content || ''),
+    },
+  ]
 }
 
-function toAnthropicMessages(messages) {
+function toOpenAIMessages(messages) {
   return messages.map((message) => ({
     role: message.role === 'assistant' ? 'assistant' : 'user',
-    content: normalizeContent(message.content),
+    content: toOpenAIContent(message.content, message.role),
   }))
 }
 
-async function callClaude(messages) {
+function extractText(payload) {
+  if (payload?.output_text) return payload.output_text
+
+  return payload?.output
+    ?.flatMap((item) => item.content || [])
+    .filter((content) => content.type === 'output_text' || content.type === 'text')
+    .map((content) => content.text)
+    .join('\n\n')
+}
+
+async function callOpenAI(messages) {
   const apiKey = getApiKey()
 
   if (!apiKey) {
-    throw new Error('Missing VITE_ANTHROPIC_API_KEY. Add it to your Vercel environment variables and local .env file.')
+    throw new Error('Missing VITE_OPENAI_API_KEY. Add it to your Vercel environment variables and local .env file.')
   }
 
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
+      authorization: `Bearer ${apiKey}`,
       'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
-      messages: toAnthropicMessages(messages),
+      instructions: SYSTEM_PROMPT,
+      input: toOpenAIMessages(messages),
+      max_output_tokens: MAX_OUTPUT_TOKENS,
     }),
   })
 
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || `Claude request failed with status ${response.status}.`
+    const message =
+      payload?.error?.message || payload?.message || `OpenAI request failed with status ${response.status}.`
     throw new Error(message)
   }
 
-  const text = payload?.content
-    ?.filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n\n')
+  const text = extractText(payload)
 
-  if (!text) throw new Error('Claude returned an empty response.')
+  if (!text) throw new Error('OpenAI returned an empty response.')
 
   return text
 }
@@ -85,9 +105,9 @@ Include:
 - Scientific rationale for every major recommendation`
 }
 
-export function useClaude() {
+export function useOpenAI() {
   async function generateProgram(profile) {
-    return callClaude([
+    return callOpenAI([
       {
         role: 'user',
         content: programPrompt(profile),
@@ -96,7 +116,7 @@ export function useClaude() {
   }
 
   async function sendMessage(history, userText) {
-    return callClaude([
+    return callOpenAI([
       ...history,
       {
         role: 'user',
@@ -109,32 +129,26 @@ export function useClaude() {
     const mediaBlocks =
       mediaPayload.type === 'video'
         ? mediaPayload.framesBase64.map((frame) => ({
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/jpeg',
-              data: frame,
-            },
+            type: 'input_image',
+            image_url: dataUrl('image/jpeg', frame),
+            detail: 'high',
           }))
         : [
             {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaPayload.mimeType,
-                data: mediaPayload.base64,
-              },
+              type: 'input_image',
+              image_url: dataUrl(mediaPayload.mimeType, mediaPayload.base64),
+              detail: 'high',
             },
           ]
 
-    return callClaude([
+    return callOpenAI([
       ...history,
       {
         role: 'user',
         content: [
           ...mediaBlocks,
           {
-            type: 'text',
+            type: 'input_text',
             text:
               'Analyze this exercise media like an elite biomechanics coach. Provide form feedback, likely movement faults, safety concerns, corrective exercises, useful cues, and any program adjustments needed based on what you observe.',
           },
