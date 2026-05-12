@@ -1,19 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, Send, X } from 'lucide-react'
-import MessageBubble from './MessageBubble.jsx'
+import { useMemo, useRef, useState } from 'react'
+import { Camera, Sparkles, Target, X } from 'lucide-react'
+import ProgramDashboard from './ProgramDashboard.jsx'
+import { FormattedMessage } from '../utils/formatMessage.jsx'
 
 const quickReplies = ['Show Week 2 workouts', 'Pre-workout nutrition', 'How to track progress', 'Adjust for soreness']
 const MAX_MEDIA_SIZE = 20 * 1024 * 1024
 
 function LoadingDots() {
   return (
-    <div className="mr-auto flex items-center gap-2 rounded-lg border border-line bg-card px-5 py-4">
+    <div className="flex items-center gap-2">
       {[0, 1, 2].map((dot) => (
-        <span
-          key={dot}
-          className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent"
-          style={{ animationDelay: `${dot * 150}ms` }}
-        />
+        <span key={dot} className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" style={{ animationDelay: `${dot * 150}ms` }} />
       ))}
     </div>
   )
@@ -86,21 +83,21 @@ export default function Chat({
   onAnalyzeMedia,
   onReset,
 }) {
-  const [draft, setDraft] = useState('')
   const [media, setMedia] = useState(null)
   const [mediaError, setMediaError] = useState('')
   const [isPreparingMedia, setIsPreparingMedia] = useState(false)
   const fileInputRef = useRef(null)
-  const scrollRef = useRef(null)
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages, isLoading, error])
 
   const subtitle = useMemo(() => {
     if (!profile?.name || !profile?.primaryGoal) return 'Personal training intelligence'
     return `${profile.name} / ${profile.primaryGoal}`
   }, [profile])
+
+  const programMessage = messages.find((message) => message.meta?.type === 'program')
+  const statusMessage = messages.find((message) => message.meta?.type === 'status')
+  const latestCoachResult = [...messages]
+    .reverse()
+    .find((message) => message.role === 'assistant' && !['program', 'status'].includes(message.meta?.type))
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -134,14 +131,6 @@ export default function Chat({
     setMediaError('')
   }
 
-  async function submitMessage(event) {
-    event.preventDefault()
-    const text = draft.trim()
-    if (!text || isLoading) return
-    setDraft('')
-    await onSendMessage(text)
-  }
-
   async function analyze() {
     if (!media || media.size > MAX_MEDIA_SIZE || isLoading || isPreparingMedia) return
     setIsPreparingMedia(true)
@@ -162,7 +151,7 @@ export default function Chat({
   }
 
   return (
-    <main className="flex h-screen flex-col bg-bg text-body">
+    <main className="min-h-screen bg-bg text-body">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-4 backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div>
@@ -179,105 +168,136 @@ export default function Chat({
         </div>
       </header>
 
-      <section ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 pb-40">
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} profile={profile} onQuickAction={onSendMessage} />
-          ))}
-          {isLoading ? <LoadingDots /> : null}
-          {error ? <div className="mr-auto rounded-lg border border-red-400/40 bg-red-500/10 p-4 text-red-200">{error}</div> : null}
-        </div>
-      </section>
-
-      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-            {quickReplies.map((reply) => (
-              <button
-                key={reply}
-                type="button"
-                disabled={isLoading}
-                onClick={() => onSendMessage(reply)}
-                className="shrink-0 rounded-full border border-line bg-[#111] px-4 py-2 text-sm text-white transition hover:border-accent disabled:opacity-50"
-              >
-                {reply}
-              </button>
-            ))}
+      <section className="px-4 py-6 sm:px-6">
+        <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[1fr_22rem]">
+          <div className="min-w-0">
+            {programMessage ? (
+              <ProgramDashboard message={programMessage} profile={profile} onQuickAction={onSendMessage} />
+            ) : (
+              <div className="rounded-lg border border-line bg-card p-6 shadow-2xl shadow-black/30">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+                  <Sparkles size={15} />
+                  <span className="font-heading text-sm uppercase">Building Your Plan</span>
+                </div>
+                <h2 className="font-heading text-5xl uppercase leading-none text-white">Apex is creating your dashboard</h2>
+                <p className="mt-3 max-w-2xl text-body">
+                  {statusMessage?.content?.replace(/^#+\s*/gm, '') ||
+                    'Your assessment is being converted into workouts, recovery targets, and progress checkpoints.'}
+                </p>
+                <div className="mt-6">
+                  <LoadingDots />
+                </div>
+              </div>
+            )}
           </div>
 
-          {media ? (
-            <div className="mb-3 rounded-lg border border-line bg-card p-3">
-              <div className="flex items-start gap-3">
-                <div className="h-20 w-28 overflow-hidden rounded border border-line bg-black">
-                  {media.type === 'video' ? (
-                    <video src={media.previewUrl} className="h-full w-full object-cover" muted playsInline />
-                  ) : (
-                    <img src={media.previewUrl} alt="" className="h-full w-full object-cover" />
-                  )}
+          <aside className="grid content-start gap-4">
+            <section className="rounded-lg border border-line bg-card p-4">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded bg-accent text-black">
+                  <Target size={18} />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-white">{media.name}</p>
-                  <p className="text-xs text-body">{(media.size / 1024 / 1024).toFixed(1)}MB</p>
-                  {mediaError ? <p className="mt-2 text-sm text-red-300">{mediaError}</p> : null}
+                <div>
+                  <p className="font-heading text-xl uppercase text-white">Next Moves</p>
+                  <p className="text-sm text-body">Tap one when you want Apex to refine the plan.</p>
                 </div>
-                <button type="button" onClick={dismissMedia} className="rounded border border-line p-2 text-white hover:border-accent">
-                  <X size={16} />
-                </button>
+              </div>
+              <div className="grid gap-2">
+                {quickReplies.map((reply) => (
+                  <button
+                    key={reply}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => onSendMessage(reply)}
+                    className="rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
+                  >
+                    {reply}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-line bg-card p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-heading text-xl uppercase text-white">Form Check</p>
+                  <p className="text-sm text-body">Upload a lift clip or photo for technique feedback.</p>
+                </div>
                 <button
                   type="button"
-                  disabled={media.size > MAX_MEDIA_SIZE || isLoading || isPreparingMedia}
-                  onClick={analyze}
-                  className="rounded-lg bg-accent px-4 py-2 font-heading text-lg uppercase text-black disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] text-white transition hover:border-accent"
+                  aria-label="Upload exercise media"
+                  title="Upload exercise media"
                 >
-                  {isPreparingMedia ? 'Preparing' : 'Analyze'}
+                  <Camera size={20} />
                 </button>
               </div>
-            </div>
-          ) : null}
 
-          {!media && mediaError ? <p className="mb-2 text-sm text-red-300">{mediaError}</p> : null}
+              <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFile} />
 
-          <form onSubmit={submitMessage} className="flex items-end gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              className="hidden"
-              onChange={handleFile}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] text-white transition hover:border-accent"
-              aria-label="Upload exercise media"
-              title="Upload exercise media"
-            >
-              <Camera size={20} />
-            </button>
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  event.currentTarget.form?.requestSubmit()
-                }
-              }}
-              placeholder="Ask about training, nutrition, recovery, or your program..."
-              className="max-h-32 min-h-12 flex-1 resize-none rounded-lg border border-line bg-card px-4 py-3 text-white outline-none placeholder:text-[#666] focus:border-accent"
-            />
-            <button
-              type="submit"
-              disabled={!draft.trim() || isLoading}
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-accent text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Send message"
-              title="Send message"
-            >
-              <Send size={20} />
-            </button>
-          </form>
+              {media ? (
+                <div className="rounded-lg border border-line bg-[#111] p-3">
+                  <div className="mb-3 aspect-video overflow-hidden rounded border border-line bg-black">
+                    {media.type === 'video' ? (
+                      <video src={media.previewUrl} className="h-full w-full object-cover" muted playsInline />
+                    ) : (
+                      <img src={media.previewUrl} alt="" className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-white">{media.name}</p>
+                      <p className="text-xs text-body">{(media.size / 1024 / 1024).toFixed(1)}MB</p>
+                    </div>
+                    <button type="button" onClick={dismissMedia} className="rounded border border-line p-2 text-white hover:border-accent">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  {mediaError ? <p className="mb-3 text-sm text-red-300">{mediaError}</p> : null}
+                  <button
+                    type="button"
+                    disabled={media.size > MAX_MEDIA_SIZE || isLoading || isPreparingMedia}
+                    onClick={analyze}
+                    className="w-full rounded-lg bg-accent px-4 py-2 font-heading text-lg uppercase text-black disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isPreparingMedia ? 'Preparing' : 'Analyze Form'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full rounded-lg border border-dashed border-line bg-[#111] p-5 text-center text-sm text-body transition hover:border-accent hover:text-white"
+                >
+                  Add exercise media
+                </button>
+              )}
+              {!media && mediaError ? <p className="mt-3 text-sm text-red-300">{mediaError}</p> : null}
+            </section>
+
+            {(isLoading || latestCoachResult || error) ? (
+              <section className="rounded-lg border border-line bg-card p-4">
+                <p className="mb-3 font-heading text-xl uppercase text-white">
+                  {latestCoachResult?.meta?.type === 'analysis' ? 'Form Feedback' : 'Coach Note'}
+                </p>
+                {isLoading ? (
+                  <div className="flex items-center justify-between gap-4 rounded-lg border border-line bg-[#111] p-3">
+                    <span className="text-sm text-body">Apex is updating your plan...</span>
+                    <LoadingDots />
+                  </div>
+                ) : null}
+                {latestCoachResult ? (
+                  <div className="max-h-96 overflow-y-auto rounded-lg border border-line bg-[#111] p-3">
+                    <FormattedMessage content={latestCoachResult.content} />
+                  </div>
+                ) : null}
+                {error ? <div className="mt-3 rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</div> : null}
+              </section>
+            ) : null}
+          </aside>
         </div>
-      </footer>
+      </section>
     </main>
   )
 }
