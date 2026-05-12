@@ -1,5 +1,5 @@
 const SYSTEM_PROMPT =
-  'You are an elite sports scientist and certified strength & conditioning specialist (CSCS) with deep expertise in exercise physiology, biomechanics, and evidence-based training. Always provide highly specific, science-backed recommendations referencing rep ranges tied to specific adaptations, progressive overload percentages, RPE/RIR guidance, energy system training, recovery science, and periodization models. Never give generic advice — tailor everything precisely.'
+  'You are an elite sports scientist and certified strength and conditioning specialist with deep expertise in exercise physiology, biomechanics, and evidence based training. Give precise recommendations, but explain them in simple everyday language that an average person can follow. Use short sections, clear steps, and friendly wording. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.'
 
 const API_URL = 'https://api.openai.com/v1/responses'
 const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.5'
@@ -45,6 +45,23 @@ function extractText(payload) {
     .join('\n\n')
 }
 
+function sanitizeCopy(text) {
+  return String(text || '')
+    .replace(/[—–-]/g, ', ')
+    .replace(/[#[\]{}*_`~|^=<>•·]/g, '')
+    .replace(/\//g, ' or ')
+    .replace(/&/g, 'and')
+    .replace(/%/g, ' percent')
+    .replace(/\+/g, ' plus ')
+    .replace(/;/g, ',')
+    .replace(/:/g, ':')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?,/g, ',')
+    .replace(/,\s*,+/g, ',')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 async function callOpenAI(messages) {
   const apiKey = getApiKey()
 
@@ -78,7 +95,7 @@ async function callOpenAI(messages) {
 
   if (!text) throw new Error('OpenAI returned an empty response.')
 
-  return text
+  return sanitizeCopy(text)
 }
 
 function programPrompt(profile) {
@@ -98,14 +115,17 @@ Client profile:
 
 Include:
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
-- Use clear markdown headings exactly named: Today First, Weekly Map, Workouts, 8-Week Progression, Recovery, Track Progress, Why This Works
+- Use clear plain headings exactly named: Today First, Weekly Map, Workouts, Eight Week Progression, Recovery, Track Progress, Why This Works
 - Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
 - Weekly training split with every session detailed
-- 8-week progressive overload plan
+- Eight week progressive overload plan
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
 - Key performance indicators and how to measure them
 - Scientific rationale for every major recommendation
-- Keep each section scannable with short bullets before detailed explanations`
+- Keep each section easy to scan with short numbered steps
+- Use simple words and friendly direction
+- Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols
+- Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks`
 }
 
 export function useOpenAI() {
@@ -153,7 +173,7 @@ export function useOpenAI() {
           {
             type: 'input_text',
             text:
-              'Analyze this exercise media like an elite biomechanics coach. Provide form feedback, likely movement faults, safety concerns, corrective exercises, useful cues, and any program adjustments needed based on what you observe.',
+              'Analyze this exercise media like an elite biomechanics coach. Use simple words. Give clear form feedback, safety notes, corrective exercises, useful cues, and program changes. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.',
           },
         ],
       },

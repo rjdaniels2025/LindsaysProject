@@ -3,7 +3,12 @@ import { Camera, Sparkles, Target, X } from 'lucide-react'
 import ProgramDashboard from './ProgramDashboard.jsx'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
-const quickReplies = ['Show Week 2 workouts', 'Pre-workout nutrition', 'How to track progress', 'Adjust for soreness']
+const quickReplies = [
+  { label: 'Show week two', prompt: 'Show week two workouts in simple steps.' },
+  { label: 'Food before workout', prompt: 'Explain what I should eat before workouts in simple steps.' },
+  { label: 'Track progress', prompt: 'Show me the easiest way to track progress each week.' },
+  { label: 'Adjust for soreness', prompt: 'Adjust my plan for soreness and explain what to do today.' },
+]
 const MAX_MEDIA_SIZE = 20 * 1024 * 1024
 
 function LoadingDots() {
@@ -86,18 +91,29 @@ export default function Chat({
   const [media, setMedia] = useState(null)
   const [mediaError, setMediaError] = useState('')
   const [isPreparingMedia, setIsPreparingMedia] = useState(false)
+  const [pendingAction, setPendingAction] = useState('')
   const fileInputRef = useRef(null)
 
   const subtitle = useMemo(() => {
     if (!profile?.name || !profile?.primaryGoal) return 'Personal training intelligence'
-    return `${profile.name} / ${profile.primaryGoal}`
+    return `${profile.name}, ${profile.primaryGoal}`
   }, [profile])
 
   const programMessage = messages.find((message) => message.meta?.type === 'program')
   const statusMessage = messages.find((message) => message.meta?.type === 'status')
-  const latestCoachResult = [...messages]
+  const latestResult = [...messages]
     .reverse()
     .find((message) => message.role === 'assistant' && !['program', 'status'].includes(message.meta?.type))
+
+  async function runAction(action) {
+    if (isLoading) return
+    setPendingAction(action.label)
+    try {
+      await onSendMessage(action.prompt, { label: action.label })
+    } finally {
+      setPendingAction('')
+    }
+  }
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -172,17 +188,23 @@ export default function Chat({
         <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[1fr_22rem]">
           <div className="min-w-0">
             {programMessage ? (
-              <ProgramDashboard message={programMessage} profile={profile} onQuickAction={onSendMessage} />
+              <ProgramDashboard
+                message={programMessage}
+                profile={profile}
+                onQuickAction={runAction}
+                pendingAction={pendingAction}
+                isLoading={isLoading}
+              />
             ) : (
               <div className="rounded-lg border border-line bg-card p-6 shadow-2xl shadow-black/30">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
                   <Sparkles size={15} />
                   <span className="font-heading text-sm uppercase">Building Your Plan</span>
                 </div>
-                <h2 className="font-heading text-5xl uppercase leading-none text-white">Apex is creating your dashboard</h2>
+                <h2 className="font-heading text-5xl uppercase leading-none text-white">Apex is making your plan</h2>
                 <p className="mt-3 max-w-2xl text-body">
                   {statusMessage?.content?.replace(/^#+\s*/gm, '') ||
-                    'Your assessment is being converted into workouts, recovery targets, and progress checkpoints.'}
+                    'Your answers are being turned into workouts, recovery steps, and progress goals.'}
                 </p>
                 <div className="mt-6">
                   <LoadingDots />
@@ -199,19 +221,20 @@ export default function Chat({
                 </div>
                 <div>
                   <p className="font-heading text-xl uppercase text-white">Next Moves</p>
-                  <p className="text-sm text-body">Tap one when you want Apex to refine the plan.</p>
+                  <p className="text-sm text-body">Tap one to get a simple answer.</p>
                 </div>
               </div>
               <div className="grid gap-2">
                 {quickReplies.map((reply) => (
                   <button
-                    key={reply}
+                    key={reply.label}
                     type="button"
                     disabled={isLoading}
-                    onClick={() => onSendMessage(reply)}
-                    className="rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
+                    onClick={() => runAction(reply)}
+                    className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
                   >
-                    {reply}
+                    <span>{reply.label}</span>
+                    {pendingAction === reply.label ? <LoadingDots /> : null}
                   </button>
                 ))}
               </div>
@@ -221,7 +244,7 @@ export default function Chat({
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-heading text-xl uppercase text-white">Form Check</p>
-                  <p className="text-sm text-body">Upload a lift clip or photo for technique feedback.</p>
+                  <p className="text-sm text-body">Upload a lift video or photo for form feedback.</p>
                 </div>
                 <button
                   type="button"
@@ -261,7 +284,7 @@ export default function Chat({
                     onClick={analyze}
                     className="w-full rounded-lg bg-accent px-4 py-2 font-heading text-lg uppercase text-black disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isPreparingMedia ? 'Preparing' : 'Analyze Form'}
+                    {isPreparingMedia ? 'Preparing' : 'Check Form'}
                   </button>
                 </div>
               ) : (
@@ -276,20 +299,21 @@ export default function Chat({
               {!media && mediaError ? <p className="mt-3 text-sm text-red-300">{mediaError}</p> : null}
             </section>
 
-            {(isLoading || latestCoachResult || error) ? (
+            {(isLoading || latestResult || error) ? (
               <section className="rounded-lg border border-line bg-card p-4">
-                <p className="mb-3 font-heading text-xl uppercase text-white">
-                  {latestCoachResult?.meta?.type === 'analysis' ? 'Form Feedback' : 'Coach Note'}
+                <p className="mb-1 font-heading text-xl uppercase text-white">
+                  {latestResult?.meta?.type === 'analysis' ? 'Form Feedback' : 'Your Result'}
                 </p>
+                {latestResult?.meta?.label ? <p className="mb-3 text-sm text-body">{latestResult.meta.label}</p> : null}
                 {isLoading ? (
                   <div className="flex items-center justify-between gap-4 rounded-lg border border-line bg-[#111] p-3">
-                    <span className="text-sm text-body">Apex is updating your plan...</span>
+                    <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Apex is working on it...'}</span>
                     <LoadingDots />
                   </div>
                 ) : null}
-                {latestCoachResult ? (
+                {!isLoading && latestResult ? (
                   <div className="max-h-96 overflow-y-auto rounded-lg border border-line bg-[#111] p-3">
-                    <FormattedMessage content={latestCoachResult.content} />
+                    <FormattedMessage content={latestResult.content} />
                   </div>
                 ) : null}
                 {error ? <div className="mt-3 rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</div> : null}

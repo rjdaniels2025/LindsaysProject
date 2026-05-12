@@ -26,7 +26,15 @@ function extractSection(content, keywords, fallbackLength = 900) {
 function compactLines(markdown, limit = 7) {
   return markdown
     .split('\n')
-    .map((line) => line.replace(/^#{1,6}\s*/, '').replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim())
+    .map((line) =>
+      line
+        .replace(/^#{1,6}\s*/, '')
+        .replace(/^[-*]\s*/, '')
+        .replace(/^\d+\.\s*/, '')
+        .replace(/[#[\]{}*_`~|^=<>•·]/g, '')
+        .replace(/[—–-]/g, ', ')
+        .trim(),
+    )
     .filter(Boolean)
     .slice(0, limit)
 }
@@ -58,7 +66,27 @@ function Checklist({ items }) {
   )
 }
 
-export default function ProgramDashboard({ message, profile, onQuickAction }) {
+function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
+  return (
+    <button
+      type="button"
+      disabled={isLoading}
+      onClick={() => onQuickAction(action)}
+      className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
+    >
+      <span>{action.label}</span>
+      {pendingAction === action.label ? (
+        <span className="flex items-center gap-1">
+          {[0, 1, 2].map((dot) => (
+            <span key={dot} className="h-2 w-2 animate-pulse rounded-full bg-accent" style={{ animationDelay: `${dot * 150}ms` }} />
+          ))}
+        </span>
+      ) : null}
+    </button>
+  )
+}
+
+export default function ProgramDashboard({ message, profile, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
   const [showFullPlan, setShowFullPlan] = useState(false)
 
@@ -74,7 +102,18 @@ export default function ProgramDashboard({ message, profile, onQuickAction }) {
 
   const activeItems = sections[activeView].length
     ? sections[activeView]
-    : ['Review your full plan below, then ask Apex to turn it into today\'s exact workout.']
+    : ['Open your full plan below, then use the buttons to make it simpler.']
+
+  const activeLabel = views.find((view) => view.id === activeView)?.label || 'today'
+  const topAction = {
+    label: `Simplify ${activeLabel}`,
+    prompt: `Turn my ${activeLabel.toLowerCase()} plan into simple steps with exact actions.`,
+  }
+  const helperActions = [
+    { label: 'First thing to do', prompt: 'Tell me the first thing I should do today in simple steps.' },
+    { label: 'Make it easier', prompt: 'Make this plan easier to follow for a normal person.' },
+    { label: 'Next workout', prompt: 'Explain my next workout in simple steps.' },
+  ]
 
   return (
     <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
@@ -86,10 +125,10 @@ export default function ProgramDashboard({ message, profile, onQuickAction }) {
               <span className="font-heading text-sm uppercase">Your Game Plan</span>
             </div>
             <h2 className="font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
-              Start simple. Stack wins.
+              Start simple. Build momentum.
             </h2>
             <p className="mt-2 max-w-2xl text-body">
-              Apex built the full science-backed plan. Use this dashboard to follow the next step, then open the detailed plan only when you need it.
+              Apex built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:min-w-80">
@@ -124,32 +163,25 @@ export default function ProgramDashboard({ message, profile, onQuickAction }) {
         <section className="p-4 sm:p-5">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-heading text-sm uppercase text-accent">Step-by-step</p>
+              <p className="font-heading text-sm uppercase text-accent">Simple steps</p>
               <h3 className="font-heading text-3xl uppercase text-white">
-                {views.find((view) => view.id === activeView)?.label} focus
+                {activeLabel} focus
               </h3>
             </div>
-            <button
-              type="button"
-              onClick={() => onQuickAction(`Turn my ${views.find((view) => view.id === activeView)?.label.toLowerCase()} plan into a simple checklist with exact actions.`)}
-              className="rounded-lg bg-accent px-4 py-2 font-heading text-lg uppercase text-black"
-            >
-              Simplify This
-            </button>
+            <ActionButton action={topAction} pendingAction={pendingAction} isLoading={isLoading} onQuickAction={onQuickAction} />
           </div>
 
           <Checklist items={activeItems} />
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {['What do I do first?', 'Make this beginner friendly', 'Explain my next workout'].map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => onQuickAction(prompt)}
-                className="rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent"
-              >
-                {prompt}
-              </button>
+            {helperActions.map((action) => (
+              <ActionButton
+                key={action.label}
+                action={action}
+                pendingAction={pendingAction}
+                isLoading={isLoading}
+                onQuickAction={onQuickAction}
+              />
             ))}
           </div>
 
@@ -161,7 +193,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction }) {
             >
               <span>
                 <span className="block font-heading text-2xl uppercase text-white">Full science plan</span>
-                <span className="text-sm text-body">Open this when you want every set, rep, rationale, and progression detail.</span>
+                <span className="text-sm text-body">Open this when you want every set, rep, reason, and progress detail.</span>
               </span>
               <ChevronDown className={`shrink-0 text-accent transition ${showFullPlan ? 'rotate-180' : ''}`} />
             </button>

@@ -44,8 +44,8 @@ function App() {
     }
   }
 
-  async function sendMessage(text) {
-    const userMessage = createMessage('user', text)
+  async function sendMessage(text, meta = {}) {
+    const userMessage = createMessage('user', text, { type: 'request', label: meta.label || text })
     const nextMessages = [...messages, userMessage]
     setMessages(nextMessages)
     setError('')
@@ -53,7 +53,7 @@ function App() {
 
     try {
       const response = await openAI.sendMessage(messages, text)
-      setMessages([...nextMessages, createMessage('assistant', response)])
+      setMessages([...nextMessages, createMessage('assistant', response, { type: 'result', label: meta.label || text })])
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to send this message.')
     } finally {
@@ -71,7 +71,7 @@ function App() {
 
     try {
       const response = await openAI.analyzeMedia(messages, mediaPayload)
-      setMessages([...nextMessages, createMessage('assistant', response, { type: 'analysis' })])
+      setMessages([...nextMessages, createMessage('assistant', response, { type: 'analysis', label: 'Form feedback' })])
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to analyze this media.')
     } finally {
