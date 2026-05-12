@@ -182,7 +182,7 @@ export default function Chat({
       <section ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 pb-40">
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble key={message.id} message={message} profile={profile} onQuickAction={onSendMessage} />
           ))}
           {isLoading ? <LoadingDots /> : null}
           {error ? <div className="mr-auto rounded-lg border border-red-400/40 bg-red-500/10 p-4 text-red-200">{error}</div> : null}

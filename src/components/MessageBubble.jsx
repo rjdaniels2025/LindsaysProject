@@ -1,7 +1,12 @@
 import { FormattedMessage } from '../utils/formatMessage.jsx'
+import ProgramDashboard from './ProgramDashboard.jsx'
 
-export default function MessageBubble({ message }) {
+export default function MessageBubble({ message, profile, onQuickAction }) {
   const isAssistant = message.role === 'assistant'
+
+  if (message.meta?.type === 'program') {
+    return <ProgramDashboard message={message} profile={profile} onQuickAction={onQuickAction} />
+  }
 
   if (isAssistant) {
     return (

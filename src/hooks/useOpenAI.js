@@ -97,12 +97,15 @@ Client profile:
 - Injuries or limitations: ${profile.limitations || 'None reported'}
 
 Include:
+- Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
+- Use clear markdown headings exactly named: Today First, Weekly Map, Workouts, 8-Week Progression, Recovery, Track Progress, Why This Works
 - Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
 - Weekly training split with every session detailed
 - 8-week progressive overload plan
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
 - Key performance indicators and how to measure them
-- Scientific rationale for every major recommendation`
+- Scientific rationale for every major recommendation
+- Keep each section scannable with short bullets before detailed explanations`
 }
 
 export function useOpenAI() {
