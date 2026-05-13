@@ -62,6 +62,10 @@ function sanitizeCopy(text) {
     .trim()
 }
 
+function formatGoals(primaryGoal) {
+  return Array.isArray(primaryGoal) ? primaryGoal.join(', ') : primaryGoal
+}
+
 async function callOpenAI(messages) {
   const apiKey = getApiKey()
 
@@ -107,7 +111,7 @@ Client profile:
 - Gender: ${profile.gender}
 - Weight: ${profile.weightLbs} lbs
 - Height: ${profile.height}
-- Primary goal: ${profile.primaryGoal}
+- Primary goals: ${formatGoals(profile.primaryGoal)}
 - Training experience: ${profile.experience}
 - Training days per week: ${profile.daysPerWeek}
 - Equipment access: ${profile.equipment}

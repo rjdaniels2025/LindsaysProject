@@ -11,6 +11,10 @@ const quickReplies = [
 ]
 const MAX_MEDIA_SIZE = 20 * 1024 * 1024
 
+function formatGoals(primaryGoal) {
+  return Array.isArray(primaryGoal) ? primaryGoal.join(', ') : primaryGoal
+}
+
 function LoadingDots() {
   return (
     <div className="flex items-center gap-2">
@@ -95,8 +99,9 @@ export default function Chat({
   const fileInputRef = useRef(null)
 
   const subtitle = useMemo(() => {
-    if (!profile?.name || !profile?.primaryGoal) return 'Personal training intelligence'
-    return `${profile.name}, ${profile.primaryGoal}`
+    const goals = formatGoals(profile?.primaryGoal)
+    if (!profile?.name || !goals) return 'Personal training intelligence'
+    return `${profile.name}, ${goals}`
   }, [profile])
 
   const programMessage = messages.find((message) => message.meta?.type === 'program')

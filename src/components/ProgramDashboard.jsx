@@ -17,6 +17,10 @@ const completionItems = [
   'I checked how my body feels after the workout.',
 ]
 
+function formatGoals(primaryGoal) {
+  return Array.isArray(primaryGoal) ? primaryGoal.join(', ') : primaryGoal
+}
+
 function extractSection(content, keywords, fallbackLength = 900) {
   const lines = content.split('\n')
   const start = lines.findIndex((line) => {
@@ -259,7 +263,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
             </p>
           </div>
           <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:min-w-80">
-            <FocusCard icon={Trophy} label="Goal" value={profile?.primaryGoal || 'Fitness'} />
+            <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
             <FocusCard icon={CalendarDays} label="Schedule" value={`${profile?.daysPerWeek || '-'} days`} />
             <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
           </div>

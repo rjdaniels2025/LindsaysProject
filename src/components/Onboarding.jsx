@@ -55,16 +55,31 @@ function GeneratingOverlay() {
   )
 }
 
-function PillGroup({ options, value, onChange, columns = 'sm:grid-cols-2' }) {
+function PillGroup({ options, value, onChange, columns = 'sm:grid-cols-2', multiple = false }) {
+  const selectedValues = multiple && Array.isArray(value) ? value : []
+
+  function choose(option) {
+    if (!multiple) {
+      onChange(option)
+      return
+    }
+
+    const next = selectedValues.includes(option)
+      ? selectedValues.filter((item) => item !== option)
+      : [...selectedValues, option]
+
+    onChange(next)
+  }
+
   return (
     <div className={`grid gap-3 ${columns}`}>
       {options.map((option) => {
-        const selected = value === option
+        const selected = multiple ? selectedValues.includes(option) : value === option
         return (
           <button
             key={option}
             type="button"
-            onClick={() => onChange(option)}
+            onClick={() => choose(option)}
             className={`min-h-12 rounded-lg border px-4 py-3 text-left font-heading text-lg uppercase transition ${
               selected
                 ? 'border-accent bg-accent text-black'
@@ -94,7 +109,7 @@ export default function Onboarding({ onComplete, isLoading, error }) {
     gender: '',
     weightLbs: '',
     height: '',
-    primaryGoal: '',
+    primaryGoal: [],
     experience: '',
     daysPerWeek: '4',
     equipment: '',
@@ -112,7 +127,7 @@ export default function Onboarding({ onComplete, isLoading, error }) {
     gender: profile.gender ? '' : 'Gender is required.',
     weightLbs: profile.weightLbs ? '' : 'Weight is required.',
     height: profile.height.trim() ? '' : 'Height is required.',
-    primaryGoal: profile.primaryGoal ? '' : 'Choose a goal.',
+    primaryGoal: profile.primaryGoal.length ? '' : 'Choose at least one goal.',
     experience: profile.experience ? '' : 'Choose your training experience.',
     daysPerWeek: profile.daysPerWeek ? '' : 'Choose training days.',
     equipment: profile.equipment ? '' : 'Choose equipment access.',
@@ -236,7 +251,13 @@ export default function Onboarding({ onComplete, isLoading, error }) {
           {step === 2 ? (
             <section className="grid gap-8">
               <Field label="Primary Goal" error={touched.primaryGoal && errors.primaryGoal}>
-                <PillGroup options={goals} value={profile.primaryGoal} onChange={(value) => setValue('primaryGoal', value)} />
+                <p className="mb-3 text-sm text-body">Select all that apply.</p>
+                <PillGroup
+                  multiple
+                  options={goals}
+                  value={profile.primaryGoal}
+                  onChange={(value) => setValue('primaryGoal', value)}
+                />
               </Field>
               <Field label="Training Experience" error={touched.experience && errors.experience}>
                 <PillGroup
