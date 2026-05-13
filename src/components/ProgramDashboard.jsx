@@ -51,25 +51,55 @@ function extractSection(content, keywords, fallbackLength = 900) {
   return rest.slice(0, nextHeading > 0 ? nextHeading : 28).join('\n').trim()
 }
 
+function cleanLine(line) {
+  return line
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^[-*]\s*/, '')
+    .replace(/^\d+\.\s*/, '')
+    .replace(/[#[\]{}*_`~|^=<>•·]/g, '')
+    .replace(/[—–-]/g, ', ')
+    .trim()
+}
+
 function compactLines(markdown, limit = 7) {
   return markdown
     .split('\n')
-    .map((line) =>
-      line
-        .replace(/^#{1,6}\s*/, '')
-        .replace(/^[-*]\s*/, '')
-        .replace(/^\d+\.\s*/, '')
-        .replace(/[#[\]{}*_`~|^=<>•·]/g, '')
-        .replace(/[—–-]/g, ', ')
-        .trim(),
-    )
+    .map(cleanLine)
     .filter(Boolean)
     .slice(0, limit)
+}
+
+function allCleanLines(content) {
+  return content.split('\n').map(cleanLine).filter(Boolean)
+}
+
+function headingText(line) {
+  return line.replace(/[:.]+$/g, '').trim().toLowerCase()
+}
+
+function isPlanHeading(line) {
+  return /^(today first|weekly map|workouts|eight week progression|recovery|track progress|why this works)$/i.test(headingText(line))
+}
+
+function sectionLines(content, heading, stopHeadings = []) {
+  const lines = allCleanLines(content)
+  const start = lines.findIndex((line) => headingText(line) === heading.toLowerCase())
+
+  if (start === -1) return []
+
+  const stops = stopHeadings.map((item) => item.toLowerCase())
+  const end = lines.findIndex((line, index) => index > start && (stops.includes(headingText(line)) || isPlanHeading(line)))
+
+  return lines.slice(start + 1, end > -1 ? end : undefined)
 }
 
 function readDetail(line, label) {
   const pattern = new RegExp(`${label}\\s*:?\\s*([^,\\.]+)`, 'i')
   return line.match(pattern)?.[1]?.trim()
+}
+
+function hasExerciseDetail(line) {
+  return /\bsets?\b|\breps?\b|\brest\b|\btempo\b|\bcue\b|\brpe\b|\brir\b/i.test(line)
 }
 
 function readSets(line) {
@@ -96,6 +126,11 @@ function exerciseName(line, index) {
   const beforeColon = line.split(':')[0]?.trim()
   if (beforeColon && beforeColon.length > 2 && beforeColon.length < 80 && !/workout|session|day/i.test(beforeColon)) {
     return beforeColon
+  }
+
+  const beforeComma = line.split(',')[0]?.trim()
+  if (beforeComma && beforeComma.length > 2 && beforeComma.length < 80 && !hasExerciseDetail(beforeComma)) {
+    return beforeComma
   }
 
   return `Exercise ${index + 1}`
@@ -154,35 +189,42 @@ function Checklist({ items }) {
 }
 
 function parseWorkouts(content, fallbackItems) {
-  const workoutSection = extractSection(content, ['workouts', 'session', 'day'], 3000)
-  const lines = compactLines(workoutSection, 40)
+  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Eight Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const lines = explicitWorkoutLines.length ? explicitWorkoutLines : compactLines(extractSection(content, ['workouts', 'session', 'day'], 3000), 80)
   const fallbackWorkoutItems = fallbackItems.length
     ? fallbackItems
     : ['Goblet squat, Sets: 3, Reps: 10, Rest: 60 seconds, Tempo: 3,1,2,0, Cue: Keep your chest tall.',
         'Push up, Sets: 3, Reps: 8, Rest: 60 seconds, Tempo: 2,1,2,0, Cue: Keep your body straight.',
         'Plank, Sets: 3, Reps: 30 seconds, Rest: 45 seconds, Tempo: Controlled, Cue: Breathe slowly.']
-  const headingIndexes = lines
+  const exerciseLines = lines.filter(hasExerciseDetail)
+  const boundaryIndexes = lines
     .map((line, index) => ({ line, index }))
-    .filter(({ line }) => /workout|session|day\s+\d|upper|lower|full body|push|pull|legs/i.test(line))
+    .filter(({ line }) => {
+      if (hasExerciseDetail(line)) return false
+      return /^(workout|session|day)\s*(one|two|three|four|five|six|\d+|[a-f])\b|^(upper|lower|full body|push|pull|legs)\b/i.test(line)
+    })
 
-  if (!headingIndexes.length) {
-    return fallbackWorkoutItems.slice(0, 6).map((item, index) => ({
-      title: index === 0 ? 'Workout one' : `Workout ${index + 1}`,
-      summary: item,
-      details: fallbackWorkoutItems.slice(index, index + 4),
-    }))
+  if (!boundaryIndexes.length) {
+    const details = exerciseLines.length ? exerciseLines : fallbackWorkoutItems
+    return [
+      {
+        title: 'Workout one',
+        summary: details[0] || 'Your first guided workout.',
+        details,
+      },
+    ]
   }
 
-  return headingIndexes.slice(0, 8).map(({ line, index }, itemIndex) => {
-    const next = headingIndexes[itemIndex + 1]?.index || lines.length
-    const details = lines.slice(index + 1, next).filter((item) => item !== line).slice(0, 8)
+  return boundaryIndexes.slice(0, 8).map(({ line, index }, itemIndex) => {
+    const next = boundaryIndexes[itemIndex + 1]?.index || lines.length
+    const details = lines.slice(index + 1, next).filter(hasExerciseDetail).slice(0, 10)
 
     return {
       title: line,
       summary: details[0] || 'A focused workout from your plan.',
-      details: details.length ? details : ['Follow the exercises listed in your full plan.', 'Move with control.', 'Stop if anything feels unsafe.'],
+      details: details.length ? details : fallbackWorkoutItems,
     }
-  })
+  }).filter((workout) => workout.details.length)
 }
 
 function WorkoutTracker({ workouts }) {
