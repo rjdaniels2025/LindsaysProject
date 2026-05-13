@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Chat from './components/Chat.jsx'
+import Landing from './components/Landing.jsx'
 import Onboarding from './components/Onboarding.jsx'
 import { useOpenAI } from './hooks/useOpenAI.js'
 
@@ -14,7 +15,7 @@ function createMessage(role, content, meta = {}) {
 }
 
 function App() {
-  const [stage, setStage] = useState('onboarding')
+  const [stage, setStage] = useState('landing')
   const [profile, setProfile] = useState(null)
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -80,7 +81,7 @@ function App() {
   }
 
   function reset() {
-    setStage('onboarding')
+    setStage('landing')
     setProfile(null)
     setMessages([])
     setError('')
@@ -99,6 +100,10 @@ function App() {
         onReset={reset}
       />
     )
+  }
+
+  if (stage === 'landing') {
+    return <Landing onStart={() => setStage('onboarding')} />
   }
 
   return <Onboarding onComplete={generateProgram} isLoading={isLoading} error={error} />
