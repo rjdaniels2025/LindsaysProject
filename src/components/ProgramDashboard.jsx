@@ -15,12 +15,14 @@ import {
   Sparkles,
   Timer,
   Trophy,
+  Utensils,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
 const views = [
   { id: 'today', label: 'Today', icon: Dumbbell },
   { id: 'workouts', label: 'Workouts', icon: CheckCircle2 },
+  { id: 'meal', label: 'Meal Plan', icon: Utensils },
   { id: 'week', label: 'Week', icon: CalendarDays },
   { id: 'recover', label: 'Recover', icon: HeartPulse },
   { id: 'track', label: 'Track', icon: LineChart },
@@ -78,7 +80,7 @@ function headingText(line) {
 }
 
 function isPlanHeading(line) {
-  return /^(today first|weekly map|workouts|eight week progression|recovery|track progress|why this works)$/i.test(headingText(line))
+  return /^(today first|weekly map|workouts|meal plan|eight week progression|recovery|track progress|why this works)$/i.test(headingText(line))
 }
 
 function sectionLines(content, heading, stopHeadings = []) {
@@ -161,6 +163,35 @@ function setCount(exercise) {
   return Number.isFinite(count) && count > 0 ? Math.min(count, 8) : 3
 }
 
+function parseMealPlan(content) {
+  const mealLines = sectionLines(content, 'Meal Plan', ['Eight Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const source = mealLines.length
+    ? mealLines
+    : sectionLines(content, 'Recovery', ['Track Progress', 'Why This Works']).filter((line) =>
+        /meal|breakfast|lunch|dinner|snack|protein|carb|nutrition|water|hydration|prep|grocery/i.test(line),
+      )
+
+  const fallback = [
+    'Breakfast: Protein, oats or whole grain toast, fruit, water.',
+    'Lunch: Lean protein, rice or potatoes, vegetables, olive oil or avocado.',
+    'Snack: Greek yogurt, fruit, nuts, or a protein shake.',
+    'Dinner: Lean protein, vegetables, carbs matched to training, water.',
+    'Prep Steps: Cook protein, prepare carbs, wash vegetables, portion snacks.',
+  ]
+  const lines = source.length ? source : fallback
+
+  return lines.slice(0, 12).map((line, index) => {
+    const [rawTitle, ...rest] = line.split(':')
+    const title = rest.length && rawTitle.length < 34 ? rawTitle.trim() : `Meal step ${index + 1}`
+    const details = rest.length ? rest.join(':').trim() : line
+
+    return {
+      title,
+      details,
+    }
+  })
+}
+
 function FocusCard({ icon: Icon, label, value }) {
   return (
     <div className="rounded-lg border border-line bg-[#111] p-3 sm:p-4">
@@ -188,8 +219,64 @@ function Checklist({ items }) {
   )
 }
 
+function MealPlan({ items }) {
+  const [checkedItems, setCheckedItems] = useState({})
+
+  function toggleItem(index) {
+    setCheckedItems((current) => ({ ...current, [index]: !current[index] }))
+  }
+
+  const completed = items.filter((_, index) => checkedItems[index]).length
+
+  return (
+    <div className="grid gap-4 sm:gap-5">
+      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-heading text-sm uppercase text-accent">Meal plan</p>
+            <h4 className="font-heading text-3xl uppercase leading-none text-white">Eat to support the goal.</h4>
+            <p className="mt-2 text-sm leading-6 text-body">
+              Follow one meal at a time. Check off each step as you complete it today.
+            </p>
+          </div>
+          <div className="rounded-lg border border-line bg-card p-3 text-center">
+            <p className="font-heading text-sm uppercase text-body">Completed</p>
+            <p className="text-2xl font-bold text-white">{completed}/{items.length}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {items.map((item, index) => {
+          const checked = Boolean(checkedItems[index])
+
+          return (
+            <label
+              key={`${item.title}-${index}`}
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                checked ? 'border-accent bg-accent/10' : 'border-line bg-[#111] hover:border-accent/70'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => toggleItem(index)}
+                className="mt-1 h-5 w-5 shrink-0 accent-[#e8ff47]"
+              />
+              <span className="min-w-0">
+                <span className="block break-words font-heading text-xl uppercase leading-none text-white">{item.title}</span>
+                <span className="mt-2 block text-sm leading-6 text-body">{item.details}</span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function parseWorkouts(content, fallbackItems) {
-  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Eight Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Meal Plan', 'Eight Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const lines = explicitWorkoutLines.length ? explicitWorkoutLines : compactLines(extractSection(content, ['workouts', 'session', 'day'], 3000), 80)
   const fallbackWorkoutItems = fallbackItems.length
     ? fallbackItems
@@ -503,6 +590,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
       today: compactLines(extractSection(message.content, ['session', 'day 1', 'workout a', 'upper', 'lower']), 6),
       week: compactLines(extractSection(message.content, ['weekly', 'split', 'week 1']), 7),
       workouts: compactLines(extractSection(message.content, ['workouts', 'session', 'day 1']), 8),
+      meal: compactLines(sectionLines(message.content, 'Meal Plan').join('\n') || extractSection(message.content, ['meal', 'nutrition', 'protein']), 8),
       recover: compactLines(extractSection(message.content, ['recovery', 'sleep', 'nutrition', 'deload']), 6),
       track: compactLines(extractSection(message.content, ['kpi', 'performance indicator', 'measure', 'track']), 6),
     }),
@@ -513,6 +601,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
     ? sections[activeView]
     : ['Open your full plan below, then use the buttons to make it simpler.']
   const workouts = useMemo(() => parseWorkouts(message.content, sections.today), [message.content, sections.today])
+  const mealPlan = useMemo(() => parseMealPlan(message.content), [message.content])
 
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'today'
   const topAction = {
@@ -523,6 +612,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
     { label: 'First thing to do', prompt: 'Tell me the first thing I should do today in simple steps.' },
     { label: 'Make it easier', prompt: 'Make this plan easier to follow for a normal person.' },
     { label: 'Next workout', prompt: 'Explain my next workout in simple steps.' },
+    { label: 'Meal prep', prompt: 'Turn my meal plan into a simple prep list for the next two days.' },
   ]
 
   return (
@@ -581,7 +671,9 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
             <ActionButton action={topAction} pendingAction={pendingAction} isLoading={isLoading} onQuickAction={onQuickAction} />
           </div>
 
-          {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : <Checklist items={activeItems} />}
+          {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : null}
+          {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
+          {!['workouts', 'meal'].includes(activeView) ? <Checklist items={activeItems} /> : null}
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {helperActions.map((action) => (
