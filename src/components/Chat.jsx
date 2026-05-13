@@ -168,23 +168,23 @@ export default function Chat({
 
   return (
     <main className="min-h-screen bg-bg text-body">
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Apex Fitness AI</h1>
-            <p className="mt-1 text-sm uppercase tracking-[0.16em] text-body">{subtitle}</p>
+      <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-heading text-2xl uppercase leading-none text-white sm:text-5xl">Apex Fitness AI</h1>
+            <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
           </div>
           <button
             type="button"
             onClick={onReset}
-            className="rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-4 py-2 font-heading text-lg uppercase text-white transition hover:border-accent"
+            className="shrink-0 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
           >
             Reset
           </button>
         </div>
       </header>
 
-      <section className="px-4 py-6 sm:px-6">
+      <section className="px-3 py-4 sm:px-6 sm:py-6">
         <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[1fr_22rem]">
           <div className="min-w-0">
             {programMessage ? (
@@ -196,13 +196,13 @@ export default function Chat({
                 isLoading={isLoading}
               />
             ) : (
-              <div className="rounded-lg border border-line bg-card p-6 shadow-2xl shadow-black/30">
+              <div className="rounded-lg border border-line bg-card p-4 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
                   <Sparkles size={15} />
                   <span className="font-heading text-sm uppercase">Building Your Plan</span>
                 </div>
-                <h2 className="font-heading text-5xl uppercase leading-none text-white">Apex is making your plan</h2>
-                <p className="mt-3 max-w-2xl text-body">
+                <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Apex is making your plan</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
                   {statusMessage?.content?.replace(/^#+\s*/gm, '') ||
                     'Your answers are being turned into workouts, recovery steps, and progress goals.'}
                 </p>
@@ -213,7 +213,7 @@ export default function Chat({
             )}
           </div>
 
-          <aside className="grid content-start gap-4">
+          <aside className="grid content-start gap-4 xl:sticky xl:top-24">
             <section className="rounded-lg border border-line bg-card p-4">
               <div className="mb-4 flex items-center gap-3">
                 <div className="grid h-9 w-9 place-items-center rounded bg-accent text-black">
@@ -306,13 +306,13 @@ export default function Chat({
                 </p>
                 {latestResult?.meta?.label ? <p className="mb-3 text-sm text-body">{latestResult.meta.label}</p> : null}
                 {isLoading ? (
-                  <div className="flex items-center justify-between gap-4 rounded-lg border border-line bg-[#111] p-3">
+                  <div className="flex flex-col gap-3 rounded-lg border border-line bg-[#111] p-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
                     <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Apex is working on it...'}</span>
                     <LoadingDots />
                   </div>
                 ) : null}
                 {!isLoading && latestResult ? (
-                  <div className="max-h-96 overflow-y-auto rounded-lg border border-line bg-[#111] p-3">
+                  <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-line bg-[#111] p-3">
                     <FormattedMessage content={latestResult.content} />
                   </div>
                 ) : null}

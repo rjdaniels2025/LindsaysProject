@@ -29,10 +29,16 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     linear-gradient(135deg, rgba(232, 255, 71, 0.08), transparent 32rem),
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.06), transparent 30rem),
     #080808;
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,

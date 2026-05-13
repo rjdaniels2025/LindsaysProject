@@ -49,12 +49,12 @@ function compactLines(markdown, limit = 7) {
 
 function FocusCard({ icon: Icon, label, value }) {
   return (
-    <div className="rounded-lg border border-line bg-[#111] p-4">
-      <div className="mb-3 grid h-9 w-9 place-items-center rounded bg-accent text-black">
-        <Icon size={18} />
+    <div className="rounded-lg border border-line bg-[#111] p-3 sm:p-4">
+      <div className="mb-2 grid h-8 w-8 place-items-center rounded bg-accent text-black sm:mb-3 sm:h-9 sm:w-9">
+        <Icon size={17} />
       </div>
-      <p className="font-heading text-sm uppercase text-body">{label}</p>
-      <p className="mt-1 text-lg font-bold text-white">{value}</p>
+      <p className="font-heading text-xs uppercase text-body sm:text-sm">{label}</p>
+      <p className="mt-1 break-words text-sm font-bold text-white sm:text-lg">{value}</p>
     </div>
   )
 }
@@ -67,7 +67,7 @@ function Checklist({ items }) {
           <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent font-heading text-sm text-black">
             {index + 1}
           </span>
-          <p className="leading-6 text-body">{item}</p>
+          <p className="min-w-0 text-sm leading-6 text-body sm:text-base">{item}</p>
         </div>
       ))}
     </div>
@@ -121,13 +121,13 @@ function WorkoutTracker({ workouts }) {
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4 sm:gap-5">
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
         <p className="font-heading text-sm uppercase text-accent">Current workout</p>
-        <h4 className="mt-1 font-heading text-3xl uppercase text-white">{activeWorkout.title}</h4>
+        <h4 className="mt-1 break-words font-heading text-2xl uppercase leading-none text-white sm:text-3xl">{activeWorkout.title}</h4>
         <div className="mt-4 grid gap-3">
           {activeWorkout.details.map((detail, index) => (
-            <div key={`${detail}-${index}`} className="rounded-lg border border-line bg-[#111] p-3 text-body">
+            <div key={`${detail}-${index}`} className="rounded-lg border border-line bg-[#111] p-3 text-sm leading-6 text-body sm:text-base">
               {detail}
             </div>
           ))}
@@ -139,14 +139,14 @@ function WorkoutTracker({ workouts }) {
         <p className="mt-1 text-sm text-body">Complete these before the next workout unlocks.</p>
         <div className="mt-4 grid gap-2">
           {completionItems.map((item, index) => (
-            <label key={item} className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-card p-3">
+            <label key={item} className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-card p-3">
               <input
                 type="checkbox"
                 checked={Boolean(checks[index])}
                 onChange={() => toggleCheck(index)}
-                className="h-5 w-5 accent-[#e8ff47]"
+                className="mt-0.5 h-5 w-5 shrink-0 accent-[#e8ff47]"
               />
-              <span className="text-body">{item}</span>
+              <span className="text-sm leading-6 text-body sm:text-base">{item}</span>
             </label>
           ))}
         </div>
@@ -174,7 +174,7 @@ function WorkoutTracker({ workouts }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-heading text-xl uppercase text-white">{workout.title}</p>
+                  <p className="break-words font-heading text-lg uppercase leading-none text-white sm:text-xl">{workout.title}</p>
                   <p className="mt-1 text-sm text-body">
                     {isLocked ? workout.summary : isDone ? 'Completed.' : 'Available now.'}
                   </p>
@@ -197,7 +197,7 @@ function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
       type="button"
       disabled={isLoading}
       onClick={() => onQuickAction(action)}
-      className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
+      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
     >
       <span>{action.label}</span>
       {pendingAction === action.label ? (
@@ -251,14 +251,14 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
               <Sparkles size={15} />
               <span className="font-heading text-sm uppercase">Your Game Plan</span>
             </div>
-            <h2 className="font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+            <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
               Start simple. Build momentum.
             </h2>
-            <p className="mt-2 max-w-2xl text-body">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
               Apex built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:min-w-80">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:min-w-80">
             <FocusCard icon={Trophy} label="Goal" value={profile?.primaryGoal || 'Fitness'} />
             <FocusCard icon={CalendarDays} label="Schedule" value={`${profile?.daysPerWeek || '-'} days`} />
             <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
@@ -267,7 +267,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[15rem_1fr]">
-        <nav className="flex gap-2 overflow-x-auto border-b border-line p-3 lg:flex-col lg:border-b-0 lg:border-r">
+        <nav className="grid grid-cols-2 gap-2 border-b border-line p-3 min-[460px]:grid-cols-3 sm:flex sm:overflow-x-auto lg:flex-col lg:border-b-0 lg:border-r">
           {views.map((view) => {
             const Icon = view.icon
             const selected = activeView === view.id
@@ -276,22 +276,22 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
                 key={view.id}
                 type="button"
                 onClick={() => setActiveView(view.id)}
-                className={`flex min-h-12 shrink-0 items-center gap-3 rounded-lg border px-4 text-left transition ${
+                className={`flex min-h-12 shrink-0 items-center gap-2 rounded-lg border px-3 text-left transition sm:gap-3 sm:px-4 ${
                   selected ? 'border-accent bg-accent text-black' : 'border-line bg-[#111] text-white hover:border-accent/70'
                 }`}
               >
                 <Icon size={18} />
-                <span className="font-heading text-lg uppercase">{view.label}</span>
+                <span className="font-heading text-base uppercase sm:text-lg">{view.label}</span>
               </button>
             )
           })}
         </nav>
 
         <section className="p-4 sm:p-5">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-heading text-sm uppercase text-accent">Simple steps</p>
-              <h3 className="font-heading text-3xl uppercase text-white">
+              <h3 className="font-heading text-2xl uppercase text-white sm:text-3xl">
                 {activeLabel} focus
               </h3>
             </div>
@@ -300,7 +300,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
 
           {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : <Checklist items={activeItems} />}
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
             {helperActions.map((action) => (
               <ActionButton
                 key={action.label}
@@ -319,7 +319,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
               className="flex w-full items-center justify-between gap-4 p-4 text-left"
             >
               <span>
-                <span className="block font-heading text-2xl uppercase text-white">Full science plan</span>
+                <span className="block font-heading text-xl uppercase text-white sm:text-2xl">Full science plan</span>
                 <span className="text-sm text-body">Open this when you want every set, rep, reason, and progress detail.</span>
               </span>
               <ChevronDown className={`shrink-0 text-accent transition ${showFullPlan ? 'rotate-180' : ''}`} />
