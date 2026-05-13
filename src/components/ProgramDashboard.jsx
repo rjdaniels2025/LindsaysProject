@@ -1,5 +1,21 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, CheckCircle2, ChevronDown, Dumbbell, HeartPulse, LineChart, Lock, Sparkles, Trophy } from 'lucide-react'
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardCheck,
+  Dumbbell,
+  Gauge,
+  HeartPulse,
+  LineChart,
+  Lock,
+  Play,
+  Repeat,
+  RotateCcw,
+  Sparkles,
+  Timer,
+  Trophy,
+} from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
 const views = [
@@ -51,6 +67,65 @@ function compactLines(markdown, limit = 7) {
     .slice(0, limit)
 }
 
+function readDetail(line, label) {
+  const pattern = new RegExp(`${label}\\s*:?\\s*([^,\\.]+)`, 'i')
+  return line.match(pattern)?.[1]?.trim()
+}
+
+function readSets(line) {
+  return readDetail(line, 'sets') || line.match(/(\d+)\s+sets?/i)?.[1] || '3'
+}
+
+function readReps(line) {
+  return readDetail(line, 'reps') || line.match(/(\d+\s*(to|,)\s*\d+|\d+)\s+reps?/i)?.[1]?.replace(/\s*,\s*/g, ' to ') || 'Follow plan'
+}
+
+function readRest(line) {
+  return readDetail(line, 'rest') || line.match(/rest\s+([^,\\.]+)/i)?.[1]?.trim() || '60 to 90 seconds'
+}
+
+function readTempo(line) {
+  return readDetail(line, 'tempo') || line.match(/tempo\s+([0-9,\s]+)/i)?.[1]?.replace(/\s+/g, '') || 'Controlled'
+}
+
+function readCue(line) {
+  return readDetail(line, 'cue') || readDetail(line, 'coach cue') || 'Move with control and stop if anything feels unsafe.'
+}
+
+function exerciseName(line, index) {
+  const beforeColon = line.split(':')[0]?.trim()
+  if (beforeColon && beforeColon.length > 2 && beforeColon.length < 80 && !/workout|session|day/i.test(beforeColon)) {
+    return beforeColon
+  }
+
+  return `Exercise ${index + 1}`
+}
+
+function parseExercises(details) {
+  const usableDetails = details.filter((detail) => !/warmup|cooldown|note|focus/i.test(detail)).slice(0, 10)
+  const source = usableDetails.length
+    ? usableDetails
+    : details.slice(0, 6).length
+      ? details.slice(0, 6)
+      : ['Exercise: Sets: 3, Reps: Follow plan, Rest: 60 seconds, Tempo: Controlled, Cue: Move with control.']
+
+  return source.map((detail, index) => ({
+    id: `${index}-${detail.slice(0, 24)}`,
+    name: exerciseName(detail, index),
+    sets: readSets(detail),
+    reps: readReps(detail),
+    rest: readRest(detail),
+    tempo: readTempo(detail),
+    cue: readCue(detail),
+    detail,
+  }))
+}
+
+function setCount(exercise) {
+  const count = Number.parseInt(exercise.sets, 10)
+  return Number.isFinite(count) && count > 0 ? Math.min(count, 8) : 3
+}
+
 function FocusCard({ icon: Icon, label, value }) {
   return (
     <div className="rounded-lg border border-line bg-[#111] p-3 sm:p-4">
@@ -81,15 +156,20 @@ function Checklist({ items }) {
 function parseWorkouts(content, fallbackItems) {
   const workoutSection = extractSection(content, ['workouts', 'session', 'day'], 3000)
   const lines = compactLines(workoutSection, 40)
+  const fallbackWorkoutItems = fallbackItems.length
+    ? fallbackItems
+    : ['Goblet squat, Sets: 3, Reps: 10, Rest: 60 seconds, Tempo: 3,1,2,0, Cue: Keep your chest tall.',
+        'Push up, Sets: 3, Reps: 8, Rest: 60 seconds, Tempo: 2,1,2,0, Cue: Keep your body straight.',
+        'Plank, Sets: 3, Reps: 30 seconds, Rest: 45 seconds, Tempo: Controlled, Cue: Breathe slowly.']
   const headingIndexes = lines
     .map((line, index) => ({ line, index }))
     .filter(({ line }) => /workout|session|day\s+\d|upper|lower|full body|push|pull|legs/i.test(line))
 
   if (!headingIndexes.length) {
-    return fallbackItems.slice(0, 6).map((item, index) => ({
+    return fallbackWorkoutItems.slice(0, 6).map((item, index) => ({
       title: index === 0 ? 'Workout one' : `Workout ${index + 1}`,
       summary: item,
-      details: fallbackItems.slice(index, index + 4),
+      details: fallbackWorkoutItems.slice(index, index + 4),
     }))
   }
 
@@ -109,38 +189,195 @@ function WorkoutTracker({ workouts }) {
   const [currentWorkout, setCurrentWorkout] = useState(0)
   const [completedWorkouts, setCompletedWorkouts] = useState([])
   const [checks, setChecks] = useState({})
+  const [isStarted, setIsStarted] = useState(false)
+  const [activeExercise, setActiveExercise] = useState(0)
+  const [completedSets, setCompletedSets] = useState({})
   const activeWorkout = workouts[currentWorkout] || workouts[0]
+  const exercises = useMemo(() => parseExercises(activeWorkout.details), [activeWorkout.details])
+  const currentExercise = exercises[activeExercise] || exercises[0]
+  const exerciseSets = currentExercise ? setCount(currentExercise) : 0
+  const finishedSets = completedSets[currentExercise?.id] || []
+  const exerciseIsDone = currentExercise ? finishedSets.length >= exerciseSets : false
+  const finishedExerciseCount = exercises.filter((exercise) => (completedSets[exercise.id] || []).length >= setCount(exercise)).length
+  const allExercisesDone = exercises.length > 0 && finishedExerciseCount === exercises.length
   const checkedCount = completionItems.filter((_, index) => checks[index]).length
-  const canComplete = checkedCount === completionItems.length
+  const canComplete = allExercisesDone && checkedCount === completionItems.length
 
   function toggleCheck(index) {
     setChecks((current) => ({ ...current, [index]: !current[index] }))
   }
 
+  function resetSession() {
+    setIsStarted(false)
+    setActiveExercise(0)
+    setCompletedSets({})
+    setChecks({})
+  }
+
+  function toggleSet(setIndex) {
+    if (!currentExercise) return
+    setCompletedSets((current) => {
+      const currentSets = current[currentExercise.id] || []
+      const nextSets = currentSets.includes(setIndex)
+        ? currentSets.filter((item) => item !== setIndex)
+        : [...currentSets, setIndex].sort((a, b) => a - b)
+
+      return { ...current, [currentExercise.id]: nextSets }
+    })
+  }
+
+  function nextExercise() {
+    if (!exerciseIsDone) return
+    setActiveExercise((current) => Math.min(current + 1, exercises.length - 1))
+  }
+
   function completeWorkout() {
     if (!canComplete) return
     setCompletedWorkouts((current) => [...new Set([...current, currentWorkout])])
-    setChecks({})
+    resetSession()
     setCurrentWorkout((current) => Math.min(current + 1, workouts.length - 1))
   }
 
   return (
     <div className="grid gap-4 sm:gap-5">
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
-        <p className="font-heading text-sm uppercase text-accent">Current workout</p>
-        <h4 className="mt-1 break-words font-heading text-2xl uppercase leading-none text-white sm:text-3xl">{activeWorkout.title}</h4>
-        <div className="mt-4 grid gap-3">
-          {activeWorkout.details.map((detail, index) => (
-            <div key={`${detail}-${index}`} className="rounded-lg border border-line bg-[#111] p-3 text-sm leading-6 text-body sm:text-base">
-              {detail}
-            </div>
-          ))}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="font-heading text-sm uppercase text-accent">Current workout</p>
+            <h4 className="mt-1 break-words font-heading text-2xl uppercase leading-none text-white sm:text-3xl">{activeWorkout.title}</h4>
+            <p className="mt-2 text-sm leading-6 text-body">
+              Start when you are ready. Elevate will walk you through the workout one exercise and one set at a time.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:min-w-72">
+            <FocusCard icon={Dumbbell} label="Moves" value={String(exercises.length)} />
+            <FocusCard icon={ClipboardCheck} label="Done" value={`${finishedExerciseCount}/${exercises.length}`} />
+            <FocusCard icon={Timer} label="Rest" value={currentExercise?.rest || 'Custom'} />
+          </div>
         </div>
       </div>
 
+      {!isStarted ? (
+        <div className="rounded-lg border border-line bg-[#111] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-heading text-2xl uppercase text-white">Workout preview</p>
+              <p className="mt-1 text-sm leading-6 text-body">These are the details for the workout you have unlocked right now.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsStarted(true)}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 font-heading text-xl uppercase text-black transition hover:bg-white"
+            >
+              <Play size={20} />
+              Start Workout
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {exercises.map((exercise, index) => (
+              <div key={exercise.id} className="rounded-lg border border-line bg-card p-3">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-base text-black">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="break-words font-heading text-xl uppercase leading-none text-white">{exercise.name}</p>
+                    <div className="mt-3 grid gap-2 text-sm text-body sm:grid-cols-4">
+                      <span>Sets: {exercise.sets}</span>
+                      <span>Reps: {exercise.reps}</span>
+                      <span>Rest: {exercise.rest}</span>
+                      <span>Tempo: {exercise.tempo}</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-body">{exercise.cue}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-line bg-[#111] p-4">
+          <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-heading text-sm uppercase text-accent">Coach mode</p>
+              <h5 className="font-heading text-3xl uppercase leading-none text-white">{currentExercise.name}</h5>
+              <p className="mt-2 text-sm text-body">Exercise {activeExercise + 1} of {exercises.length}</p>
+            </div>
+            <button
+              type="button"
+              onClick={resetSession}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+            >
+              <RotateCcw size={18} />
+              Restart
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="rounded-lg border border-line bg-card p-3">
+              <Repeat className="mb-2 text-accent" size={18} />
+              <p className="font-heading text-sm uppercase text-body">Sets</p>
+              <p className="text-lg font-bold text-white">{currentExercise.sets}</p>
+            </div>
+            <div className="rounded-lg border border-line bg-card p-3">
+              <Gauge className="mb-2 text-accent" size={18} />
+              <p className="font-heading text-sm uppercase text-body">Reps</p>
+              <p className="text-lg font-bold text-white">{currentExercise.reps}</p>
+            </div>
+            <div className="rounded-lg border border-line bg-card p-3">
+              <Timer className="mb-2 text-accent" size={18} />
+              <p className="font-heading text-sm uppercase text-body">Rest</p>
+              <p className="text-lg font-bold text-white">{currentExercise.rest}</p>
+            </div>
+            <div className="rounded-lg border border-line bg-card p-3">
+              <Dumbbell className="mb-2 text-accent" size={18} />
+              <p className="font-heading text-sm uppercase text-body">Tempo</p>
+              <p className="text-lg font-bold text-white">{currentExercise.tempo}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-accent/30 bg-accent/10 p-4">
+            <p className="font-heading text-xl uppercase text-white">Coach cue</p>
+            <p className="mt-1 text-sm leading-6 text-body">{currentExercise.cue}</p>
+          </div>
+
+          <div className="mt-4">
+            <p className="font-heading text-2xl uppercase text-white">Check off each set</p>
+            <div className="mt-3 grid gap-2 min-[420px]:grid-cols-2 sm:grid-cols-4">
+              {Array.from({ length: exerciseSets }, (_, index) => {
+                const done = finishedSets.includes(index)
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => toggleSet(index)}
+                    className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-3 font-heading text-lg uppercase transition ${
+                      done ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'
+                    }`}
+                  >
+                    {done ? <CheckCircle2 size={18} /> : null}
+                    Set {index + 1}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={!exerciseIsDone || activeExercise >= exercises.length - 1}
+            onClick={nextExercise}
+            className="mt-4 w-full rounded-lg border border-line bg-card px-4 py-3 font-heading text-xl uppercase text-white transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {activeExercise >= exercises.length - 1 ? 'Last Exercise' : 'Next Exercise'}
+          </button>
+        </div>
+      )}
+
       <div className="rounded-lg border border-line bg-[#111] p-4">
         <p className="font-heading text-2xl uppercase text-white">Finish checklist</p>
-        <p className="mt-1 text-sm text-body">Complete these before the next workout unlocks.</p>
+        <p className="mt-1 text-sm text-body">Complete every exercise and confirm these items before the next workout unlocks.</p>
         <div className="mt-4 grid gap-2">
           {completionItems.map((item, index) => (
             <label key={item} className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-card p-3">

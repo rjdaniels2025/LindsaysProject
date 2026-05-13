@@ -122,6 +122,8 @@ Include:
 - Use clear plain headings exactly named: Today First, Weekly Map, Workouts, Eight Week Progression, Recovery, Track Progress, Why This Works
 - Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
 - Weekly training split with every session detailed
+- In the Workouts section, write every exercise on its own line using this exact pattern: Exercise name: Sets: number, Reps: number or time, Rest: seconds or minutes, Tempo: numbers separated by commas, Cue: one simple coaching cue
+- Put warmup and cooldown notes on their own short lines before or after the exercise lines
 - Eight week progressive overload plan
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
 - Key performance indicators and how to measure them
