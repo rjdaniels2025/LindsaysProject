@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, HeartPulse, Sparkles } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react'
 
 const offers = [
   'Beginner friendly fitness coaching',
@@ -18,9 +18,11 @@ export default function Landing({ onStart }) {
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-7xl flex-col">
           <header className="flex items-center justify-between gap-4 py-2">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded bg-accent text-black">
-                <HeartPulse size={21} />
-              </div>
+              <img
+                src="/ehw-logo.jpeg"
+                alt="Elevate Health and Fitness"
+                className="h-12 w-12 rounded-lg border border-line object-cover sm:h-14 sm:w-14"
+              />
               <div>
                 <p className="font-heading text-2xl uppercase leading-none text-white">Elevate</p>
                 <p className="text-xs uppercase tracking-[0.18em] text-body">Health and Fitness</p>
