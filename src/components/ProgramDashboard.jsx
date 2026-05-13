@@ -255,7 +255,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
               Start simple. Build momentum.
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
-              Apex built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
+              Elevate built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:min-w-80">

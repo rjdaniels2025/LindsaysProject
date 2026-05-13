@@ -171,7 +171,7 @@ export default function Chat({
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-heading text-2xl uppercase leading-none text-white sm:text-5xl">Apex Fitness AI</h1>
+            <h1 className="font-heading text-2xl uppercase leading-none text-white sm:text-5xl">Elevate Health and Wellness</h1>
             <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
           </div>
           <button
@@ -201,7 +201,7 @@ export default function Chat({
                   <Sparkles size={15} />
                   <span className="font-heading text-sm uppercase">Building Your Plan</span>
                 </div>
-                <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Apex is making your plan</h2>
+                <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Elevate is making your plan</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
                   {statusMessage?.content?.replace(/^#+\s*/gm, '') ||
                     'Your answers are being turned into workouts, recovery steps, and progress goals.'}
@@ -307,7 +307,7 @@ export default function Chat({
                 {latestResult?.meta?.label ? <p className="mb-3 text-sm text-body">{latestResult.meta.label}</p> : null}
                 {isLoading ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-line bg-[#111] p-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
-                    <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Apex is working on it...'}</span>
+                    <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Elevate is working on it...'}</span>
                     <LoadingDots />
                   </div>
                 ) : null}

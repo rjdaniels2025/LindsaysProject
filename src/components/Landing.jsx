@@ -20,12 +20,12 @@ export default function Landing({ onStart }) {
             <div className="flex items-center gap-3">
               <img
                 src="/ehw-logo.jpeg"
-                alt="Elevate Health and Fitness"
+                alt="Elevate Health and Wellness"
                 className="h-12 w-12 rounded-lg border border-line object-cover sm:h-14 sm:w-14"
               />
               <div>
                 <p className="font-heading text-2xl uppercase leading-none text-white">Elevate</p>
-                <p className="text-xs uppercase tracking-[0.18em] text-body">Health and Fitness</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-body">Health and Wellness</p>
               </div>
             </div>
             <button
@@ -44,10 +44,10 @@ export default function Landing({ onStart }) {
                 <span className="font-heading text-sm uppercase">Real support. Real progress.</span>
               </div>
               <h1 className="max-w-4xl font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
-                Welcome to Elevate Health and Fitness
+                Welcome to Elevate Health and Wellness
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
-                At Elevate Health and Fitness, our mission is simple, helping real people build healthier lifestyles in a realistic, supportive, and sustainable way.
+                At Elevate Health and Wellness, our mission is simple, helping real people build healthier lifestyles in a realistic, supportive, and sustainable way.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-body sm:text-lg">
                 We believe fitness should feel empowering, not overwhelming. Whether you are just starting your journey, getting back on track, or looking for accountability and guidance, we are here to help you elevate your health one step at a time.
@@ -75,7 +75,7 @@ export default function Landing({ onStart }) {
               <div className="mt-5 rounded-lg border border-accent/30 bg-accent/10 p-4">
                 <p className="font-heading text-2xl uppercase text-white">Progress over perfection</p>
                 <p className="mt-2 leading-7 text-body">
-                  At Elevate Health and Fitness, it is not about perfection, it is about progress, consistency, and becoming the strongest, healthiest version of yourself.
+                  At Elevate Health and Wellness, it is not about perfection, it is about progress, consistency, and becoming the strongest, healthiest version of yourself.
                 </p>
                 <p className="mt-4 leading-7 text-body">
                   No extreme diets. No intimidation. Just real support, real results, and a community that wants to see you win.

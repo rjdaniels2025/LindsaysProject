@@ -1,4 +1,4 @@
-# Apex Fitness AI
+# Elevate Health and Wellness
 
 Science-based personal training powered by OpenAI.
 

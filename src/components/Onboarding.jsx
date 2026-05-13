@@ -49,7 +49,7 @@ function GeneratingOverlay() {
             />
           ))}
         </div>
-        <p className="mt-5 text-body">Apex is building your 8-week plan from the assessment.</p>
+        <p className="mt-5 text-body">Elevate is building your eight week plan from the assessment.</p>
       </div>
     </div>
   )
@@ -161,7 +161,7 @@ export default function Onboarding({ onComplete, isLoading, error }) {
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col justify-center">
         <div className="mb-8 flex items-end justify-between gap-6">
           <div>
-            <p className="font-heading text-lg uppercase text-accent">Apex Fitness AI</p>
+            <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
             <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white sm:text-7xl">
               Build Your Program
             </h1>
