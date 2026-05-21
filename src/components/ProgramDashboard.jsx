@@ -97,6 +97,16 @@ function sectionLines(content, heading, stopHeadings = []) {
   return lines.slice(start + 1, end > -1 ? end : undefined)
 }
 
+function sectionContent(content, heading) {
+  const lines = allCleanLines(content)
+  const start = lines.findIndex((line) => headingText(line) === heading.toLowerCase())
+
+  if (start === -1) return ''
+
+  const end = lines.findIndex((line, index) => index > start && isPlanHeading(line))
+  return lines.slice(start, end > -1 ? end : undefined).join('\n')
+}
+
 function readDetail(line, label) {
   const pattern = new RegExp(`${label}\\s*:?\\s*([^,\\.]+)`, 'i')
   return line.match(pattern)?.[1]?.trim()
@@ -394,28 +404,29 @@ function SimpleSection({ label, title, items }) {
 }
 
 function ScienceBreakdown({ content }) {
+  const scienceContent = sectionContent(content, 'Why This Works') || 'Why This Works\nThis section will appear here when the generated plan includes the science explanation.'
+
   return (
     <div className="grid gap-4">
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
-        <p className="font-heading text-sm uppercase text-accent">In-depth breakdown</p>
-        <h4 className="mt-1 font-heading text-3xl uppercase leading-none text-white">The full science plan.</h4>
+        <p className="font-heading text-sm uppercase text-accent">Science</p>
+        <h4 className="mt-1 font-heading text-3xl uppercase leading-none text-white">Why this works.</h4>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-body">
-          Open this tab when you want every set, rep, reason, progression, and coaching note behind the simple dashboard.
+          This keeps the deeper explanation focused on the reasoning behind the plan.
         </p>
       </div>
       <section className="rounded-lg border border-line bg-[#111] p-4">
-        <FormattedMessage content={content} />
+        <FormattedMessage content={scienceContent} />
       </section>
     </div>
   )
 }
 
-function MealSection({ title, items, checkedItems, onToggleItem, offset = 0, compact = false }) {
+function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = false }) {
   if (!items.length) return null
 
   return (
     <section className="rounded-lg border border-line bg-[#111] p-4">
-      <h5 className="font-heading text-2xl uppercase leading-none text-white">{title}</h5>
       <div className={`mt-3 grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
         {items.map((item, index) => {
           const itemIndex = offset + index
@@ -447,6 +458,7 @@ function MealSection({ title, items, checkedItems, onToggleItem, offset = 0, com
 }
 
 function MealPlan({ items }) {
+  const [activeGroup, setActiveGroup] = useState('Grocery list')
   const [checkedItems, setCheckedItems] = useState({})
   const orderedItems = [
     ...items.grocery,
@@ -479,6 +491,8 @@ function MealPlan({ items }) {
     result.offset += group.list.length
     return result
   }, { items: [], offset: 0 }).items
+  const visibleGroups = groups.filter((group) => group.list.length)
+  const selectedGroup = visibleGroups.find((group) => group.title === activeGroup) || visibleGroups[0]
 
   return (
     <div className="grid gap-4 sm:gap-5">
@@ -487,9 +501,7 @@ function MealPlan({ items }) {
           <div>
             <p className="font-heading text-sm uppercase text-accent">Meal plan</p>
             <h4 className="font-heading text-3xl uppercase leading-none text-white">Eat to support the goal.</h4>
-            <p className="mt-2 text-sm leading-6 text-body">
-              Follow one meal at a time. Check off each step as you complete it today.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-body">Choose a category, then open only the details you need right now.</p>
           </div>
           <div className="rounded-lg border border-line bg-card p-3 text-center">
             <p className="font-heading text-sm uppercase text-body">Completed</p>
@@ -498,17 +510,32 @@ function MealPlan({ items }) {
         </div>
       </div>
 
-      {groups.map((group) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+        {visibleGroups.map((group) => (
+          <button
+            key={group.title}
+            type="button"
+            onClick={() => setActiveGroup(group.title)}
+            className={`min-h-12 rounded-lg border px-3 text-left font-heading text-base uppercase transition sm:text-lg ${
+              selectedGroup?.title === group.title
+                ? 'border-accent bg-accent text-black'
+                : 'border-line bg-[#111] text-white hover:border-accent/70'
+            }`}
+          >
+            {group.title}
+          </button>
+        ))}
+      </div>
+
+      {selectedGroup ? (
         <MealSection
-          key={group.title}
-          title={group.title}
-          items={group.list}
+          items={selectedGroup.list}
           checkedItems={checkedItems}
           onToggleItem={toggleItem}
-          offset={group.offset}
-          compact={group.compact}
+          offset={selectedGroup.offset}
+          compact={selectedGroup.compact}
         />
-      ))}
+      ) : null}
     </div>
   )
 }
