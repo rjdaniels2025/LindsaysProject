@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 
 const goals = [
@@ -23,6 +23,19 @@ const initialTouched = {
   experience: false,
   daysPerWeek: false,
   equipment: false,
+}
+
+const defaultProfile = {
+  name: '',
+  age: '',
+  gender: '',
+  weightLbs: '',
+  height: '',
+  primaryGoal: [],
+  experience: '',
+  daysPerWeek: '4',
+  equipment: '',
+  limitations: '',
 }
 
 function Field({ label, error, children }) {
@@ -100,21 +113,14 @@ function inputClass(hasError) {
   }`
 }
 
-export default function Onboarding({ onComplete, isLoading, error }) {
+export default function Onboarding({ initialProfile, onProfileChange, onComplete, isLoading, error }) {
   const [step, setStep] = useState(1)
   const [touched, setTouched] = useState(initialTouched)
-  const [profile, setProfile] = useState({
-    name: '',
-    age: '',
-    gender: '',
-    weightLbs: '',
-    height: '',
-    primaryGoal: [],
-    experience: '',
-    daysPerWeek: '4',
-    equipment: '',
-    limitations: '',
-  })
+  const [profile, setProfile] = useState({ ...defaultProfile, ...(initialProfile || {}) })
+
+  useEffect(() => {
+    onProfileChange?.(profile)
+  }, [onProfileChange, profile])
 
   function setValue(field, value) {
     setProfile((current) => ({ ...current, [field]: value }))

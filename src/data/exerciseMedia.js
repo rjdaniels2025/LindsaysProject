@@ -3,6 +3,36 @@ const fallbackMedia = {
   label: 'guided strength training',
 }
 
+function stableSeed(value) {
+  return Array.from(value || 'exercise').reduce((total, char) => total + char.charCodeAt(0), 0)
+}
+
+function generatedExerciseImage(name) {
+  const exercise = String(name || '').trim()
+  if (!exercise) return null
+
+  const prompt = [
+    'realistic fitness instruction photo',
+    `single adult athlete demonstrating ${exercise}`,
+    'proper exercise form',
+    'full body visible',
+    'neutral gym background',
+    'clear posture',
+    'safe joint alignment',
+    'no text',
+    'no logos',
+  ].join(', ')
+
+  const params = new URLSearchParams({
+    width: '900',
+    height: '650',
+    nologo: 'true',
+    seed: String(stableSeed(exercise)),
+  })
+
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params.toString()}`
+}
+
 const exerciseMedia = [
   {
     keys: ['goblet squat', 'front squat', 'back squat', 'squat'],
@@ -98,6 +128,15 @@ function normalizeExerciseName(name) {
 export function getExerciseMedia(name) {
   const normalized = normalizeExerciseName(name || '')
   const match = exerciseMedia.find((item) => item.keys.some((key) => normalized.includes(key)))
+  const generatedImage = generatedExerciseImage(name)
+
+  if (generatedImage) {
+    return {
+      image: generatedImage,
+      label: `${name} form demo`,
+      fallbackImage: match?.image || fallbackMedia.image,
+    }
+  }
 
   return match || fallbackMedia
 }

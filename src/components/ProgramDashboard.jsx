@@ -126,6 +126,14 @@ function readCue(line) {
   return readDetail(line, 'cue') || readDetail(line, 'coach cue') || 'Move with control and stop if anything feels unsafe.'
 }
 
+function readWeight(line) {
+  return readDetail(line, 'weight') || readDetail(line, 'load') || 'Bodyweight or comfortable load'
+}
+
+function usesExternalWeight(weight) {
+  return !/bodyweight|none|no weight/i.test(weight || '')
+}
+
 function exerciseName(line, index) {
   const beforeColon = line.split(':')[0]?.trim()
   if (beforeColon && beforeColon.length > 2 && beforeColon.length < 80 && !/workout|session|day/i.test(beforeColon)) {
@@ -153,6 +161,7 @@ function parseExercises(details) {
     name: exerciseName(detail, index),
     sets: readSets(detail),
     reps: readReps(detail),
+    weight: readWeight(detail),
     rest: readRest(detail),
     tempo: readTempo(detail),
     cue: readCue(detail),
@@ -174,15 +183,28 @@ function parseMealPlan(content) {
       )
 
   const fallback = [
-    'Breakfast: Protein, oats or whole grain toast, fruit, water.',
-    'Lunch: Lean protein, rice or potatoes, vegetables, olive oil or avocado.',
-    'Snack: Greek yogurt, fruit, nuts, or a protein shake.',
-    'Dinner: Lean protein, vegetables, carbs matched to training, water.',
+    'Grocery List: Eggs, Greek yogurt, chicken breast, lean ground turkey, salmon, oats, rice, potatoes, berries, vegetables, olive oil, nuts.',
+    'Protein Target: Aim for a protein serving at each meal.',
+    'Water Target: Drink water steadily through the day.',
+    'Breakfast Option 1: Eggs, oats, berries, water.',
+    'Breakfast Option 2: Greek yogurt, fruit, nuts.',
+    'Breakfast Option 3: Protein smoothie, banana, oats.',
+    'Breakfast Option 4: Turkey egg wrap, fruit.',
+    'Lunch Option 1: Chicken, rice, vegetables, olive oil.',
+    'Lunch Option 2: Turkey bowl, potatoes, salad.',
+    'Lunch Option 3: Tuna or salmon wrap, fruit.',
+    'Lunch Option 4: Lean protein salad, whole grain toast.',
+    'Dinner Option 1: Salmon, potatoes, vegetables.',
+    'Dinner Option 2: Chicken stir fry, rice.',
+    'Dinner Option 3: Lean turkey pasta, salad.',
+    'Dinner Option 4: Steak or tofu, vegetables, rice.',
+    'Pre Workout: Carbs and water 60 to 90 minutes before training.',
+    'Post Workout: Protein, carbs, and water after training.',
     'Prep Steps: Cook protein, prepare carbs, wash vegetables, portion snacks.',
   ]
   const lines = source.length ? source : fallback
 
-  return lines.slice(0, 12).map((line, index) => {
+  const parsed = lines.map((line, index) => {
     const [rawTitle, ...rest] = line.split(':')
     const title = rest.length && rawTitle.length < 34 ? rawTitle.trim() : `Meal step ${index + 1}`
     const details = rest.length ? rest.join(':').trim() : line
@@ -192,6 +214,24 @@ function parseMealPlan(content) {
       details,
     }
   })
+
+  function byTitle(pattern) {
+    return parsed.filter((item) => pattern.test(item.title))
+  }
+
+  const matchedTitles = /grocery|target|intake|breakfast|lunch|dinner|snack|pre workout|post workout|prep/i
+
+  return {
+    grocery: byTitle(/grocery/i),
+    targets: byTitle(/target|intake/i),
+    breakfast: byTitle(/breakfast/i).slice(0, 4),
+    lunch: byTitle(/lunch/i).slice(0, 4),
+    dinner: byTitle(/dinner/i).slice(0, 4),
+    workout: byTitle(/snack|pre workout|post workout/i),
+    prep: byTitle(/prep/i),
+    other: parsed.filter((item) => !matchedTitles.test(item.title)),
+    all: parsed,
+  }
 }
 
 function FocusCard({ icon: Icon, label, value }) {
@@ -208,18 +248,26 @@ function FocusCard({ icon: Icon, label, value }) {
 
 function ExerciseMedia({ exercise, priority = false, compact = false }) {
   const [hasImageError, setHasImageError] = useState(false)
+  const [isFallbackImage, setIsFallbackImage] = useState(false)
   const media = getExerciseMedia(exercise?.name)
   const imageAlt = `${exercise?.name || media.label} exercise guide`
+  const imageSrc = isFallbackImage && media.fallbackImage ? media.fallbackImage : media.image
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-line bg-[#171717] ${compact ? 'aspect-[4/3] w-full sm:w-32' : 'aspect-[16/10] w-full'}`}>
       {!hasImageError ? (
         <img
-          src={media.image}
+          src={imageSrc}
           alt={imageAlt}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
-          onError={() => setHasImageError(true)}
+          onError={() => {
+            if (media.fallbackImage && !isFallbackImage) {
+              setIsFallbackImage(true)
+              return
+            }
+            setHasImageError(true)
+          }}
           className="h-full w-full object-cover"
         />
       ) : (
@@ -229,7 +277,7 @@ function ExerciseMedia({ exercise, priority = false, compact = false }) {
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2">
         <p className={`font-heading uppercase text-white ${compact ? 'text-sm' : 'text-lg'}`}>
-          {media.label}
+          {isFallbackImage ? 'Exercise form reference' : media.label}
         </p>
       </div>
     </div>
@@ -272,7 +320,7 @@ function SimpleOverview({ sections, mealPlan, workouts, onViewChange }) {
   const nextWorkout = workouts[0]
   const workoutCount = nextWorkout?.details?.filter(hasExerciseDetail).length || sections.workouts.length || 0
   const firstTodayStep = sections.today[0] || 'Open Workouts and start the first available session.'
-  const firstMeal = mealPlan[0]
+  const firstMeal = mealPlan.breakfast[0] || mealPlan.all[0]
 
   return (
     <div className="grid gap-4 sm:gap-5">
@@ -362,14 +410,75 @@ function ScienceBreakdown({ content }) {
   )
 }
 
+function MealSection({ title, items, checkedItems, onToggleItem, offset = 0, compact = false }) {
+  if (!items.length) return null
+
+  return (
+    <section className="rounded-lg border border-line bg-[#111] p-4">
+      <h5 className="font-heading text-2xl uppercase leading-none text-white">{title}</h5>
+      <div className={`mt-3 grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
+        {items.map((item, index) => {
+          const itemIndex = offset + index
+          const checked = Boolean(checkedItems[itemIndex])
+
+          return (
+            <label
+              key={`${item.title}-${itemIndex}`}
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+                checked ? 'border-accent bg-accent/10' : 'border-line bg-card hover:border-accent/70'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggleItem(itemIndex)}
+                className="mt-1 h-5 w-5 shrink-0 accent-[#e8ff47]"
+              />
+              <span className="min-w-0">
+                <span className="block break-words font-heading text-lg uppercase leading-none text-white">{item.title}</span>
+                <span className="mt-2 block text-sm leading-6 text-body">{item.details}</span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function MealPlan({ items }) {
   const [checkedItems, setCheckedItems] = useState({})
+  const orderedItems = [
+    ...items.grocery,
+    ...items.targets,
+    ...items.breakfast,
+    ...items.lunch,
+    ...items.dinner,
+    ...items.workout,
+    ...items.prep,
+    ...items.other,
+  ]
 
   function toggleItem(index) {
     setCheckedItems((current) => ({ ...current, [index]: !current[index] }))
   }
 
-  const completed = items.filter((_, index) => checkedItems[index]).length
+  const completed = orderedItems.filter((_, index) => checkedItems[index]).length
+  const groups = [
+    { title: 'Grocery list', list: items.grocery, compact: true },
+    { title: 'Targets and goals', list: items.targets },
+    { title: 'Breakfast options', list: items.breakfast },
+    { title: 'Lunch options', list: items.lunch },
+    { title: 'Dinner options', list: items.dinner },
+    { title: 'Workout meals and timing', list: items.workout },
+    { title: 'Prep steps', list: items.prep, compact: true },
+    { title: 'Meal steps', list: items.other },
+  ].reduce((result, group) => {
+    const offset = result.offset
+    result.items.push({ ...group, offset })
+    result.offset += group.list.length
+    return result
+  }, { items: [], offset: 0 }).items
 
   return (
     <div className="grid gap-4 sm:gap-5">
@@ -384,36 +493,22 @@ function MealPlan({ items }) {
           </div>
           <div className="rounded-lg border border-line bg-card p-3 text-center">
             <p className="font-heading text-sm uppercase text-body">Completed</p>
-            <p className="text-2xl font-bold text-white">{completed}/{items.length}</p>
+            <p className="text-2xl font-bold text-white">{completed}/{orderedItems.length}</p>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {items.map((item, index) => {
-          const checked = Boolean(checkedItems[index])
-
-          return (
-            <label
-              key={`${item.title}-${index}`}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
-                checked ? 'border-accent bg-accent/10' : 'border-line bg-[#111] hover:border-accent/70'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggleItem(index)}
-                className="mt-1 h-5 w-5 shrink-0 accent-[#e8ff47]"
-              />
-              <span className="min-w-0">
-                <span className="block break-words font-heading text-xl uppercase leading-none text-white">{item.title}</span>
-                <span className="mt-2 block text-sm leading-6 text-body">{item.details}</span>
-              </span>
-            </label>
-          )
-        })}
-      </div>
+      {groups.map((group) => (
+        <MealSection
+          key={group.title}
+          title={group.title}
+          items={group.list}
+          checkedItems={checkedItems}
+          onToggleItem={toggleItem}
+          offset={group.offset}
+          compact={group.compact}
+        />
+      ))}
     </div>
   )
 }
@@ -558,9 +653,10 @@ function WorkoutTracker({ workouts }) {
                       </span>
                       <div className="min-w-0">
                         <p className="break-words font-heading text-xl uppercase leading-none text-white">{exercise.name}</p>
-                        <div className="mt-3 grid gap-2 text-sm text-body sm:grid-cols-4">
+                        <div className="mt-3 grid gap-2 text-sm text-body sm:grid-cols-5">
                           <span>Sets: {exercise.sets}</span>
                           <span>Reps: {exercise.reps}</span>
+                          <span>Weight: {exercise.weight}</span>
                           <span>Rest: {exercise.rest}</span>
                           <span>Tempo: {exercise.tempo}</span>
                         </div>
@@ -604,13 +700,18 @@ function WorkoutTracker({ workouts }) {
                 <p className="font-heading text-sm uppercase text-body">Reps</p>
                 <p className="text-lg font-bold text-white">{currentExercise.reps}</p>
               </div>
+              <div className={`rounded-lg border p-3 ${usesExternalWeight(currentExercise.weight) ? 'border-accent/40 bg-accent/10' : 'border-line bg-card'}`}>
+                <Dumbbell className="mb-2 text-accent" size={18} />
+                <p className="font-heading text-sm uppercase text-body">Weight</p>
+                <p className="text-lg font-bold text-white">{currentExercise.weight}</p>
+              </div>
               <div className="rounded-lg border border-line bg-card p-3">
                 <Timer className="mb-2 text-accent" size={18} />
                 <p className="font-heading text-sm uppercase text-body">Rest</p>
                 <p className="text-lg font-bold text-white">{currentExercise.rest}</p>
               </div>
               <div className="rounded-lg border border-line bg-card p-3">
-                <Dumbbell className="mb-2 text-accent" size={18} />
+                <Gauge className="mb-2 text-accent" size={18} />
                 <p className="font-heading text-sm uppercase text-body">Tempo</p>
                 <p className="text-lg font-bold text-white">{currentExercise.tempo}</p>
               </div>
