@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
+  BookOpenText,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
   ClipboardCheck,
   Dumbbell,
   Gauge,
@@ -18,14 +18,16 @@ import {
   Utensils,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
+import { getExerciseMedia } from '../data/exerciseMedia.js'
 
 const views = [
-  { id: 'today', label: 'Today', icon: Dumbbell },
+  { id: 'today', label: 'Today', icon: Sparkles },
   { id: 'workouts', label: 'Workouts', icon: CheckCircle2 },
   { id: 'meal', label: 'Meal Plan', icon: Utensils },
   { id: 'week', label: 'Week', icon: CalendarDays },
   { id: 'recover', label: 'Recover', icon: HeartPulse },
   { id: 'track', label: 'Track', icon: LineChart },
+  { id: 'science', label: 'Science', icon: BookOpenText },
 ]
 
 const completionItems = [
@@ -204,6 +206,36 @@ function FocusCard({ icon: Icon, label, value }) {
   )
 }
 
+function ExerciseMedia({ exercise, priority = false, compact = false }) {
+  const [hasImageError, setHasImageError] = useState(false)
+  const media = getExerciseMedia(exercise?.name)
+  const imageAlt = `${exercise?.name || media.label} exercise guide`
+
+  return (
+    <div className={`relative overflow-hidden rounded-lg border border-line bg-[#171717] ${compact ? 'aspect-[4/3] w-full sm:w-32' : 'aspect-[16/10] w-full'}`}>
+      {!hasImageError ? (
+        <img
+          src={media.image}
+          alt={imageAlt}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          onError={() => setHasImageError(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808] text-accent">
+          <Dumbbell size={compact ? 28 : 42} aria-hidden="true" />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2">
+        <p className={`font-heading uppercase text-white ${compact ? 'text-sm' : 'text-lg'}`}>
+          {media.label}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function Checklist({ items }) {
   return (
     <div className="grid gap-3">
@@ -215,6 +247,117 @@ function Checklist({ items }) {
           <p className="min-w-0 text-sm leading-6 text-body sm:text-base">{item}</p>
         </div>
       ))}
+    </div>
+  )
+}
+
+function OverviewCard({ icon: Icon, label, title, children }) {
+  return (
+    <section className="rounded-lg border border-line bg-[#111] p-4">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded bg-accent text-black">
+          <Icon size={18} />
+        </div>
+        <div className="min-w-0">
+          <p className="font-heading text-sm uppercase text-accent">{label}</p>
+          <h4 className="break-words font-heading text-2xl uppercase leading-none text-white">{title}</h4>
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function SimpleOverview({ sections, mealPlan, workouts, onViewChange }) {
+  const nextWorkout = workouts[0]
+  const workoutCount = nextWorkout?.details?.filter(hasExerciseDetail).length || sections.workouts.length || 0
+  const firstTodayStep = sections.today[0] || 'Open Workouts and start the first available session.'
+  const firstMeal = mealPlan[0]
+
+  return (
+    <div className="grid gap-4 sm:gap-5">
+      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
+        <p className="font-heading text-sm uppercase text-accent">Start here</p>
+        <h3 className="mt-1 font-heading text-3xl uppercase leading-none text-white sm:text-4xl">Do one thing at a time.</h3>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
+          Your plan is organized into clear tabs. Use this screen for the next step, then open a specific tab when you want the details.
+        </p>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <OverviewCard icon={Dumbbell} label="Next workout" title={nextWorkout?.title || 'Workout one'}>
+          <p className="text-sm leading-6 text-body">{workoutCount || 'Your'} exercises are ready in guided mode.</p>
+          <button
+            type="button"
+            onClick={() => onViewChange('workouts')}
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 font-heading text-lg uppercase text-black transition hover:bg-white"
+          >
+            Open Workouts
+          </button>
+        </OverviewCard>
+
+        <OverviewCard icon={Utensils} label="Food focus" title={firstMeal?.title || 'Meal plan'}>
+          <p className="text-sm leading-6 text-body">{firstMeal?.details || 'Use the meal plan tab to check off today’s nutrition steps.'}</p>
+          <button
+            type="button"
+            onClick={() => onViewChange('meal')}
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+          >
+            Open Meals
+          </button>
+        </OverviewCard>
+
+        <OverviewCard icon={ClipboardCheck} label="Today" title="Main step">
+          <p className="text-sm leading-6 text-body">{firstTodayStep}</p>
+          <button
+            type="button"
+            onClick={() => onViewChange('track')}
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+          >
+            Track Progress
+          </button>
+        </OverviewCard>
+      </div>
+
+      <section className="rounded-lg border border-line bg-[#111] p-4">
+        <div className="mb-4">
+          <p className="font-heading text-sm uppercase text-accent">Simple checklist</p>
+          <h4 className="font-heading text-2xl uppercase text-white">Today’s clear actions</h4>
+        </div>
+        <Checklist items={sections.today.slice(0, 4)} />
+      </section>
+    </div>
+  )
+}
+
+function SimpleSection({ label, title, items }) {
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
+        <p className="font-heading text-sm uppercase text-accent">{label}</p>
+        <h4 className="mt-1 font-heading text-3xl uppercase leading-none text-white">{title}</h4>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-body">
+          This tab keeps one part of the program separate so the dashboard stays easy to follow.
+        </p>
+      </div>
+      <Checklist items={items} />
+    </div>
+  )
+}
+
+function ScienceBreakdown({ content }) {
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
+        <p className="font-heading text-sm uppercase text-accent">In-depth breakdown</p>
+        <h4 className="mt-1 font-heading text-3xl uppercase leading-none text-white">The full science plan.</h4>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-body">
+          Open this tab when you want every set, rep, reason, progression, and coaching note behind the simple dashboard.
+        </p>
+      </div>
+      <section className="rounded-lg border border-line bg-[#111] p-4">
+        <FormattedMessage content={content} />
+      </section>
     </div>
   )
 }
@@ -406,19 +549,24 @@ function WorkoutTracker({ workouts }) {
           <div className="mt-4 grid gap-3">
             {exercises.map((exercise, index) => (
               <div key={exercise.id} className="rounded-lg border border-line bg-card p-3">
-                <div className="flex items-start gap-3">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-base text-black">
-                    {index + 1}
-                  </span>
+                <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
+                  <ExerciseMedia exercise={exercise} compact />
                   <div className="min-w-0">
-                    <p className="break-words font-heading text-xl uppercase leading-none text-white">{exercise.name}</p>
-                    <div className="mt-3 grid gap-2 text-sm text-body sm:grid-cols-4">
-                      <span>Sets: {exercise.sets}</span>
-                      <span>Reps: {exercise.reps}</span>
-                      <span>Rest: {exercise.rest}</span>
-                      <span>Tempo: {exercise.tempo}</span>
+                    <div className="flex items-start gap-3">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-base text-black">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="break-words font-heading text-xl uppercase leading-none text-white">{exercise.name}</p>
+                        <div className="mt-3 grid gap-2 text-sm text-body sm:grid-cols-4">
+                          <span>Sets: {exercise.sets}</span>
+                          <span>Reps: {exercise.reps}</span>
+                          <span>Rest: {exercise.rest}</span>
+                          <span>Tempo: {exercise.tempo}</span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-body">{exercise.cue}</p>
+                      </div>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-body">{exercise.cue}</p>
                   </div>
                 </div>
               </div>
@@ -443,26 +591,29 @@ function WorkoutTracker({ workouts }) {
             </button>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
-            <div className="rounded-lg border border-line bg-card p-3">
-              <Repeat className="mb-2 text-accent" size={18} />
-              <p className="font-heading text-sm uppercase text-body">Sets</p>
-              <p className="text-lg font-bold text-white">{currentExercise.sets}</p>
-            </div>
-            <div className="rounded-lg border border-line bg-card p-3">
-              <Gauge className="mb-2 text-accent" size={18} />
-              <p className="font-heading text-sm uppercase text-body">Reps</p>
-              <p className="text-lg font-bold text-white">{currentExercise.reps}</p>
-            </div>
-            <div className="rounded-lg border border-line bg-card p-3">
-              <Timer className="mb-2 text-accent" size={18} />
-              <p className="font-heading text-sm uppercase text-body">Rest</p>
-              <p className="text-lg font-bold text-white">{currentExercise.rest}</p>
-            </div>
-            <div className="rounded-lg border border-line bg-card p-3">
-              <Dumbbell className="mb-2 text-accent" size={18} />
-              <p className="font-heading text-sm uppercase text-body">Tempo</p>
-              <p className="text-lg font-bold text-white">{currentExercise.tempo}</p>
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_1.1fr]">
+            <ExerciseMedia key={currentExercise?.id} exercise={currentExercise} priority />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-line bg-card p-3">
+                <Repeat className="mb-2 text-accent" size={18} />
+                <p className="font-heading text-sm uppercase text-body">Sets</p>
+                <p className="text-lg font-bold text-white">{currentExercise.sets}</p>
+              </div>
+              <div className="rounded-lg border border-line bg-card p-3">
+                <Gauge className="mb-2 text-accent" size={18} />
+                <p className="font-heading text-sm uppercase text-body">Reps</p>
+                <p className="text-lg font-bold text-white">{currentExercise.reps}</p>
+              </div>
+              <div className="rounded-lg border border-line bg-card p-3">
+                <Timer className="mb-2 text-accent" size={18} />
+                <p className="font-heading text-sm uppercase text-body">Rest</p>
+                <p className="text-lg font-bold text-white">{currentExercise.rest}</p>
+              </div>
+              <div className="rounded-lg border border-line bg-card p-3">
+                <Dumbbell className="mb-2 text-accent" size={18} />
+                <p className="font-heading text-sm uppercase text-body">Tempo</p>
+                <p className="text-lg font-bold text-white">{currentExercise.tempo}</p>
+              </div>
             </div>
           </div>
 
@@ -583,7 +734,6 @@ function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
 
 export default function ProgramDashboard({ message, profile, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
-  const [showFullPlan, setShowFullPlan] = useState(false)
 
   const sections = useMemo(
     () => ({
@@ -597,9 +747,10 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
     [message.content],
   )
 
-  const activeItems = sections[activeView].length
-    ? sections[activeView]
-    : ['Open your full plan below, then use the buttons to make it simpler.']
+  const activeSectionItems = sections[activeView] || []
+  const activeItems = activeSectionItems.length
+    ? activeSectionItems
+    : ['Open the Science tab for the full plan, or use the simplify button for a clearer version.']
   const workouts = useMemo(() => parseWorkouts(message.content, sections.today), [message.content, sections.today])
   const mealPlan = useMemo(() => parseMealPlan(message.content), [message.content])
 
@@ -631,7 +782,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
               Elevate built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:min-w-80">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
             <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
             <FocusCard icon={CalendarDays} label="Schedule" value={`${profile?.daysPerWeek || '-'} days`} />
             <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
@@ -640,7 +791,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[15rem_1fr]">
-        <nav className="grid grid-cols-2 gap-2 border-b border-line p-3 min-[460px]:grid-cols-3 sm:flex sm:overflow-x-auto lg:flex-col lg:border-b-0 lg:border-r">
+        <nav aria-label="Program sections" className="grid grid-cols-2 gap-2 border-b border-line p-3 min-[460px]:grid-cols-3 sm:flex sm:overflow-x-auto lg:flex-col lg:border-b-0 lg:border-r">
           {views.map((view) => {
             const Icon = view.icon
             const selected = activeView === view.id
@@ -652,6 +803,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
                 className={`flex min-h-12 shrink-0 items-center gap-2 rounded-lg border px-3 text-left transition sm:gap-3 sm:px-4 ${
                   selected ? 'border-accent bg-accent text-black' : 'border-line bg-[#111] text-white hover:border-accent/70'
                 }`}
+                aria-current={selected ? 'page' : undefined}
               >
                 <Icon size={18} />
                 <span className="font-heading text-base uppercase sm:text-lg">{view.label}</span>
@@ -663,48 +815,45 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
         <section className="p-4 sm:p-5">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="font-heading text-sm uppercase text-accent">Simple steps</p>
+              <p className="font-heading text-sm uppercase text-accent">{activeView === 'science' ? 'Reference' : 'Organized dashboard'}</p>
               <h3 className="font-heading text-2xl uppercase text-white sm:text-3xl">
-                {activeLabel} focus
+                {activeView === 'today' ? 'Today overview' : `${activeLabel} tab`}
               </h3>
             </div>
-            <ActionButton action={topAction} pendingAction={pendingAction} isLoading={isLoading} onQuickAction={onQuickAction} />
-          </div>
-
-          {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : null}
-          {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
-          {!['workouts', 'meal'].includes(activeView) ? <Checklist items={activeItems} /> : null}
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {helperActions.map((action) => (
-              <ActionButton
-                key={action.label}
-                action={action}
-                pendingAction={pendingAction}
-                isLoading={isLoading}
-                onQuickAction={onQuickAction}
-              />
-            ))}
-          </div>
-
-          <div className="mt-6 rounded-lg border border-line bg-[#111]">
-            <button
-              type="button"
-              onClick={() => setShowFullPlan((current) => !current)}
-              className="flex w-full items-center justify-between gap-4 p-4 text-left"
-            >
-              <span>
-                <span className="block font-heading text-xl uppercase text-white sm:text-2xl">Full science plan</span>
-                <span className="text-sm text-body">Open this when you want every set, rep, reason, and progress detail.</span>
-              </span>
-              <ChevronDown className={`shrink-0 text-accent transition ${showFullPlan ? 'rotate-180' : ''}`} />
-            </button>
-            {showFullPlan ? (
-              <div className="border-t border-line p-4">
-                <FormattedMessage content={message.content} />
-              </div>
+            {activeView !== 'science' ? (
+              <ActionButton action={topAction} pendingAction={pendingAction} isLoading={isLoading} onQuickAction={onQuickAction} />
             ) : null}
           </div>
+
+          {activeView === 'today' ? (
+            <SimpleOverview sections={sections} mealPlan={mealPlan} workouts={workouts} onViewChange={setActiveView} />
+          ) : null}
+          {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : null}
+          {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
+          {activeView === 'week' ? <SimpleSection label="Weekly map" title="What this week looks like." items={activeItems} /> : null}
+          {activeView === 'recover' ? <SimpleSection label="Recovery" title="How to stay ready." items={activeItems} /> : null}
+          {activeView === 'track' ? <SimpleSection label="Progress" title="What to measure." items={activeItems} /> : null}
+          {activeView === 'science' ? <ScienceBreakdown content={message.content} /> : null}
+
+          {activeView !== 'science' ? (
+            <div className="mt-5 rounded-lg border border-line bg-[#111] p-4">
+              <div className="mb-3">
+                <p className="font-heading text-sm uppercase text-accent">Need help?</p>
+                <h4 className="font-heading text-2xl uppercase text-white">Ask for a simpler answer</h4>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {helperActions.map((action) => (
+                  <ActionButton
+                    key={action.label}
+                    action={action}
+                    pendingAction={pendingAction}
+                    isLoading={isLoading}
+                    onQuickAction={onQuickAction}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </article>
