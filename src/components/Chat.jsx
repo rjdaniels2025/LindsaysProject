@@ -4,9 +4,7 @@ import ProgramDashboard from './ProgramDashboard.jsx'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
 const quickReplies = [
-  { label: 'Show week two', prompt: 'Show week two workouts in simple steps.' },
   { label: 'Food before workout', prompt: 'Explain what I should eat before workouts in simple steps.' },
-  { label: 'Track progress', prompt: 'Show me the easiest way to track progress each week.' },
   { label: 'Adjust for soreness', prompt: 'Adjust my plan for soreness and explain what to do today.' },
 ]
 const MAX_MEDIA_SIZE = 20 * 1024 * 1024
@@ -176,21 +174,21 @@ export default function Chat({
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-heading text-2xl uppercase leading-none text-white sm:text-5xl">Elevate Health and Wellness</h1>
+            <h1 className="font-heading text-[1.7rem] uppercase leading-none text-white min-[420px]:text-3xl sm:text-5xl">Elevate Health and Wellness</h1>
             <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
           </div>
           <button
             type="button"
             onClick={onReset}
-            className="shrink-0 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
+            className="min-h-11 shrink-0 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
           >
             Reset
           </button>
         </div>
       </header>
 
-      <section className="px-3 py-4 sm:px-6 sm:py-6">
-        <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[1fr_22rem]">
+      <section className="px-2 py-3 sm:px-6 sm:py-6">
+        <div className="mx-auto grid max-w-7xl gap-4 sm:gap-5 xl:grid-cols-[1fr_22rem]">
           <div className="min-w-0">
             {programMessage ? (
               <ProgramDashboard
@@ -218,7 +216,7 @@ export default function Chat({
             )}
           </div>
 
-          <aside className="grid content-start gap-4 xl:sticky xl:top-24">
+          <aside className="grid content-start gap-3 sm:gap-4 xl:sticky xl:top-24">
             <section className="rounded-lg border border-line bg-card p-4">
               <div className="mb-4 flex items-center gap-3">
                 <div className="grid h-9 w-9 place-items-center rounded bg-accent text-black">
@@ -229,7 +227,7 @@ export default function Chat({
                   <p className="text-sm text-body">Tap one to get a simple answer.</p>
                 </div>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 min-[420px]:grid-cols-2 xl:grid-cols-1">
                 {quickReplies.map((reply) => (
                   <button
                     key={reply.label}

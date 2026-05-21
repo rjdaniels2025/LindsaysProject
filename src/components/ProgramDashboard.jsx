@@ -896,21 +896,21 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
 
   return (
     <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
-      <div className="border-b border-line bg-[#0b0b0b] p-4 sm:p-5">
+      <div className="border-b border-line bg-[#0b0b0b] p-3 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
               <Sparkles size={15} />
               <span className="font-heading text-sm uppercase">Your Game Plan</span>
             </div>
-            <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
+            <h2 className="font-heading text-[2rem] uppercase leading-none text-white sm:text-5xl">
               Start simple. Build momentum.
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
               Elevate built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
+          <div className="grid grid-cols-3 gap-2 lg:min-w-80">
             <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
             <FocusCard icon={CalendarDays} label="Schedule" value={`${profile?.daysPerWeek || '-'} days`} />
             <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
@@ -919,7 +919,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[15rem_1fr]">
-        <nav aria-label="Program sections" className="grid grid-cols-2 gap-2 border-b border-line p-3 min-[460px]:grid-cols-3 sm:flex sm:overflow-x-auto lg:flex-col lg:border-b-0 lg:border-r">
+        <nav aria-label="Program sections" className="flex gap-2 overflow-x-auto border-b border-line p-2 sm:p-3 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r">
           {views.map((view) => {
             const Icon = view.icon
             const selected = activeView === view.id
@@ -928,7 +928,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
                 key={view.id}
                 type="button"
                 onClick={() => setActiveView(view.id)}
-                className={`flex min-h-12 shrink-0 items-center gap-2 rounded-lg border px-3 text-left transition sm:gap-3 sm:px-4 ${
+                className={`flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-left transition sm:gap-3 sm:px-4 lg:justify-start ${
                   selected ? 'border-accent bg-accent text-black' : 'border-line bg-[#111] text-white hover:border-accent/70'
                 }`}
                 aria-current={selected ? 'page' : undefined}
@@ -940,7 +940,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
           })}
         </nav>
 
-        <section className="p-4 sm:p-5">
+        <section className="p-3 sm:p-5">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-heading text-sm uppercase text-accent">{activeView === 'science' ? 'Reference' : 'Organized dashboard'}</p>
@@ -969,7 +969,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
                 <p className="font-heading text-sm uppercase text-accent">Need help?</p>
                 <h4 className="font-heading text-2xl uppercase text-white">Ask for a simpler answer</h4>
               </div>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-2 min-[420px]:grid-cols-2 xl:grid-cols-4">
                 {helperActions.map((action) => (
                   <ActionButton
                     key={action.label}
