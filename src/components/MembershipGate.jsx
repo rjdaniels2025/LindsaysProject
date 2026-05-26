@@ -97,7 +97,7 @@ export default function MembershipGate({
             onClick={onBack}
             className="min-h-11 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
           >
-            Edit Questionnaire
+            Edit Assessment
           </button>
         </header>
 

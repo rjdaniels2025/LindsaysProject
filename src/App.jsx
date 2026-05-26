@@ -19,6 +19,10 @@ function emptyAppState() {
   }
 }
 
+function normalizeStage(stage) {
+  return stage === 'onboarding' ? 'assessment' : stage
+}
+
 function addWeeks(date, weeks) {
   const nextDate = new Date(date)
   nextDate.setDate(nextDate.getDate() + weeks * 7)
@@ -241,7 +245,7 @@ function App() {
   const programService = useProgramService()
 
   const applyAppState = useCallback((nextState) => {
-    setStage(nextState.stage)
+    setStage(normalizeStage(nextState.stage))
     setProfile(nextState.profile)
     setMessages(nextState.messages)
     setProfileDraft(nextState.profileDraft)
@@ -380,7 +384,7 @@ function App() {
 
     if (!nextProfile) {
       setError('Complete the questionnaire before generating your plan.')
-      setStage('onboarding')
+      setStage('assessment')
       return
     }
 
@@ -488,12 +492,24 @@ function App() {
     return <AccountGate onBack={() => setStage('membership')} onAuthenticated={handleAuthenticated} />
   }
 
+  if (stage === 'assessment') {
+    return (
+      <Onboarding
+        initialProfile={profileDraft}
+        onProfileChange={saveProfileDraft}
+        onComplete={prepareMembership}
+        isLoading={isLoading}
+        error={error}
+      />
+    )
+  }
+
   if (stage === 'landing') {
     return (
       <Landing
         user={currentUser}
         hasProgram={messages.some((message) => message.meta?.type === 'program')}
-        onStart={() => setStage('onboarding')}
+        onStart={() => setStage('assessment')}
         onDashboard={() => setStage('chat')}
         onSignOut={signOut}
       />
@@ -511,7 +527,7 @@ function App() {
         onSelectBilling={setSelectedBilling}
         onCreateAccount={startAccountCreation}
         onGeneratePlan={generateProgram}
-        onBack={() => setStage('onboarding')}
+        onBack={() => setStage('assessment')}
         error={error}
       />
     )
