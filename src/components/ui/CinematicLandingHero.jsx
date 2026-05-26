@@ -514,64 +514,66 @@ export default function CinematicLandingHero({
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
-      <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-white/10 bg-bg/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <img
-                src="/ehw-logo.jpeg"
-                alt="Elevate Health and Wellness"
-                className="h-10 w-10 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
-              />
-              <div className="min-w-0">
-                <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-body sm:text-xs">Health and Wellness</p>
+      {isStageFocused ? (
+        <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-white/10 bg-bg/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/ehw-logo.jpeg"
+                  alt="Elevate Health and Wellness"
+                  className="h-10 w-10 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
+                />
+                <div className="min-w-0">
+                  <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-body sm:text-xs">Health and Wellness</p>
+                </div>
               </div>
+
+              {onSignOut ? (
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white backdrop-blur-md transition hover:border-accent/60 sm:px-4"
+                  aria-label="Sign out"
+                >
+                  <LogOut size={16} />
+                </button>
+              ) : null}
             </div>
 
-            {onSignOut ? (
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white backdrop-blur-md transition hover:border-accent/60 sm:px-4"
-                aria-label="Sign out"
-              >
-                <LogOut size={16} />
-              </button>
-            ) : null}
-          </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              {stages.map((stage) => {
+                const Icon = stage.Icon
+                const isActive = activeStage.id === stage.id
 
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-            {stages.map((stage) => {
-              const Icon = stage.Icon
-              const isActive = activeStage.id === stage.id
-
-              return (
-                <button
-                  key={`header-${stage.id}`}
-                  type="button"
-                  onClick={() => selectStage(stage.id, { revealContent: true })}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
-                    isActive
-                      ? 'border-accent bg-accent text-black shadow-none'
-                      : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
-                  }`}
-                >
-                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
-                    <Icon size={16} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-heading text-sm uppercase leading-none sm:text-base">
-                      {stage.navLabel}
+                return (
+                  <button
+                    key={`header-${stage.id}`}
+                    type="button"
+                    onClick={() => selectStage(stage.id, { revealContent: true })}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
+                      isActive
+                        ? 'border-accent bg-accent text-black shadow-none'
+                        : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
+                    }`}
+                  >
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
+                      <Icon size={16} />
                     </span>
-                  </span>
-                </button>
-              )
-            })}
+                    <span className="min-w-0">
+                      <span className="block font-heading text-sm uppercase leading-none sm:text-base">
+                        {stage.navLabel}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
       <div className="elevate-film-grain" aria-hidden="true" />
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
