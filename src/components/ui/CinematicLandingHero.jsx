@@ -632,13 +632,7 @@ export default function CinematicLandingHero({
 
         {isStageFocused ? (
           <div className="z-30">
-            <div className="mb-4 flex flex-col gap-3 text-center sm:mb-5 sm:flex-row sm:items-end sm:justify-between sm:text-left">
-              <div>
-                <p className="font-heading text-sm uppercase text-accent">Choose a feature</p>
-                <h2 className="text-balance font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
-                  Explore Elevate
-                </h2>
-              </div>
+            <div className="mb-4 flex justify-center sm:mb-5 sm:justify-end">
               <button
                 type="button"
                 onClick={runPrimaryAction}
