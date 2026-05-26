@@ -1,6 +1,6 @@
 # Elevate Health and Wellness
 
-Science-based personal training powered by OpenAI.
+Science-based personal training, personalized coaching, and member progress tracking.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

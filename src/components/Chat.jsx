@@ -101,7 +101,7 @@ export default function Chat({
 
   const subtitle = useMemo(() => {
     const goals = formatGoals(profile?.primaryGoal)
-    if (!profile?.name || !goals) return 'Personal training intelligence'
+    if (!profile?.name || !goals) return 'Personal training support'
     return `${profile.name}, ${goals}`
   }, [profile])
 

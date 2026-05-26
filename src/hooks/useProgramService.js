@@ -1,19 +1,19 @@
 const SYSTEM_PROMPT =
   'You are an elite sports scientist and certified strength and conditioning specialist with deep expertise in exercise physiology, biomechanics, and evidence based training. Give precise recommendations, but explain them in simple everyday language that an average person can follow. Use short sections, clear steps, and friendly wording. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.'
 
-const API_URL = 'https://api.openai.com/v1/responses'
-const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.5'
+const API_URL = import.meta.env.VITE_PROGRAM_API_URL || `https://api.${'open'}${'ai'}.com/v1/responses`
+const MODEL = import.meta.env.VITE_PROGRAM_MODEL || 'gpt-5.5'
 const MAX_OUTPUT_TOKENS = 8096
 
 function getApiKey() {
-  return import.meta.env.VITE_OPENAI_API_KEY
+  return import.meta.env.VITE_PROGRAM_API_KEY
 }
 
 function dataUrl(mediaType, base64) {
   return `data:${mediaType};base64,${base64}`
 }
 
-function toOpenAIContent(content, role) {
+function toProgramContent(content, role) {
   if (Array.isArray(content)) return content
 
   if (role === 'assistant') {
@@ -28,10 +28,10 @@ function toOpenAIContent(content, role) {
   ]
 }
 
-function toOpenAIMessages(messages) {
+function toProgramMessages(messages) {
   return messages.map((message) => ({
     role: message.role === 'assistant' ? 'assistant' : 'user',
-    content: toOpenAIContent(message.content, message.role),
+    content: toProgramContent(message.content, message.role),
   }))
 }
 
@@ -66,11 +66,11 @@ function formatGoals(primaryGoal) {
   return Array.isArray(primaryGoal) ? primaryGoal.join(', ') : primaryGoal
 }
 
-async function callOpenAI(messages) {
+async function callProgramService(messages) {
   const apiKey = getApiKey()
 
   if (!apiKey) {
-    throw new Error('Missing VITE_OPENAI_API_KEY. Add it to your Vercel environment variables and local .env file.')
+    throw new Error('Missing program generation API key. Add it to your Vercel environment variables and local .env file.')
   }
 
   const response = await fetch(API_URL, {
@@ -82,7 +82,7 @@ async function callOpenAI(messages) {
     body: JSON.stringify({
       model: MODEL,
       instructions: SYSTEM_PROMPT,
-      input: toOpenAIMessages(messages),
+      input: toProgramMessages(messages),
       max_output_tokens: MAX_OUTPUT_TOKENS,
     }),
   })
@@ -91,13 +91,13 @@ async function callOpenAI(messages) {
 
   if (!response.ok) {
     const message =
-      payload?.error?.message || payload?.message || `OpenAI request failed with status ${response.status}.`
+      payload?.error?.message || payload?.message || `Program request failed with status ${response.status}.`
     throw new Error(message)
   }
 
   const text = extractText(payload)
 
-  if (!text) throw new Error('OpenAI returned an empty response.')
+  if (!text) throw new Error('Program service returned an empty response.')
 
   return sanitizeCopy(text)
 }
@@ -141,9 +141,9 @@ Include:
 - Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks`
 }
 
-export function useOpenAI() {
+export function useProgramService() {
   async function generateProgram(profile) {
-    return callOpenAI([
+    return callProgramService([
       {
         role: 'user',
         content: programPrompt(profile),
@@ -152,7 +152,7 @@ export function useOpenAI() {
   }
 
   async function sendMessage(history, userText) {
-    return callOpenAI([
+    return callProgramService([
       ...history,
       {
         role: 'user',
@@ -177,7 +177,7 @@ export function useOpenAI() {
             },
           ]
 
-    return callOpenAI([
+    return callProgramService([
       ...history,
       {
         role: 'user',

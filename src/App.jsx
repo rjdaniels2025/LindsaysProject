@@ -3,7 +3,7 @@ import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
 import MembershipGate from './components/MembershipGate.jsx'
 import Onboarding from './components/Onboarding.jsx'
-import { useOpenAI } from './hooks/useOpenAI.js'
+import { useProgramService } from './hooks/useProgramService.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
 function emptyAppState() {
@@ -13,6 +13,7 @@ function emptyAppState() {
     messages: [],
     profileDraft: null,
     selectedPlan: 'transformation',
+    selectedBilling: 'monthly',
     programCreatedAt: null,
     programEndsAt: null,
   }
@@ -216,6 +217,7 @@ function App() {
   const [messages, setMessages] = useState([])
   const [profileDraft, setProfileDraft] = useState(null)
   const [selectedPlan, setSelectedPlan] = useState('transformation')
+  const [selectedBilling, setSelectedBilling] = useState('monthly')
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
   const [programEndsAt, setProgramEndsAt] = useState(null)
   const [returnToMembershipAfterAuth, setReturnToMembershipAfterAuth] = useState(false)
@@ -223,7 +225,7 @@ function App() {
   const [isProgramLoaded, setIsProgramLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const openAI = useOpenAI()
+  const programService = useProgramService()
 
   const applyAppState = useCallback((nextState) => {
     setStage(nextState.stage)
@@ -231,6 +233,7 @@ function App() {
     setMessages(nextState.messages)
     setProfileDraft(nextState.profileDraft)
     setSelectedPlan(nextState.selectedPlan || 'transformation')
+    setSelectedBilling(nextState.selectedBilling || 'monthly')
     setProgramCreatedAt(nextState.programCreatedAt)
     setProgramEndsAt(nextState.programEndsAt)
   }, [])
@@ -305,6 +308,7 @@ function App() {
       messages,
       profileDraft,
       selectedPlan,
+      selectedBilling,
       programCreatedAt,
       programEndsAt,
     }
@@ -322,7 +326,7 @@ function App() {
     }, 350)
 
     return () => window.clearTimeout(saveTimer)
-  }, [currentUser, isProgramLoaded, stage, profile, messages, profileDraft, selectedPlan, programCreatedAt, programEndsAt])
+  }, [currentUser, isProgramLoaded, stage, profile, messages, profileDraft, selectedPlan, selectedBilling, programCreatedAt, programEndsAt])
 
   const saveProfileDraft = useCallback((nextProfile) => {
     setProfileDraft(nextProfile)
@@ -362,7 +366,7 @@ function App() {
     setIsLoading(true)
 
     try {
-      const response = await openAI.sendMessage(messages, text)
+      const response = await programService.sendMessage(messages, text)
       setMessages([...nextMessages, createMessage('assistant', response, { type: 'result', label: meta.label || text })])
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to send this message.')
@@ -380,7 +384,7 @@ function App() {
     setIsLoading(true)
 
     try {
-      const response = await openAI.analyzeMedia(messages, mediaPayload)
+      const response = await programService.analyzeMedia(messages, mediaPayload)
       setMessages([...nextMessages, createMessage('assistant', response, { type: 'analysis', label: 'Form feedback' })])
     } catch (caughtError) {
       setError(caughtError.message || 'Unable to analyze this media.')
@@ -450,7 +454,9 @@ function App() {
         user={currentUser}
         profile={profileDraft || profile}
         selectedPlan={selectedPlan}
+        selectedBilling={selectedBilling}
         onSelectPlan={setSelectedPlan}
+        onSelectBilling={setSelectedBilling}
         onCreateAccount={startAccountCreation}
         onCheckout={startCheckoutPlaceholder}
         onBack={() => setStage('onboarding')}

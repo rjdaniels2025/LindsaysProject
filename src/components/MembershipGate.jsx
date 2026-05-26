@@ -4,25 +4,29 @@ const membershipPlans = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$79',
-    cadence: '/month',
+    monthlyPrice: '$79',
+    sixMonthPrice: '$399',
+    sixMonthSavings: 'Save $75',
+    sixMonthMonthly: '$66.50/mo equivalent',
     description: 'For self-guided members who want a clear plan and simple support.',
     features: [
       'Personalized onboarding questionnaire',
-      'Custom AI-generated fitness plan',
+      'Custom fitness plan',
       'Weekly workout schedule',
       'Exercise instructions',
       'Basic nutrition guidance',
       'Progress dashboard',
-      'AI coaching questions',
+      'Coaching questions',
       'One plan refresh per month',
     ],
   },
   {
     id: 'transformation',
     name: 'Transformation',
-    price: '$199',
-    cadence: '/month',
+    monthlyPrice: '$199',
+    sixMonthPrice: '$999',
+    sixMonthSavings: 'Save $195',
+    sixMonthMonthly: '$166.50/mo equivalent',
     badge: 'Recommended',
     description: 'For members who want the full plan, weekly adjustments, and accountability.',
     features: [
@@ -34,15 +38,17 @@ const membershipPlans = [
       'Weekly check-in questionnaire',
       'Plan adjustments based on progress',
       'Photo/video exercise form feedback',
-      'Priority AI coaching chat',
+      'Priority coaching chat',
       'Monthly program refresh',
     ],
   },
   {
     id: 'elite',
     name: 'Elite Coaching',
-    price: '$349',
-    cadence: '/month',
+    monthlyPrice: '$349',
+    sixMonthPrice: '$1,799',
+    sixMonthSavings: 'Save $295',
+    sixMonthMonthly: '$299.83/mo equivalent',
     description: 'For members who want premium accountability and a higher-touch coaching path.',
     features: [
       'Everything in Transformation',
@@ -61,13 +67,16 @@ export default function MembershipGate({
   user,
   profile,
   selectedPlan,
+  selectedBilling,
   onSelectPlan,
+  onSelectBilling,
   onCreateAccount,
   onCheckout,
   onBack,
   error,
 }) {
   const activePlan = selectedPlan || 'transformation'
+  const billing = selectedBilling || 'monthly'
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] || user?.name || 'your'
 
   return (
@@ -92,60 +101,7 @@ export default function MembershipGate({
           </button>
         </header>
 
-        <section className="grid gap-4 py-8 lg:grid-cols-3">
-          {membershipPlans.map((plan) => {
-            const isActive = activePlan === plan.id
-            const isRecommended = plan.id === 'transformation'
-
-            return (
-              <article
-                key={plan.id}
-                className={`relative flex min-h-full flex-col rounded-lg border p-5 transition ${
-                  isActive ? 'border-accent bg-accent/10' : 'border-line bg-card'
-                } ${isRecommended ? 'shadow-2xl shadow-black/40' : ''}`}
-              >
-                {plan.badge ? (
-                  <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-accent/40 bg-accent px-3 py-1 text-black">
-                    <Sparkles size={15} />
-                    <span className="font-heading text-sm uppercase">{plan.badge}</span>
-                  </div>
-                ) : null}
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="font-heading text-4xl uppercase leading-none text-white">{plan.name}</h2>
-                    <p className="mt-2 min-h-14 text-sm leading-6 text-body">{plan.description}</p>
-                  </div>
-                  {isActive ? <CheckCircle2 className="shrink-0 text-accent" size={26} /> : null}
-                </div>
-                <p className="mt-5 font-heading text-6xl uppercase leading-none text-white">
-                  {plan.price}
-                  <span className="ml-1 align-middle font-body text-base normal-case text-body">{plan.cadence}</span>
-                </p>
-                <ul className="mt-5 grid flex-1 content-start gap-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm leading-6 text-body">
-                      <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={18} />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => onSelectPlan(plan.id)}
-                  className={`mt-6 min-h-12 rounded-lg px-5 font-heading text-lg uppercase transition ${
-                    isActive
-                      ? 'bg-accent text-black hover:brightness-95'
-                      : 'border border-line bg-[#111] text-white hover:border-accent'
-                  }`}
-                >
-                  {isActive ? 'Selected' : 'Choose Plan'}
-                </button>
-              </article>
-            )
-          })}
-        </section>
-
-        <section className="grid gap-4 pb-8 lg:grid-cols-[1fr_24rem]">
+        <section className="grid gap-4 py-8 lg:grid-cols-[1fr_24rem]">
           <div className="rounded-lg border border-line bg-card p-5">
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-1 shrink-0 text-accent" size={24} />
@@ -183,6 +139,90 @@ export default function MembershipGate({
               Stripe checkout and subscription activation will connect here when the backend is added.
             </p>
           </aside>
+        </section>
+
+        <section className="pb-5">
+          <div className="inline-grid w-full gap-2 rounded-lg border border-line bg-card p-2 sm:w-auto sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onSelectBilling('monthly')}
+              className={`min-h-12 rounded-lg px-5 font-heading text-lg uppercase transition ${
+                billing === 'monthly' ? 'bg-accent text-black' : 'bg-[#111] text-white hover:bg-[#181818]'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectBilling('six-month')}
+              className={`min-h-12 rounded-lg px-5 font-heading text-lg uppercase transition ${
+                billing === 'six-month' ? 'bg-accent text-black' : 'bg-[#111] text-white hover:bg-[#181818]'
+              }`}
+            >
+              6 Months Upfront
+            </button>
+          </div>
+        </section>
+
+        <section className="grid gap-4 pb-8 lg:grid-cols-3">
+          {membershipPlans.map((plan) => {
+            const isActive = activePlan === plan.id
+            const isRecommended = plan.id === 'transformation'
+            const price = billing === 'six-month' ? plan.sixMonthPrice : plan.monthlyPrice
+            const cadence = billing === 'six-month' ? ' paid today' : '/month'
+
+            return (
+              <article
+                key={plan.id}
+                className={`relative flex min-h-full flex-col rounded-lg border p-5 transition ${
+                  isActive ? 'border-accent bg-accent/10' : 'border-line bg-card'
+                } ${isRecommended ? 'shadow-2xl shadow-black/40' : ''}`}
+              >
+                {plan.badge ? (
+                  <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-accent/40 bg-accent px-3 py-1 text-black">
+                    <Sparkles size={15} />
+                    <span className="font-heading text-sm uppercase">{plan.badge}</span>
+                  </div>
+                ) : null}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="font-heading text-4xl uppercase leading-none text-white">{plan.name}</h2>
+                    <p className="mt-2 min-h-14 text-sm leading-6 text-body">{plan.description}</p>
+                  </div>
+                  {isActive ? <CheckCircle2 className="shrink-0 text-accent" size={26} /> : null}
+                </div>
+                <p className="mt-5 font-heading text-6xl uppercase leading-none text-white">
+                  {price}
+                  <span className="ml-1 align-middle font-body text-base normal-case text-body">{cadence}</span>
+                </p>
+                {billing === 'six-month' ? (
+                  <div className="mt-3 rounded-lg border border-accent/30 bg-accent/10 p-3">
+                    <p className="font-heading text-xl uppercase text-accent">{plan.sixMonthSavings}</p>
+                    <p className="text-sm leading-6 text-body">{plan.sixMonthMonthly}</p>
+                  </div>
+                ) : null}
+                <ul className="mt-5 grid flex-1 content-start gap-3">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex gap-3 text-sm leading-6 text-body">
+                      <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={18} />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => onSelectPlan(plan.id)}
+                  className={`mt-6 min-h-12 rounded-lg px-5 font-heading text-lg uppercase transition ${
+                    isActive
+                      ? 'bg-accent text-black hover:brightness-95'
+                      : 'border border-line bg-[#111] text-white hover:border-accent'
+                  }`}
+                >
+                  {isActive ? 'Selected' : 'Choose Plan'}
+                </button>
+              </article>
+            )
+          })}
         </section>
       </div>
     </main>
