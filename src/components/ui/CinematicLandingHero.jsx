@@ -9,6 +9,7 @@ import {
   Dumbbell,
   Flame,
   LayoutDashboard,
+  LogOut,
   Repeat2,
   ShieldCheck,
   Utensils,
@@ -185,6 +186,7 @@ const stages = [
   {
     id: 'assessment',
     label: 'Assessment',
+    navLabel: 'Start Assessment',
     Icon: ClipboardList,
     eyebrow: 'Start with the assessment',
     headline: 'Tell Elevate what real life looks like.',
@@ -205,6 +207,7 @@ const stages = [
   {
     id: 'membership',
     label: 'Membership',
+    navLabel: 'Membership',
     Icon: CreditCard,
     eyebrow: 'Choose your support level',
     headline: 'Pick the membership that matches the outcome.',
@@ -225,6 +228,7 @@ const stages = [
   {
     id: 'dashboard',
     label: 'Dashboard',
+    navLabel: 'Dashboard',
     Icon: LayoutDashboard,
     eyebrow: 'Unlock the dashboard',
     headline: 'Workouts, meals, and progress in one place.',
@@ -245,6 +249,7 @@ const stages = [
   {
     id: 'accountability',
     label: 'Accountability',
+    navLabel: 'Accountability',
     Icon: Repeat2,
     eyebrow: 'Stay in the loop',
     headline: 'Weekly check-ins keep the plan realistic.',
@@ -306,6 +311,7 @@ export default function CinematicLandingHero({
   hasProgram,
   onStart,
   onDashboard,
+  onSignOut,
   className,
 }) {
   const [activeStageId, setActiveStageId] = useState('assessment')
@@ -497,17 +503,73 @@ export default function CinematicLandingHero({
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
+      <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-white/10 bg-bg/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <img
+              src="/ehw-logo.jpeg"
+              alt="Elevate Health and Wellness"
+              className="h-10 w-10 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
+            />
+            <div className="min-w-0">
+              <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-body sm:text-xs">Health and Wellness</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            {stages.map((stage) => {
+              const Icon = stage.Icon
+              const isActive = activeStage.id === stage.id
+
+              return (
+                <button
+                  key={`header-${stage.id}`}
+                  type="button"
+                  onClick={() => selectStage(stage.id, { revealContent: true })}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
+                    isActive
+                      ? 'border-accent bg-accent text-black shadow-none'
+                      : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
+                  }`}
+                >
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
+                    <Icon size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-heading text-sm uppercase leading-none sm:text-base">
+                      {stage.navLabel}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+
+            {onSignOut ? (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white backdrop-blur-md transition hover:border-accent/60 sm:px-4"
+                aria-label="Sign out"
+              >
+                <LogOut size={16} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
       <div className="elevate-film-grain" aria-hidden="true" />
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
       <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
 
       <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
-        <div>
-          <p className="elevate-intro-title font-heading text-6xl uppercase leading-none text-white sm:text-8xl lg:text-[9rem]">
+        <div className="max-w-[16ch]">
+          <p className="elevate-intro-title font-heading text-4xl uppercase leading-none text-white sm:text-8xl lg:text-[9rem]">
             Elevate
           </p>
-          <p className="elevate-intro-headline elevate-text-accent mt-2 font-heading text-4xl uppercase leading-none sm:text-6xl lg:text-7xl">
+          <p className="elevate-intro-headline elevate-text-accent mt-2 font-heading text-2xl uppercase leading-none sm:text-6xl lg:text-7xl">
             Health &amp; Fitness
           </p>
         </div>
@@ -569,10 +631,6 @@ export default function CinematicLandingHero({
             <StageControls activeStage={activeStage} onSelect={selectStage} />
           </div>
         ) : null}
-
-        <div className={`elevate-controls-shell sticky top-24 z-30 sm:hidden ${isStageFocused ? 'hidden' : ''}`}>
-          <StageControls activeStage={activeStage} onSelect={selectStage} />
-        </div>
 
         <div
           ref={mainCardRef}
