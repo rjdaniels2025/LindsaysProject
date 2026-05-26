@@ -574,22 +574,22 @@ export default function CinematicLandingHero({
           </div>
         </div>
       ) : null}
-      <div className="relative overflow-hidden">
-      <div className="elevate-film-grain" aria-hidden="true" />
-      <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
-      <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
+      <div className="relative isolate overflow-hidden">
+        <div className="elevate-film-grain" aria-hidden="true" />
+        <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
+        <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
 
-      <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
-        <div className="max-w-[13ch] sm:max-w-[16ch]">
-          <p className="elevate-intro-title text-balance font-heading text-5xl uppercase leading-[0.84] text-white sm:text-8xl lg:text-[9rem]">
-            Elevate
-          </p>
-          <p className="elevate-intro-headline elevate-text-accent mt-2 text-balance font-heading text-2xl uppercase leading-[0.9] sm:text-6xl lg:text-7xl">
-            Health &amp; Fitness
-          </p>
+        <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
+          <div className="max-w-[20ch] sm:max-w-[24ch]">
+            <p className="elevate-intro-title text-balance font-heading text-5xl uppercase leading-[0.84] text-white sm:text-7xl lg:text-[8.5rem]">
+              Elevate
+            </p>
+            <p className="elevate-intro-headline elevate-text-accent mt-2 text-balance font-heading text-2xl uppercase leading-[0.9] sm:whitespace-nowrap sm:text-5xl lg:text-6xl">
+              Health &amp; Fitness
+            </p>
+          </div>
         </div>
-      </div>
 
       <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
         <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
@@ -597,7 +597,7 @@ export default function CinematicLandingHero({
             <Activity size={15} />
             <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
           </div>
-          <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-7xl lg:text-8xl">
+          <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
             Your fitness plan, built around real life.
           </h1>
           <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
@@ -659,7 +659,7 @@ export default function CinematicLandingHero({
             <div className="flex flex-col gap-6 text-center sm:justify-between sm:text-left">
               <div>
                 <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
-                <h2 className={`stage-animate text-balance mt-3 font-heading uppercase leading-[0.9] text-white ${isStageFocused ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-3xl sm:text-5xl'}`}>
+                <h2 className={`stage-animate text-balance mt-3 font-heading uppercase leading-[0.9] text-white ${isStageFocused ? 'text-4xl sm:text-6xl lg:text-7xl' : 'text-3xl sm:text-5xl'}`}>
                   {activeStage.headline}
                 </h2>
                 <p className={`stage-animate text-balance mt-4 leading-7 text-body ${isStageFocused ? 'mx-auto max-w-3xl text-base sm:mx-0 sm:text-xl sm:leading-9' : 'text-sm sm:text-base'}`}>
