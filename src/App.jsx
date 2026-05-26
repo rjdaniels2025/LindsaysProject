@@ -302,9 +302,11 @@ function App() {
       loadUserProgram(data.session)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return
-      loadUserProgram(session)
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        loadUserProgram(session)
+      }
     })
 
     return () => {

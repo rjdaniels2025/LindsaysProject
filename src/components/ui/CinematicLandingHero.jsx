@@ -310,7 +310,7 @@ export default function CinematicLandingHero({
               onClick={primaryAction}
               className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
             >
-              {hasProgram ? 'Open Dashboard' : 'Start Questionnaire'}
+              {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
               <ArrowRight size={20} />
             </button>
             <button
