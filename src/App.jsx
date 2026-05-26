@@ -66,15 +66,22 @@ function LoadingScreen({ label = 'Loading your dashboard' }) {
   )
 }
 
-function ConfigError() {
+function MissingSupabaseGate({ onBack }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 text-body">
       <div className="w-full max-w-md rounded-lg border border-red-400/40 bg-card p-6 shadow-2xl shadow-black/50">
         <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-        <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white">Supabase Setup Needed</h1>
+        <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white">Account Setup Needed</h1>
         <p className="mt-3 text-sm leading-6 text-body">
-          Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to the app environment before users can create accounts.
+          Account creation is ready, but Supabase is not connected to this deployment yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.
         </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="mt-5 min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white"
+        >
+          Back To Membership
+        </button>
       </div>
     </main>
   )
@@ -349,7 +356,7 @@ function App() {
   function startAccountCreation() {
     setError('')
     if (!isSupabaseConfigured) {
-      setError('Account creation is the next backend step. Once Supabase is connected, this button will create or log into the member account.')
+      setStage('account')
       return
     }
     setReturnToMembershipAfterAuth(true)
@@ -473,7 +480,7 @@ function App() {
 
   if (stage === 'account') {
     if (!isSupabaseConfigured) {
-      return <ConfigError />
+      return <MissingSupabaseGate onBack={() => setStage('membership')} />
     }
 
     return <AccountGate onBack={() => setStage('membership')} onAuthenticated={handleAuthenticated} />
