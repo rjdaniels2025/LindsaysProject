@@ -408,8 +408,8 @@ export default function CinematicLandingHero({
         )
         .fromTo(
           '.elevate-intro-headline',
-          { autoAlpha: 0, y: 28, clipPath: 'inset(0 100% 0 0)' },
-          { autoAlpha: 1, y: 0, clipPath: 'inset(0 0% 0 0)', duration: 0.9 },
+          { autoAlpha: 0, y: 28, scale: 0.96, filter: 'blur(12px)' },
+          { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.9 },
           '-=0.45',
         )
         .to(['.elevate-intro-title', '.elevate-intro-headline'], {
@@ -510,12 +510,12 @@ export default function CinematicLandingHero({
   return (
     <section
       ref={containerRef}
-      className={cn('relative min-h-dvh bg-bg px-4 pb-8 pt-24 text-white antialiased sm:px-6 sm:pt-28 lg:px-8 lg:pb-16 lg:pt-32', className)}
+      className={cn('relative min-h-dvh overflow-x-hidden bg-bg text-white antialiased', className)}
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
       {isStageFocused ? (
-        <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-white/10 bg-bg/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="sticky top-0 z-50 border-b border-white/10 bg-bg/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
           <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -574,24 +574,24 @@ export default function CinematicLandingHero({
           </div>
         </div>
       ) : null}
-      <div className="relative isolate overflow-hidden">
+      <div className="relative isolate min-h-dvh overflow-hidden px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:px-8 lg:pb-16 lg:pt-24">
         <div className="elevate-film-grain" aria-hidden="true" />
         <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
         <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
 
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
-          <div className="max-w-[20ch] sm:max-w-[24ch]">
-            <p className="elevate-intro-title text-balance font-heading text-5xl uppercase leading-[0.84] text-white sm:text-7xl lg:text-[8.5rem]">
+          <div className="w-full max-w-[42rem]">
+            <p className="elevate-intro-title font-heading text-5xl uppercase leading-[0.86] text-white sm:text-7xl lg:text-[8rem]">
               Elevate
             </p>
-            <p className="elevate-intro-headline elevate-text-accent mt-2 text-balance font-heading text-2xl uppercase leading-[0.9] sm:whitespace-nowrap sm:text-5xl lg:text-6xl">
+            <p className="elevate-intro-headline elevate-text-accent mx-auto mt-3 max-w-full whitespace-nowrap font-heading text-3xl uppercase leading-none sm:text-5xl lg:text-[4rem]">
               Health &amp; Fitness
             </p>
           </div>
         </div>
 
-      <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
+        <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
         <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
             <Activity size={15} />
@@ -764,8 +764,8 @@ export default function CinematicLandingHero({
               </div>
             </div>
           </div>
-          </div>
         </div>
+      </div>
       </div>
     </section>
   )
