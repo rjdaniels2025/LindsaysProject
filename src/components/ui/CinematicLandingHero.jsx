@@ -114,6 +114,32 @@ const INJECTED_STYLES = `
     stroke-dasharray: 402;
     stroke-linecap: round;
   }
+
+  @media (max-width: 767px) {
+    .elevate-text-accent {
+      filter: none;
+    }
+
+    .elevate-card {
+      background: linear-gradient(145deg, #12140b 0%, #090a07 48%, #050505 100%);
+      box-shadow:
+        0 22px 48px -28px rgba(0,0,0,0.95),
+        inset 0 1px 1px rgba(255,255,255,0.12);
+    }
+
+    .elevate-card-sheen {
+      display: none;
+    }
+
+    .elevate-btn-primary {
+      box-shadow: 0 0 0 1px rgba(232,255,71,0.24), inset 0 1px 1px rgba(255,255,255,0.7);
+    }
+
+    .elevate-btn-primary:hover,
+    .elevate-btn-secondary:hover {
+      transform: none;
+    }
+  }
 `
 
 const stages = [
@@ -216,6 +242,16 @@ export default function CinematicLandingHero({
   const primaryAction = hasProgram ? onDashboard : onStart
   const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
 
+  function selectStage(nextStageId, options = {}) {
+    setActiveStageId(nextStageId)
+
+    if (options.revealContent && typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      window.requestAnimationFrame(() => {
+        mainCardRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+      })
+    }
+  }
+
   function runPrimaryAction() {
     if (!hasProgram && typeof window !== 'undefined') {
       window.history.pushState(null, '', '#assessment')
@@ -244,14 +280,26 @@ export default function CinematicLandingHero({
     if (!contentRef.current || !ringRef.current) return
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(
-        contentRef.current.querySelectorAll('.stage-animate'),
-        { autoAlpha: 0, y: 18, scale: 0.97, filter: 'blur(10px)' },
-        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.48, stagger: 0.045, ease: 'power3.out' },
-      )
+      const isCompact = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+
+      if (isCompact) {
+        gsap.set(contentRef.current.querySelectorAll('.stage-animate'), {
+          autoAlpha: 1,
+          y: 0,
+          scale: 1,
+          filter: 'blur(0px)',
+        })
+      } else {
+        gsap.fromTo(
+          contentRef.current.querySelectorAll('.stage-animate'),
+          { autoAlpha: 0, y: 18, scale: 0.97, filter: 'blur(10px)' },
+          { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.48, stagger: 0.045, ease: 'power3.out' },
+        )
+      }
+
       gsap.to(ringRef.current, {
         strokeDashoffset: activeStage.progress,
-        duration: 0.85,
+        duration: isCompact ? 0 : 0.85,
         ease: 'power3.inOut',
       })
     }, contentRef)
@@ -291,7 +339,7 @@ export default function CinematicLandingHero({
   return (
     <section
       ref={containerRef}
-      className={cn('relative min-h-dvh overflow-hidden bg-bg px-4 pb-12 pt-28 text-white antialiased sm:px-6 lg:px-8 lg:pb-16 lg:pt-32', className)}
+      className={cn('relative min-h-dvh overflow-hidden bg-bg px-4 pb-8 pt-24 text-white antialiased sm:px-6 sm:pt-28 lg:px-8 lg:pb-16 lg:pt-32', className)}
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
@@ -299,13 +347,13 @@ export default function CinematicLandingHero({
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
 
-      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="elevate-copy min-w-0">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
             <Activity size={15} />
             <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
           </div>
-          <h1 className="max-w-4xl font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
+          <h1 className="max-w-4xl font-heading text-4xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
             Your fitness plan, built around real life.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
@@ -322,14 +370,14 @@ export default function CinematicLandingHero({
             </button>
             <button
               type="button"
-              onClick={() => setActiveStageId('membership')}
+              onClick={() => selectStage('membership', { revealContent: true })}
               className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
             >
               See How It Works
             </button>
           </div>
 
-          <div className="elevate-control-panel mt-8 grid gap-2 sm:grid-cols-2">
+          <div className="elevate-control-panel mt-6 grid gap-2 sm:mt-8 sm:grid-cols-2">
             {stages.map((stage) => {
               const Icon = stage.Icon
               const isActive = activeStage.id === stage.id
@@ -338,10 +386,10 @@ export default function CinematicLandingHero({
                 <button
                   key={stage.id}
                   type="button"
-                  onClick={() => setActiveStageId(stage.id)}
-                  className={`min-h-20 rounded-lg border p-3 text-left transition ${
+                  onClick={() => selectStage(stage.id, { revealContent: true })}
+                  className={`min-h-16 rounded-lg border p-3 text-left transition sm:min-h-20 ${
                     isActive
-                      ? 'border-accent bg-accent text-black shadow-[0_16px_36px_-20px_rgba(232,255,71,0.75)]'
+                      ? 'border-accent bg-accent text-black shadow-none sm:shadow-[0_16px_36px_-20px_rgba(232,255,71,0.75)]'
                       : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
                   }`}
                   aria-pressed={isActive}
@@ -351,8 +399,8 @@ export default function CinematicLandingHero({
                       <Icon size={19} />
                     </span>
                     <span>
-                      <span className="block font-heading text-xl uppercase">{stage.label}</span>
-                      <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/70' : 'text-body'}`}>
+                      <span className="block font-heading text-lg uppercase sm:text-xl">{stage.label}</span>
+                      <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/75' : 'text-body'}`}>
                         {stage.eyebrow}
                       </span>
                     </span>
@@ -365,14 +413,14 @@ export default function CinematicLandingHero({
 
         <div
           ref={mainCardRef}
-          className="elevate-main-card elevate-card relative min-h-[640px] overflow-hidden rounded-[28px] p-4 sm:p-6 lg:min-h-[700px] lg:rounded-[36px] lg:p-8"
+          className="elevate-main-card elevate-card relative scroll-mt-24 overflow-hidden rounded-2xl p-4 sm:min-h-[640px] sm:rounded-[28px] sm:p-6 lg:min-h-[700px] lg:scroll-mt-28 lg:rounded-[36px] lg:p-8"
         >
           <div className="elevate-card-sheen" aria-hidden="true" />
-          <div ref={contentRef} className="relative z-10 grid h-full gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+          <div ref={contentRef} className="relative z-10 grid h-full gap-5 sm:gap-6 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="flex flex-col justify-between gap-6">
               <div>
                 <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
-                <h2 className="stage-animate mt-3 font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+                <h2 className="stage-animate mt-3 font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
                   {activeStage.headline}
                 </h2>
                 <p className="stage-animate mt-4 text-sm leading-7 text-body sm:text-base">
@@ -398,7 +446,7 @@ export default function CinematicLandingHero({
               </div>
             </div>
 
-            <div className="flex items-center justify-center">
+            <div className="hidden items-center justify-center sm:flex">
               <div className="relative flex h-[560px] w-full items-center justify-center">
                 <div ref={mockupRef} className="elevate-phone relative flex h-[560px] w-[270px] flex-col rounded-[3rem] will-change-transform">
                   <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
