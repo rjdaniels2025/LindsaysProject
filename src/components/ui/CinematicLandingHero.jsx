@@ -17,6 +17,14 @@ import { gsap } from 'gsap'
 import { cn } from '../../lib/utils.js'
 
 const INJECTED_STYLES = `
+  .elevate-intro-title,
+  .elevate-intro-headline,
+  .elevate-copy,
+  .elevate-control-panel,
+  .elevate-main-card {
+    visibility: hidden;
+  }
+
   .elevate-film-grain {
     position: absolute; inset: 0; width: 100%; height: 100%;
     pointer-events: none; z-index: 50; opacity: 0.045; mix-blend-mode: overlay;
@@ -115,6 +123,26 @@ const INJECTED_STYLES = `
     stroke-linecap: round;
   }
 
+  .elevate-stage-button {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .elevate-stage-button::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(232,255,71,0.28), transparent 68%);
+    transition: opacity 0.28s ease;
+  }
+
+  .elevate-stage-button[aria-pressed='true']::after {
+    opacity: 1;
+  }
+
   @media (max-width: 767px) {
     .elevate-text-accent {
       filter: none;
@@ -138,6 +166,10 @@ const INJECTED_STYLES = `
     .elevate-btn-primary:hover,
     .elevate-btn-secondary:hover {
       transform: none;
+    }
+
+    .elevate-stage-button::after {
+      display: none;
     }
   }
 `
@@ -225,6 +257,43 @@ const stages = [
   },
 ]
 
+function StageControls({ activeStage, onSelect }) {
+  return (
+    <div className="elevate-control-panel grid gap-2 rounded-2xl border border-white/10 bg-black/42 p-2 backdrop-blur-md sm:grid-cols-2 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
+      {stages.map((stage) => {
+        const Icon = stage.Icon
+        const isActive = activeStage.id === stage.id
+
+        return (
+          <button
+            key={stage.id}
+            type="button"
+            onClick={() => onSelect(stage.id, { revealContent: true })}
+            className={`elevate-stage-button min-h-16 rounded-lg border p-3 text-left transition sm:min-h-20 ${
+              isActive
+                ? 'border-accent bg-accent text-black shadow-none sm:shadow-[0_16px_36px_-20px_rgba(232,255,71,0.75)]'
+                : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
+            }`}
+            aria-pressed={isActive}
+          >
+            <span className="flex items-center gap-3">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
+                <Icon size={19} />
+              </span>
+              <span>
+                <span className="block font-heading text-lg uppercase sm:text-xl">{stage.label}</span>
+                <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/75' : 'text-body'}`}>
+                  {stage.eyebrow}
+                </span>
+              </span>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function CinematicLandingHero({
   user,
   hasProgram,
@@ -239,6 +308,7 @@ export default function CinematicLandingHero({
   const contentRef = useRef(null)
   const ringRef = useRef(null)
   const requestRef = useRef(0)
+  const hasRenderedStageRef = useRef(false)
   const primaryAction = hasProgram ? onDashboard : onStart
   const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
 
@@ -261,16 +331,52 @@ export default function CinematicLandingHero({
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.fromTo(
-        ['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'],
-        { autoAlpha: 0, y: 28, filter: 'blur(14px)' },
-        { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.9, stagger: 0.08, ease: 'expo.out' },
-      )
-      gsap.fromTo(
-        '.elevate-phone',
-        { autoAlpha: 0, y: 60, rotateX: 16, scale: 0.92 },
-        { autoAlpha: 1, y: 0, rotateX: 0, scale: 1, duration: 1.1, delay: 0.15, ease: 'expo.out' },
-      )
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+      if (prefersReducedMotion) {
+        gsap.set(['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'], {
+          autoAlpha: 1,
+          y: 0,
+          filter: 'blur(0px)',
+        })
+        gsap.set(['.elevate-intro-title', '.elevate-intro-headline'], { autoAlpha: 0 })
+        return
+      }
+
+      const introTl = gsap.timeline({ defaults: { ease: 'expo.out' } })
+
+      introTl
+        .fromTo(
+          '.elevate-intro-title',
+          { autoAlpha: 0, y: 44, scale: 0.92, filter: 'blur(20px)' },
+          { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.9 },
+        )
+        .fromTo(
+          '.elevate-intro-headline',
+          { autoAlpha: 0, y: 28, clipPath: 'inset(0 100% 0 0)' },
+          { autoAlpha: 1, y: 0, clipPath: 'inset(0 0% 0 0)', duration: 0.9 },
+          '-=0.45',
+        )
+        .to(['.elevate-intro-title', '.elevate-intro-headline'], {
+          autoAlpha: 0,
+          y: -34,
+          scale: 1.04,
+          filter: 'blur(14px)',
+          duration: 0.55,
+          ease: 'power3.inOut',
+        }, '+=0.45')
+        .fromTo(
+          ['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'],
+          { autoAlpha: 0, y: 34, filter: 'blur(18px)', scale: 0.97 },
+          { autoAlpha: 1, y: 0, filter: 'blur(0px)', scale: 1, duration: 0.9, stagger: 0.08 },
+          '-=0.1',
+        )
+        .fromTo(
+          '.elevate-phone',
+          { autoAlpha: 0, y: 60, rotateX: 16, scale: 0.92 },
+          { autoAlpha: 1, y: 0, rotateX: 0, scale: 1, duration: 1.1, ease: 'expo.out' },
+          '-=0.75',
+        )
     }, containerRef)
 
     return () => ctx.revert()
@@ -281,6 +387,8 @@ export default function CinematicLandingHero({
 
     const ctx = gsap.context(() => {
       const isCompact = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+      const hasRenderedStage = hasRenderedStageRef.current
+      hasRenderedStageRef.current = true
 
       if (isCompact) {
         gsap.set(contentRef.current.querySelectorAll('.stage-animate'), {
@@ -290,10 +398,18 @@ export default function CinematicLandingHero({
           filter: 'blur(0px)',
         })
       } else {
+        if (hasRenderedStage && mainCardRef.current) {
+          gsap.fromTo(
+            mainCardRef.current,
+            { scale: 0.965, y: 22, filter: 'blur(10px)' },
+            { scale: 1, y: 0, filter: 'blur(0px)', duration: 0.62, ease: 'expo.out' },
+          )
+        }
+
         gsap.fromTo(
           contentRef.current.querySelectorAll('.stage-animate'),
-          { autoAlpha: 0, y: 18, scale: 0.97, filter: 'blur(10px)' },
-          { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.48, stagger: 0.045, ease: 'power3.out' },
+          { autoAlpha: 0, y: 24, scale: 0.96, filter: 'blur(12px)' },
+          { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.58, stagger: 0.055, ease: 'expo.out' },
         )
       }
 
@@ -347,6 +463,17 @@ export default function CinematicLandingHero({
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
 
+      <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
+        <div>
+          <p className="elevate-intro-title font-heading text-6xl uppercase leading-none text-white sm:text-8xl lg:text-[9rem]">
+            Elevate
+          </p>
+          <p className="elevate-intro-headline elevate-text-accent mt-2 font-heading text-4xl uppercase leading-none sm:text-6xl lg:text-7xl">
+            Health &amp; Fitness
+          </p>
+        </div>
+      </div>
+
       <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="elevate-copy min-w-0">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
@@ -377,38 +504,13 @@ export default function CinematicLandingHero({
             </button>
           </div>
 
-          <div className="elevate-control-panel mt-6 grid gap-2 sm:mt-8 sm:grid-cols-2">
-            {stages.map((stage) => {
-              const Icon = stage.Icon
-              const isActive = activeStage.id === stage.id
-
-              return (
-                <button
-                  key={stage.id}
-                  type="button"
-                  onClick={() => selectStage(stage.id, { revealContent: true })}
-                  className={`min-h-16 rounded-lg border p-3 text-left transition sm:min-h-20 ${
-                    isActive
-                      ? 'border-accent bg-accent text-black shadow-none sm:shadow-[0_16px_36px_-20px_rgba(232,255,71,0.75)]'
-                      : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
-                      <Icon size={19} />
-                    </span>
-                    <span>
-                      <span className="block font-heading text-lg uppercase sm:text-xl">{stage.label}</span>
-                      <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/75' : 'text-body'}`}>
-                        {stage.eyebrow}
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
+          <div className="mt-6 hidden sm:mt-8 sm:block">
+            <StageControls activeStage={activeStage} onSelect={selectStage} />
           </div>
+        </div>
+
+        <div className="sticky top-24 z-30 sm:hidden">
+          <StageControls activeStage={activeStage} onSelect={selectStage} />
         </div>
 
         <div
@@ -439,6 +541,25 @@ export default function CinematicLandingHero({
                       <div>
                         <p className="font-semibold text-white">{badge.title}</p>
                         <p className="mt-0.5 text-sm text-body">{badge.detail}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="stage-animate grid gap-3 sm:grid-cols-2">
+                {activeStage.widgets.map((widget) => {
+                  const Icon = widget.Icon
+                  return (
+                    <div key={widget.label} className="elevate-widget rounded-2xl p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                          <Icon size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{widget.label}</p>
+                          <p className="mt-0.5 text-xs leading-5 text-body">{widget.detail}</p>
+                        </div>
                       </div>
                     </div>
                   )
