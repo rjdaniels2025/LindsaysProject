@@ -515,7 +515,7 @@ export default function CinematicLandingHero({
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
       {isStageFocused ? (
-        <div className="sticky top-0 z-50 border-b border-white/10 bg-bg/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
+        <div className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-bg/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
           <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -574,7 +574,11 @@ export default function CinematicLandingHero({
           </div>
         </div>
       ) : null}
-      <div className="relative isolate min-h-dvh overflow-hidden px-4 pb-8 pt-16 sm:px-6 sm:pt-20 lg:px-8 lg:pb-16 lg:pt-24">
+      <div
+        className={`relative isolate min-h-dvh overflow-hidden px-4 pb-8 sm:px-6 lg:px-8 lg:pb-16 ${
+          isStageFocused ? 'pt-44 sm:pt-44 lg:pt-40' : 'pt-16 sm:pt-20 lg:pt-24'
+        }`}
+      >
         <div className="elevate-film-grain" aria-hidden="true" />
         <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
