@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Activity,
+  ArrowLeft,
   ArrowRight,
   CalendarCheck,
   CheckCircle2,
@@ -215,6 +216,22 @@ export default function CinematicLandingHero({
   const requestRef = useRef(0)
   const primaryAction = hasProgram ? onDashboard : onStart
   const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
+  const activeIndex = stages.findIndex((stage) => stage.id === activeStage.id)
+  const progressPercent = ((activeIndex + 1) / stages.length) * 100
+  const ActiveStageIcon = activeStage.Icon
+
+  function goToStage(index) {
+    const boundedIndex = Math.max(0, Math.min(stages.length - 1, index))
+    setActiveStageId(stages[boundedIndex].id)
+  }
+
+  function nextStage() {
+    if (activeIndex === stages.length - 1) {
+      primaryAction()
+      return
+    }
+    goToStage(activeIndex + 1)
+  }
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -315,14 +332,27 @@ export default function CinematicLandingHero({
             </button>
             <button
               type="button"
-              onClick={() => setActiveStageId('membership')}
+              onClick={nextStage}
               className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
             >
-              See How It Works
+              {activeIndex === stages.length - 1 ? 'Go To Questionnaire' : 'Continue Walkthrough'}
             </button>
           </div>
 
-          <div className="elevate-control-panel mt-8 grid gap-2 sm:grid-cols-2">
+          <div className="elevate-control-panel mt-8 rounded-[1.25rem] border border-white/10 bg-black/25 p-3 backdrop-blur-md">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <p className="font-heading text-xl uppercase text-white">Short Walkthrough</p>
+                <p className="text-xs leading-5 text-body">Step {activeIndex + 1} of {stages.length}. Jump around or continue in order.</p>
+              </div>
+              <div className="hidden min-w-24 text-right font-heading text-2xl text-accent sm:block">
+                {activeIndex + 1}/{stages.length}
+              </div>
+            </div>
+            <div className="mb-3 h-2 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
             {stages.map((stage) => {
               const Icon = stage.Icon
               const isActive = activeStage.id === stage.id
@@ -353,6 +383,26 @@ export default function CinematicLandingHero({
                 </button>
               )
             })}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={activeIndex === 0}
+                onClick={() => goToStage(activeIndex - 1)}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 font-heading text-lg uppercase text-white transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ArrowLeft size={17} />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={nextStage}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-4 font-heading text-lg uppercase text-black transition hover:brightness-95"
+              >
+                {activeIndex === stages.length - 1 ? 'Start' : 'Next'}
+                <ArrowRight size={17} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -364,6 +414,10 @@ export default function CinematicLandingHero({
           <div ref={contentRef} className="relative z-10 grid h-full gap-6 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="flex flex-col justify-between gap-6">
               <div>
+                <div className="stage-animate mb-4 inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-accent">
+                  <ActiveStageIcon size={15} />
+                  <span className="font-heading text-sm uppercase">Step {activeIndex + 1}: {activeStage.label}</span>
+                </div>
                 <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
                 <h2 className="stage-animate mt-3 font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
                   {activeStage.headline}
@@ -389,6 +443,14 @@ export default function CinematicLandingHero({
                   )
                 })}
               </div>
+              <button
+                type="button"
+                onClick={nextStage}
+                className="stage-animate inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-accent/35 bg-accent/10 px-5 font-heading text-lg uppercase text-accent transition hover:bg-accent hover:text-black"
+              >
+                {activeIndex === stages.length - 1 ? 'Start Questionnaire' : `Next: ${stages[activeIndex + 1].label}`}
+                <ArrowRight size={18} />
+              </button>
             </div>
 
             <div className="flex items-center justify-center">
