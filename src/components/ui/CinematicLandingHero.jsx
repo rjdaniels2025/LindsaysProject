@@ -1,16 +1,22 @@
-import { useEffect, useRef } from 'react'
-import { Activity, ArrowRight, CalendarCheck, Dumbbell, Flame, ShieldCheck, Utensils } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Activity,
+  ArrowRight,
+  CalendarCheck,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  Dumbbell,
+  Flame,
+  LayoutDashboard,
+  Repeat2,
+  ShieldCheck,
+  Utensils,
+} from 'lucide-react'
 import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { cn } from '../../lib/utils.js'
 
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger)
-}
-
 const INJECTED_STYLES = `
-  .elevate-reveal { visibility: hidden; }
-
   .elevate-film-grain {
     position: absolute; inset: 0; width: 100%; height: 100%;
     pointer-events: none; z-index: 50; opacity: 0.045; mix-blend-mode: overlay;
@@ -24,11 +30,6 @@ const INJECTED_STYLES = `
       linear-gradient(to bottom, rgba(255,255,255,0.045) 1px, transparent 1px);
     mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
     -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
-  }
-
-  .elevate-text-matte {
-    color: #fff;
-    text-shadow: 0 18px 40px rgba(0,0,0,0.65), 0 0 30px rgba(232,255,71,0.12);
   }
 
   .elevate-text-accent {
@@ -49,7 +50,6 @@ const INJECTED_STYLES = `
       inset 0 1px 2px rgba(255,255,255,0.18),
       inset 0 -2px 6px rgba(0,0,0,0.9);
     border: 1px solid rgba(232,255,71,0.12);
-    position: relative;
   }
 
   .elevate-card-sheen {
@@ -112,10 +112,92 @@ const INJECTED_STYLES = `
     transform: rotate(-90deg);
     transform-origin: center;
     stroke-dasharray: 402;
-    stroke-dashoffset: 402;
     stroke-linecap: round;
   }
 `
+
+const stages = [
+  {
+    id: 'assessment',
+    label: 'Assessment',
+    Icon: ClipboardList,
+    eyebrow: 'Start with the assessment',
+    headline: 'Tell Elevate what real life looks like.',
+    description: 'Goals, schedule, equipment, limitations, and experience become the foundation for a plan that actually fits.',
+    phoneTitle: 'Assessment',
+    metric: '12',
+    metricLabel: 'Inputs',
+    progress: 250,
+    widgets: [
+      { Icon: ClipboardList, label: 'Goals selected', detail: 'Strength, fat loss, consistency' },
+      { Icon: Dumbbell, label: 'Equipment mapped', detail: 'Gym, home, or minimal setup' },
+    ],
+    badges: [
+      { Icon: CheckCircle2, title: 'Profile ready', detail: 'Answers saved' },
+      { Icon: ShieldCheck, title: 'Built for one person', detail: 'Personal details matter' },
+    ],
+  },
+  {
+    id: 'membership',
+    label: 'Membership',
+    Icon: CreditCard,
+    eyebrow: 'Choose your support level',
+    headline: 'Pick the membership that matches the outcome.',
+    description: 'Starter keeps it simple, Transformation adds weekly adjustment, and Elite creates a higher-touch coaching path.',
+    phoneTitle: 'Transformation',
+    metric: '$199',
+    metricLabel: 'Recommended',
+    progress: 170,
+    widgets: [
+      { Icon: CreditCard, label: '6 month option', detail: 'Discounted upfront access' },
+      { Icon: ShieldCheck, label: 'Private membership', detail: 'One account, one journey' },
+    ],
+    badges: [
+      { Icon: Flame, title: 'Most popular', detail: 'Weekly support' },
+      { Icon: CheckCircle2, title: 'Savings available', detail: 'Pay 6 months upfront' },
+    ],
+  },
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    Icon: LayoutDashboard,
+    eyebrow: 'Unlock the dashboard',
+    headline: 'Workouts, meals, and progress in one place.',
+    description: 'The dashboard gives members a clear next step each time they log in, not a pile of disconnected advice.',
+    phoneTitle: 'Today',
+    metric: '84',
+    metricLabel: 'Consistency',
+    progress: 82,
+    widgets: [
+      { Icon: Dumbbell, label: 'Workout 03', detail: 'Sets, reps, rest, and cues' },
+      { Icon: Utensils, label: 'Meal guidance', detail: 'Targets and simple options' },
+    ],
+    badges: [
+      { Icon: CalendarCheck, title: 'Today planned', detail: 'Workout and meals' },
+      { Icon: LayoutDashboard, title: 'Progress visible', detail: 'Dashboard saved' },
+    ],
+  },
+  {
+    id: 'accountability',
+    label: 'Accountability',
+    Icon: Repeat2,
+    eyebrow: 'Stay in the loop',
+    headline: 'Weekly check-ins keep the plan realistic.',
+    description: 'Progress, soreness, energy, schedule changes, and missed workouts can guide the next adjustment.',
+    phoneTitle: 'Check-in',
+    metric: '7',
+    metricLabel: 'Day streak',
+    progress: 118,
+    widgets: [
+      { Icon: Activity, label: 'Recovery check', detail: 'Energy, soreness, sleep' },
+      { Icon: Repeat2, label: 'Plan adjusted', detail: 'Next week stays doable' },
+    ],
+    badges: [
+      { Icon: Flame, title: 'Streak protected', detail: 'Check-in completed' },
+      { Icon: CalendarCheck, title: 'Week adjusted', detail: 'Plan stays realistic' },
+    ],
+  },
+]
 
 export default function CinematicLandingHero({
   user,
@@ -124,35 +206,70 @@ export default function CinematicLandingHero({
   onDashboard,
   className,
 }) {
+  const [activeStageId, setActiveStageId] = useState('assessment')
   const containerRef = useRef(null)
   const mainCardRef = useRef(null)
   const mockupRef = useRef(null)
+  const contentRef = useRef(null)
+  const ringRef = useRef(null)
   const requestRef = useRef(0)
   const primaryAction = hasProgram ? onDashboard : onStart
+  const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        ['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'],
+        { autoAlpha: 0, y: 28, filter: 'blur(14px)' },
+        { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.9, stagger: 0.08, ease: 'expo.out' },
+      )
+      gsap.fromTo(
+        '.elevate-phone',
+        { autoAlpha: 0, y: 60, rotateX: 16, scale: 0.92 },
+        { autoAlpha: 1, y: 0, rotateX: 0, scale: 1, duration: 1.1, delay: 0.15, ease: 'expo.out' },
+      )
+    }, containerRef)
+
+    return () => ctx.revert()
+  }, [])
+
+  useEffect(() => {
+    if (!contentRef.current || !ringRef.current) return
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        contentRef.current.querySelectorAll('.stage-animate'),
+        { autoAlpha: 0, y: 18, scale: 0.97, filter: 'blur(10px)' },
+        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.48, stagger: 0.045, ease: 'power3.out' },
+      )
+      gsap.to(ringRef.current, {
+        strokeDashoffset: activeStage.progress,
+        duration: 0.85,
+        ease: 'power3.inOut',
+      })
+    }, contentRef)
+
+    return () => ctx.revert()
+  }, [activeStage])
 
   useEffect(() => {
     const handleMouseMove = (event) => {
-      if (window.scrollY > window.innerHeight * 2) return
-
       cancelAnimationFrame(requestRef.current)
       requestRef.current = requestAnimationFrame(() => {
         if (!mainCardRef.current || !mockupRef.current) return
 
         const rect = mainCardRef.current.getBoundingClientRect()
-        const mouseX = event.clientX - rect.left
-        const mouseY = event.clientY - rect.top
-
-        mainCardRef.current.style.setProperty('--mouse-x', `${mouseX}px`)
-        mainCardRef.current.style.setProperty('--mouse-y', `${mouseY}px`)
+        mainCardRef.current.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`)
+        mainCardRef.current.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`)
 
         const xVal = (event.clientX / window.innerWidth - 0.5) * 2
         const yVal = (event.clientY / window.innerHeight - 0.5) * 2
 
         gsap.to(mockupRef.current, {
-          rotationY: xVal * 10,
-          rotationX: -yVal * 10,
+          rotationY: xVal * 7,
+          rotationX: -yVal * 7,
           ease: 'power3.out',
-          duration: 1.1,
+          duration: 1,
         })
       })
     }
@@ -164,135 +281,123 @@ export default function CinematicLandingHero({
     }
   }, [])
 
-  useEffect(() => {
-    if (!containerRef.current) return undefined
-
-    const isMobile = window.innerWidth < 768
-    const ctx = gsap.context(() => {
-      gsap.set('.elevate-track', { autoAlpha: 0, y: 60, scale: 0.86, filter: 'blur(18px)', rotationX: -18 })
-      gsap.set('.elevate-days', { autoAlpha: 1, clipPath: 'inset(0 100% 0 0)' })
-      gsap.set('.elevate-main-card', { y: window.innerHeight + 180, autoAlpha: 1 })
-      gsap.set(['.elevate-card-left', '.elevate-card-right', '.elevate-mockup-wrapper', '.elevate-floating-badge', '.elevate-phone-widget'], { autoAlpha: 0 })
-      gsap.set('.elevate-cta-wrapper', { autoAlpha: 0, scale: 0.82, filter: 'blur(28px)' })
-
-      const introTl = gsap.timeline({ delay: 0.25 })
-      introTl
-        .to('.elevate-track', { duration: 1.5, autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', rotationX: 0, ease: 'expo.out' })
-        .to('.elevate-days', { duration: 1.25, clipPath: 'inset(0 0% 0 0)', ease: 'power4.inOut' }, '-=0.85')
-
-      const scrollTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: 'top top',
-          end: '+=5800',
-          pin: true,
-          scrub: 1,
-          anticipatePin: 1,
-        },
-      })
-
-      scrollTl
-        .to(['.elevate-hero-text-wrapper', '.elevate-grid'], { scale: 1.12, filter: 'blur(18px)', opacity: 0.2, ease: 'power2.inOut', duration: 2 }, 0)
-        .to('.elevate-main-card', { y: 0, ease: 'power3.inOut', duration: 2 }, 0)
-        .to('.elevate-main-card', { width: '100%', height: '100%', borderRadius: '0px', ease: 'power3.inOut', duration: 1.4 })
-        .fromTo('.elevate-mockup-wrapper',
-          { y: 280, z: -460, rotationX: 48, rotationY: -26, autoAlpha: 0, scale: 0.62 },
-          { y: 0, z: 0, rotationX: 0, rotationY: 0, autoAlpha: 1, scale: 1, ease: 'expo.out', duration: 2.4 }, '-=0.75')
-        .fromTo('.elevate-phone-widget', { y: 38, autoAlpha: 0, scale: 0.95 }, { y: 0, autoAlpha: 1, scale: 1, stagger: 0.13, ease: 'back.out(1.2)', duration: 1.4 }, '-=1.45')
-        .to('.elevate-progress-ring', { strokeDashoffset: 82, duration: 2, ease: 'power3.inOut' }, '-=1.1')
-        .to('.elevate-counter-val', { innerHTML: 84, snap: { innerHTML: 1 }, duration: 2, ease: 'expo.out' }, '-=2')
-        .fromTo('.elevate-floating-badge', { y: 90, autoAlpha: 0, scale: 0.72, rotationZ: -8 }, { y: 0, autoAlpha: 1, scale: 1, rotationZ: 0, ease: 'back.out(1.45)', duration: 1.4, stagger: 0.18 }, '-=2')
-        .fromTo('.elevate-card-left', { x: -45, autoAlpha: 0 }, { x: 0, autoAlpha: 1, ease: 'power4.out', duration: 1.4 }, '-=1.35')
-        .fromTo('.elevate-card-right', { x: 45, autoAlpha: 0, scale: 0.86 }, { x: 0, autoAlpha: 1, scale: 1, ease: 'expo.out', duration: 1.4 }, '<')
-        .to({}, { duration: 2.1 })
-        .set('.elevate-hero-text-wrapper', { autoAlpha: 0 })
-        .set('.elevate-cta-wrapper', { autoAlpha: 1 })
-        .to({}, { duration: 1.1 })
-        .to(['.elevate-mockup-wrapper', '.elevate-floating-badge', '.elevate-card-left', '.elevate-card-right'], {
-          scale: 0.9, y: -38, z: -180, autoAlpha: 0, ease: 'power3.in', duration: 1.15, stagger: 0.04,
-        })
-        .to('.elevate-main-card', {
-          width: isMobile ? '92vw' : '86vw',
-          height: isMobile ? '88vh' : '84vh',
-          borderRadius: isMobile ? '28px' : '36px',
-          ease: 'expo.inOut',
-          duration: 1.65,
-        }, 'pullback')
-        .to('.elevate-cta-wrapper', { scale: 1, filter: 'blur(0px)', ease: 'expo.inOut', duration: 1.65 }, 'pullback')
-    }, containerRef)
-
-    return () => ctx.revert()
-  }, [])
-
   return (
     <section
       ref={containerRef}
-      className={cn('relative flex h-screen w-screen items-center justify-center overflow-hidden bg-bg text-white antialiased', className)}
+      className={cn('relative min-h-dvh overflow-hidden bg-bg px-4 pb-12 pt-28 text-white antialiased sm:px-6 lg:px-8 lg:pb-16 lg:pt-32', className)}
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
       <div className="elevate-film-grain" aria-hidden="true" />
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
 
-      <div className="elevate-hero-text-wrapper absolute z-10 flex w-screen flex-col items-center justify-center px-4 text-center will-change-transform">
-        <p className="elevate-track elevate-reveal mb-3 font-heading text-5xl uppercase leading-none tracking-normal text-white sm:text-7xl lg:text-[6rem]">
-          Built around your real life,
-        </p>
-        <p className="elevate-days elevate-reveal elevate-text-accent font-heading text-5xl uppercase leading-none tracking-normal sm:text-7xl lg:text-[6rem]">
-          adjusted by your progress.
-        </p>
-      </div>
+      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="elevate-copy min-w-0">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+            <Activity size={15} />
+            <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
+          </div>
+          <h1 className="max-w-4xl font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
+            Your fitness plan, built around real life.
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
+            Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={primaryAction}
+              className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+            >
+              {hasProgram ? 'Open Dashboard' : 'Start Questionnaire'}
+              <ArrowRight size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveStageId('membership')}
+              className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+            >
+              See How It Works
+            </button>
+          </div>
 
-      <div className="elevate-cta-wrapper elevate-reveal pointer-events-auto absolute z-10 flex w-screen flex-col items-center justify-center px-4 text-center will-change-transform">
-        <h1 className="elevate-text-accent mb-5 font-heading text-5xl uppercase leading-none sm:text-7xl lg:text-8xl">
-          Elevate your next 8 weeks
-        </h1>
-        <p className="mx-auto mb-9 max-w-2xl text-base leading-7 text-body sm:text-lg">
-          Start with a focused questionnaire, choose your membership, then unlock a private dashboard for workouts, nutrition, check-ins, and progress.
-        </p>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <button
-            type="button"
-            onClick={primaryAction}
-            className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
-          >
-            {hasProgram ? 'Open Dashboard' : 'Start Questionnaire'}
-            <ArrowRight size={20} />
-          </button>
-          <button
-            type="button"
-            onClick={onStart}
-            className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
-          >
-            View Memberships
-          </button>
+          <div className="elevate-control-panel mt-8 grid gap-2 sm:grid-cols-2">
+            {stages.map((stage) => {
+              const Icon = stage.Icon
+              const isActive = activeStage.id === stage.id
+
+              return (
+                <button
+                  key={stage.id}
+                  type="button"
+                  onClick={() => setActiveStageId(stage.id)}
+                  className={`min-h-20 rounded-lg border p-3 text-left transition ${
+                    isActive
+                      ? 'border-accent bg-accent text-black shadow-[0_16px_36px_-20px_rgba(232,255,71,0.75)]'
+                      : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  <span className="flex items-center gap-3">
+                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
+                      <Icon size={19} />
+                    </span>
+                    <span>
+                      <span className="block font-heading text-xl uppercase">{stage.label}</span>
+                      <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/70' : 'text-body'}`}>
+                        {stage.eyebrow}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
 
-      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center" style={{ perspective: '1500px' }}>
         <div
           ref={mainCardRef}
-          className="elevate-main-card elevate-card elevate-reveal pointer-events-auto relative flex h-[88vh] w-[92vw] items-center justify-center overflow-hidden rounded-[28px] md:h-[84vh] md:w-[86vw] md:rounded-[36px]"
+          className="elevate-main-card elevate-card relative min-h-[640px] overflow-hidden rounded-[28px] p-4 sm:p-6 lg:min-h-[700px] lg:rounded-[36px] lg:p-8"
         >
           <div className="elevate-card-sheen" aria-hidden="true" />
-
-          <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col items-center justify-evenly px-4 py-6 lg:grid lg:grid-cols-3 lg:gap-8 lg:px-12 lg:py-0">
-            <div className="elevate-card-right elevate-reveal order-1 z-20 flex w-full justify-center lg:order-3 lg:justify-end">
-              <div className="text-center lg:text-right">
-                <p className="text-xs uppercase tracking-[0.24em] text-accent">Private member system</p>
-                <h2 className="elevate-text-matte mt-1 font-heading text-6xl uppercase leading-none tracking-normal md:text-[6rem] lg:text-[8rem]">
-                  Elevate
+          <div ref={contentRef} className="relative z-10 grid h-full gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className="flex flex-col justify-between gap-6">
+              <div>
+                <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
+                <h2 className="stage-animate mt-3 font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+                  {activeStage.headline}
                 </h2>
+                <p className="stage-animate mt-4 text-sm leading-7 text-body sm:text-base">
+                  {activeStage.description}
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                {activeStage.badges.map((badge) => {
+                  const Icon = badge.Icon
+                  return (
+                    <div key={badge.title} className="stage-animate elevate-floating-badge flex items-center gap-3 rounded-2xl p-4">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent">
+                        <Icon size={20} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-white">{badge.title}</p>
+                        <p className="mt-0.5 text-sm text-body">{badge.detail}</p>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            <div className="elevate-mockup-wrapper order-2 z-10 flex h-[380px] w-full items-center justify-center lg:h-[600px]" style={{ perspective: '1000px' }}>
-              <div className="relative flex h-full w-full scale-[0.65] items-center justify-center md:scale-[0.85] lg:scale-100">
-                <div ref={mockupRef} className="elevate-phone relative flex h-[580px] w-[280px] flex-col rounded-[3rem] will-change-transform">
-                  <div className="elevate-hardware-btn absolute -left-[3px] top-[120px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
-                  <div className="elevate-hardware-btn absolute -left-[3px] top-[160px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
-                  <div className="elevate-hardware-btn absolute -left-[3px] top-[220px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
-                  <div className="elevate-hardware-btn absolute -right-[3px] top-[170px] z-0 h-[70px] w-[3px] scale-x-[-1] rounded-r-md" aria-hidden="true" />
+            <div className="flex items-center justify-center">
+              <div className="relative flex h-[560px] w-full items-center justify-center">
+                <div ref={mockupRef} className="elevate-phone relative flex h-[560px] w-[270px] flex-col rounded-[3rem] will-change-transform">
+                  <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
+                  <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
+                  <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
+                  <div className="elevate-hardware-btn absolute -right-[3px] top-[168px] z-0 h-[70px] w-[3px] scale-x-[-1] rounded-r-md" aria-hidden="true" />
 
                   <div className="absolute inset-[7px] z-10 overflow-hidden rounded-[2.5rem] bg-[#050605] text-white shadow-[inset_0_0_15px_rgba(0,0,0,1)]">
                     <div className="elevate-screen-glare pointer-events-none absolute inset-0 z-40" aria-hidden="true" />
@@ -301,88 +406,48 @@ export default function CinematicLandingHero({
                     </div>
 
                     <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
-                      <div className="elevate-phone-widget mb-8 flex items-center justify-between">
+                      <div className="stage-animate mb-8 flex items-center justify-between">
                         <div className="flex flex-col">
-                          <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Today</span>
-                          <span className="text-xl font-bold text-white drop-shadow-md">Workout 03</span>
+                          <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
+                          <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
                         </div>
                         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
                           {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
                         </div>
                       </div>
 
-                      <div className="elevate-phone-widget relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
+                      <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
                         <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
                           <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
-                          <circle className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
+                          <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
                         </svg>
                         <div className="z-10 flex flex-col items-center text-center">
-                          <span className="elevate-counter-val text-4xl font-extrabold text-white">0</span>
-                          <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">Consistency</span>
+                          <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
+                          <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <div className="elevate-phone-widget elevate-widget flex items-center rounded-2xl p-3">
-                          <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
-                            <Dumbbell size={17} />
-                          </div>
-                          <div className="flex-1">
-                            <div className="mb-2 h-2 w-24 rounded-full bg-neutral-200 shadow-inner" />
-                            <div className="h-1.5 w-16 rounded-full bg-neutral-600 shadow-inner" />
-                          </div>
-                        </div>
-                        <div className="elevate-phone-widget elevate-widget flex items-center rounded-2xl p-3">
-                          <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300 shadow-inner">
-                            <Utensils size={17} />
-                          </div>
-                          <div className="flex-1">
-                            <div className="mb-2 h-2 w-20 rounded-full bg-neutral-200 shadow-inner" />
-                            <div className="h-1.5 w-28 rounded-full bg-neutral-600 shadow-inner" />
-                          </div>
-                        </div>
+                        {activeStage.widgets.map((widget) => {
+                          const Icon = widget.Icon
+                          return (
+                            <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
+                              <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
+                                <Icon size={17} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-white">{widget.label}</p>
+                                <p className="mt-0.5 truncate text-xs text-body">{widget.detail}</p>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
 
                       <div className="absolute bottom-2 left-1/2 h-[4px] w-[120px] -translate-x-1/2 rounded-full bg-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                     </div>
                   </div>
                 </div>
-
-                <div className="elevate-floating-badge absolute left-[-15px] top-6 z-30 flex items-center gap-3 rounded-xl p-3 lg:left-[-84px] lg:top-12 lg:gap-4 lg:rounded-2xl lg:p-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-accent lg:h-10 lg:w-10">
-                    <Flame size={19} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-white lg:text-sm">Streak protected</p>
-                    <p className="text-[10px] font-medium text-accent/55 lg:text-xs">Check-in completed</p>
-                  </div>
-                </div>
-
-                <div className="elevate-floating-badge absolute bottom-12 right-[-15px] z-30 flex items-center gap-3 rounded-xl p-3 lg:bottom-20 lg:right-[-84px] lg:gap-4 lg:rounded-2xl lg:p-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white lg:h-10 lg:w-10">
-                    <CalendarCheck size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-white lg:text-sm">Week adjusted</p>
-                    <p className="text-[10px] font-medium text-accent/55 lg:text-xs">Plan stays realistic</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="elevate-card-left elevate-reveal order-3 z-20 flex w-full flex-col justify-center px-4 text-center lg:order-1 lg:px-0 lg:text-left">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-accent text-black lg:mx-0">
-                <Activity size={24} />
-              </div>
-              <h3 className="mb-2 font-heading text-3xl uppercase leading-none tracking-normal text-white md:text-4xl lg:text-5xl">
-                Questionnaire to dashboard.
-              </h3>
-              <p className="mx-auto hidden max-w-sm text-base font-normal leading-7 text-body md:block lg:mx-0 lg:max-w-none">
-                Elevate turns each member's goals, equipment, schedule, and check-ins into a private plan that feels structured without feeling intimidating.
-              </p>
-              <div className="mt-5 hidden items-center gap-2 text-sm text-accent md:flex">
-                <ShieldCheck size={18} />
-                <span>One membership. One personalized journey.</span>
               </div>
             </div>
           </div>
