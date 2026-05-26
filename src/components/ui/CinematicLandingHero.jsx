@@ -152,6 +152,11 @@ const INJECTED_STYLES = `
   }
 
   @media (max-width: 767px) {
+    .elevate-intro-title,
+    .elevate-intro-headline {
+      visibility: visible;
+    }
+
     .elevate-text-accent {
       filter: none;
     }
@@ -376,14 +381,20 @@ export default function CinematicLandingHero({
   useEffect(() => {
     const ctx = gsap.context(() => {
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const isCompact = window.matchMedia('(max-width: 767px)').matches
 
-      if (prefersReducedMotion) {
+      if (prefersReducedMotion || isCompact) {
         gsap.set(['.elevate-copy', '.elevate-controls-shell', '.elevate-main-card'], {
           autoAlpha: 1,
           y: 0,
           filter: 'blur(0px)',
         })
-        gsap.set(['.elevate-intro-title', '.elevate-intro-headline'], { autoAlpha: 0 })
+        gsap.set(['.elevate-intro-title', '.elevate-intro-headline'], {
+          autoAlpha: 1,
+          y: 0,
+          scale: 1,
+          filter: 'blur(0px)',
+        })
         return
       }
 
@@ -504,17 +515,30 @@ export default function CinematicLandingHero({
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
       <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-white/10 bg-bg/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <img
-              src="/ehw-logo.jpeg"
-              alt="Elevate Health and Wellness"
-              className="h-10 w-10 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
-            />
-            <div className="min-w-0">
-              <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-body sm:text-xs">Health and Wellness</p>
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <img
+                src="/ehw-logo.jpeg"
+                alt="Elevate Health and Wellness"
+                className="h-10 w-10 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
+              />
+              <div className="min-w-0">
+                <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-body sm:text-xs">Health and Wellness</p>
+              </div>
             </div>
+
+            {onSignOut ? (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white backdrop-blur-md transition hover:border-accent/60 sm:px-4"
+                aria-label="Sign out"
+              >
+                <LogOut size={16} />
+              </button>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
@@ -545,17 +569,6 @@ export default function CinematicLandingHero({
                 </button>
               )
             })}
-
-            {onSignOut ? (
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white backdrop-blur-md transition hover:border-accent/60 sm:px-4"
-                aria-label="Sign out"
-              >
-                <LogOut size={16} />
-              </button>
-            ) : null}
           </div>
         </div>
       </div>
