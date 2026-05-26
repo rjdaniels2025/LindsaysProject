@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
 import MembershipGate from './components/MembershipGate.jsx'
@@ -76,7 +77,7 @@ function LoadingScreen({ label = 'Loading your dashboard' }) {
   )
 }
 
-function MissingSupabaseGate({ onBack }) {
+function MissingSupabaseGate({ onBack, onHome }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 text-body">
       <div className="w-full max-w-md rounded-lg border border-red-400/40 bg-card p-6 shadow-2xl shadow-black/50">
@@ -85,19 +86,29 @@ function MissingSupabaseGate({ onBack }) {
         <p className="mt-3 text-sm leading-6 text-body">
           Account creation is ready, but Supabase is not connected to this deployment yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.
         </p>
-        <button
-          type="button"
-          onClick={onBack}
-          className="mt-5 min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white"
-        >
-          Back To Membership
-        </button>
+        <div className="mt-5 grid gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white"
+          >
+            Back To Membership
+          </button>
+          <button
+            type="button"
+            onClick={onHome}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
+          >
+            <ArrowLeft size={18} />
+            Home
+          </button>
+        </div>
       </div>
     </main>
   )
 }
 
-function AccountGate({ onBack, onAuthenticated }) {
+function AccountGate({ onBack, onHome, onAuthenticated }) {
   const [mode, setMode] = useState('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -240,6 +251,14 @@ function AccountGate({ onBack, onAuthenticated }) {
         >
           Back to membership
         </button>
+        <button
+          type="button"
+          onClick={onHome}
+          className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase text-body transition hover:text-white"
+        >
+          <ArrowLeft size={18} />
+          Home
+        </button>
       </form>
     </main>
   )
@@ -271,6 +290,10 @@ function App() {
       window.history.pushState(null, '', nextHash)
     }
   }, [])
+
+  const goHome = useCallback(() => {
+    navigateStage('landing')
+  }, [navigateStage])
 
   const applyAppState = useCallback((nextState) => {
     setStage(stageFromHash() || normalizeStage(nextState.stage))
@@ -524,16 +547,17 @@ function App() {
         onSendMessage={sendMessage}
         onAnalyzeMedia={analyzeMedia}
         onSignOut={signOut}
+        onHome={goHome}
       />
     )
   }
 
   if (stage === 'account') {
     if (!isSupabaseConfigured) {
-      return <MissingSupabaseGate onBack={() => navigateStage('membership')} />
+      return <MissingSupabaseGate onBack={() => navigateStage('membership')} onHome={goHome} />
     }
 
-    return <AccountGate onBack={() => navigateStage('membership')} onAuthenticated={handleAuthenticated} />
+    return <AccountGate onBack={() => navigateStage('membership')} onHome={goHome} onAuthenticated={handleAuthenticated} />
   }
 
   if (stage === 'assessment') {
@@ -542,6 +566,7 @@ function App() {
         initialProfile={profileDraft}
         onProfileChange={saveProfileDraft}
         onComplete={prepareMembership}
+        onHome={goHome}
         isLoading={isLoading}
         error={error}
       />
@@ -572,6 +597,7 @@ function App() {
         onCreateAccount={startAccountCreation}
         onGeneratePlan={generateProgram}
         onBack={() => navigateStage('assessment')}
+        onHome={goHome}
         error={error}
       />
     )
@@ -582,6 +608,7 @@ function App() {
       initialProfile={profileDraft}
       onProfileChange={saveProfileDraft}
       onComplete={prepareMembership}
+      onHome={goHome}
       isLoading={isLoading}
       error={error}
     />

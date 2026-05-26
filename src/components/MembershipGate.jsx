@@ -1,4 +1,4 @@
-import { CheckCircle2, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
 
 const membershipPlans = [
   {
@@ -73,6 +73,7 @@ export default function MembershipGate({
   onCreateAccount,
   onGeneratePlan,
   onBack,
+  onHome,
   error,
 }) {
   const activePlan = selectedPlan || 'transformation'
@@ -92,13 +93,23 @@ export default function MembershipGate({
               Your questionnaire is saved. Choose a membership to create your account, activate access, and generate the full personalized dashboard.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onBack}
-            className="min-h-11 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
-          >
-            Edit Assessment
-          </button>
+          <div className="flex flex-col gap-3 sm:items-end">
+            <button
+              type="button"
+              onClick={onHome}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+            >
+              <ArrowLeft size={18} />
+              Home
+            </button>
+            <button
+              type="button"
+              onClick={onBack}
+              className="min-h-11 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+            >
+              Edit Assessment
+            </button>
+          </div>
         </header>
 
         <section className="grid gap-4 py-8 lg:grid-cols-[1fr_24rem]">

@@ -113,7 +113,7 @@ function inputClass(hasError) {
   }`
 }
 
-export default function Onboarding({ initialProfile, onProfileChange, onComplete, isLoading, error }) {
+export default function Onboarding({ initialProfile, onProfileChange, onComplete, onHome, isLoading, error }) {
   const [step, setStep] = useState(1)
   const [touched, setTouched] = useState(initialTouched)
   const [profile, setProfile] = useState({ ...defaultProfile, ...(initialProfile || {}) })
@@ -187,9 +187,19 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
               Build Your Program
             </h1>
           </div>
-          <div className="hidden text-right sm:block">
-            <p className="font-heading text-3xl text-white">0{step}/03</p>
-            <p className="text-sm uppercase text-body">Assessment</p>
+          <div className="flex shrink-0 flex-col items-end gap-3">
+            <button
+              type="button"
+              onClick={onHome}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+            >
+              <ArrowLeft size={18} />
+              Home
+            </button>
+            <div className="hidden text-right sm:block">
+              <p className="font-heading text-3xl text-white">0{step}/03</p>
+              <p className="text-sm uppercase text-body">Assessment</p>
+            </div>
           </div>
         </div>
 

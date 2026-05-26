@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Camera, Sparkles, Target, X } from 'lucide-react'
+import { ArrowLeft, Camera, Sparkles, Target, X } from 'lucide-react'
 import ProgramDashboard from './ProgramDashboard.jsx'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
@@ -92,6 +92,7 @@ export default function Chat({
   onSendMessage,
   onAnalyzeMedia,
   onSignOut,
+  onHome,
 }) {
   const [media, setMedia] = useState(null)
   const [mediaError, setMediaError] = useState('')
@@ -188,13 +189,23 @@ export default function Chat({
             <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
             {planDates ? <p className="mt-1 text-xs uppercase tracking-[0.12em] text-accent">{planDates}</p> : null}
           </div>
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="min-h-11 shrink-0 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
-          >
-            Sign Out
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onHome}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
+            >
+              <ArrowLeft size={17} />
+              Home
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="min-h-11 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
