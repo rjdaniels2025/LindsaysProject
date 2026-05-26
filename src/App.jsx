@@ -125,9 +125,10 @@ function AccountGate({ onBack, onAuthenticated }) {
     setIsSubmitting(true)
 
     try {
-      const result = isCreating
+      const trimmedEmail = email.trim()
+      let result = isCreating
         ? await supabase.auth.signUp({
-            email: email.trim(),
+            email: trimmedEmail,
             password,
             options: {
               data: {
@@ -136,7 +137,7 @@ function AccountGate({ onBack, onAuthenticated }) {
             },
           })
         : await supabase.auth.signInWithPassword({
-            email: email.trim(),
+            email: trimmedEmail,
             password,
           })
 
@@ -145,13 +146,24 @@ function AccountGate({ onBack, onAuthenticated }) {
         return
       }
 
-      if (result.data.session) {
-        onAuthenticated?.()
+      if (isCreating && !result.data.session) {
+        result = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        })
+
+        if (result.error) {
+          setError(result.error.message)
+          return
+        }
       }
 
-      if (isCreating && !result.data.session) {
-        setMessage('Account created. Check your email to confirm your account, then log in.')
+      if (result.data.session) {
+        onAuthenticated?.()
+        return
       }
+
+      setError('Account created, but sign in is still blocked by the Supabase email confirmation setting.')
     } finally {
       setIsSubmitting(false)
     }
