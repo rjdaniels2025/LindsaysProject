@@ -510,7 +510,7 @@ export default function CinematicLandingHero({
   return (
     <section
       ref={containerRef}
-      className={cn('relative min-h-dvh overflow-hidden bg-bg px-4 pb-8 pt-24 text-white antialiased sm:px-6 sm:pt-28 lg:px-8 lg:pb-16 lg:pt-32', className)}
+      className={cn('relative min-h-dvh bg-bg px-4 pb-8 pt-24 text-white antialiased sm:px-6 sm:pt-28 lg:px-8 lg:pb-16 lg:pt-32', className)}
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
@@ -542,7 +542,7 @@ export default function CinematicLandingHero({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               {stages.map((stage) => {
                 const Icon = stage.Icon
                 const isActive = activeStage.id === stage.id
@@ -553,7 +553,7 @@ export default function CinematicLandingHero({
                     type="button"
                     onClick={() => selectStage(stage.id, { revealContent: true })}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
+                    className={`inline-flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
                       isActive
                         ? 'border-accent bg-accent text-black shadow-none'
                         : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
@@ -574,17 +574,18 @@ export default function CinematicLandingHero({
           </div>
         </div>
       ) : null}
+      <div className="relative overflow-hidden">
       <div className="elevate-film-grain" aria-hidden="true" />
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
       <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
 
       <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
-        <div className="max-w-[16ch]">
-          <p className="elevate-intro-title font-heading text-4xl uppercase leading-none text-white sm:text-8xl lg:text-[9rem]">
+        <div className="max-w-[13ch] sm:max-w-[16ch]">
+          <p className="elevate-intro-title text-balance font-heading text-5xl uppercase leading-[0.84] text-white sm:text-8xl lg:text-[9rem]">
             Elevate
           </p>
-          <p className="elevate-intro-headline elevate-text-accent mt-2 font-heading text-2xl uppercase leading-none sm:text-6xl lg:text-7xl">
+          <p className="elevate-intro-headline elevate-text-accent mt-2 text-balance font-heading text-2xl uppercase leading-[0.9] sm:text-6xl lg:text-7xl">
             Health &amp; Fitness
           </p>
         </div>
@@ -596,10 +597,10 @@ export default function CinematicLandingHero({
             <Activity size={15} />
             <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
           </div>
-          <h1 className="max-w-4xl font-heading text-4xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
+          <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-7xl lg:text-8xl">
             Your fitness plan, built around real life.
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
+          <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
             Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -627,17 +628,17 @@ export default function CinematicLandingHero({
 
         {isStageFocused ? (
           <div className="z-30">
-            <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-4 flex flex-col gap-3 text-center sm:mb-5 sm:flex-row sm:items-end sm:justify-between sm:text-left">
               <div>
                 <p className="font-heading text-sm uppercase text-accent">Choose a feature</p>
-                <h2 className="font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+                <h2 className="text-balance font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
                   Explore Elevate
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={runPrimaryAction}
-                className="elevate-btn-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase"
+                className="elevate-btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase sm:w-auto"
               >
                 {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
                 <ArrowRight size={18} />
@@ -650,18 +651,18 @@ export default function CinematicLandingHero({
         <div
           ref={mainCardRef}
           className={`elevate-main-card elevate-card relative scroll-mt-24 overflow-hidden rounded-2xl p-4 sm:rounded-[28px] sm:p-6 lg:scroll-mt-28 lg:rounded-[36px] lg:p-8 ${
-            isStageFocused ? 'min-h-[560px] lg:min-h-[620px]' : 'sm:min-h-[640px] lg:min-h-[700px]'
+            isStageFocused ? 'min-h-0 sm:min-h-[560px] lg:min-h-[620px]' : 'min-h-0 sm:min-h-[640px] lg:min-h-[700px]'
           }`}
         >
           <div className="elevate-card-sheen" aria-hidden="true" />
           <div ref={contentRef} className={`relative z-10 grid h-full gap-5 sm:gap-6 ${isStageFocused ? 'lg:grid-cols-[1fr_0.82fr]' : 'lg:grid-cols-[0.92fr_1.08fr]'}`}>
-            <div className="flex flex-col justify-between gap-6">
+            <div className="flex flex-col gap-6 text-center sm:justify-between sm:text-left">
               <div>
                 <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
-                <h2 className={`stage-animate mt-3 font-heading uppercase leading-none text-white ${isStageFocused ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-3xl sm:text-5xl'}`}>
+                <h2 className={`stage-animate text-balance mt-3 font-heading uppercase leading-[0.9] text-white ${isStageFocused ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-3xl sm:text-5xl'}`}>
                   {activeStage.headline}
                 </h2>
-                <p className={`stage-animate mt-4 leading-7 text-body ${isStageFocused ? 'max-w-3xl text-base sm:text-xl sm:leading-9' : 'text-sm sm:text-base'}`}>
+                <p className={`stage-animate text-balance mt-4 leading-7 text-body ${isStageFocused ? 'mx-auto max-w-3xl text-base sm:mx-0 sm:text-xl sm:leading-9' : 'text-sm sm:text-base'}`}>
                   {activeStage.description}
                 </p>
               </div>
@@ -762,6 +763,7 @@ export default function CinematicLandingHero({
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
