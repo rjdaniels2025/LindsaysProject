@@ -311,6 +311,13 @@ function StageControls({ activeStage, onSelect }) {
   )
 }
 
+function orderedHeaderStages(activeStage) {
+  return [
+    activeStage,
+    ...stages.filter((stage) => stage.id !== activeStage.id),
+  ]
+}
+
 export default function CinematicLandingHero({
   user,
   hasProgram,
@@ -542,7 +549,7 @@ export default function CinematicLandingHero({
             </div>
 
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              {stages.map((stage) => {
+              {orderedHeaderStages(activeStage).map((stage) => {
                 const Icon = stage.Icon
                 const isActive = activeStage.id === stage.id
 
@@ -642,7 +649,6 @@ export default function CinematicLandingHero({
                 <ArrowRight size={18} />
               </button>
             </div>
-            <StageControls activeStage={activeStage} onSelect={selectStage} />
           </div>
         ) : null}
 
