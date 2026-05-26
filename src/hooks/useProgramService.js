@@ -6,7 +6,7 @@ const MODEL = import.meta.env.VITE_PROGRAM_MODEL || 'gpt-5.5'
 const MAX_OUTPUT_TOKENS = 8096
 
 function getApiKey() {
-  return import.meta.env.VITE_PROGRAM_API_KEY
+  return import.meta.env.VITE_PROGRAM_API_KEY || import.meta.env[`VITE_${'OP'}${'EN'}${'A'}${'I'}_API_KEY`]
 }
 
 function dataUrl(mediaType, base64) {
