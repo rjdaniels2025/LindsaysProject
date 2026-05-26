@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Activity,
-  ArrowLeft,
   ArrowRight,
   CalendarCheck,
   CheckCircle2,
@@ -117,18 +116,19 @@ const INJECTED_STYLES = `
   }
 `
 
-const stages = [
+const scenes = [
   {
     id: 'assessment',
     label: 'Assessment',
     Icon: ClipboardList,
-    eyebrow: 'Start with the assessment',
+    eyebrow: 'Step 1',
     headline: 'Tell Elevate what real life looks like.',
-    description: 'Goals, schedule, equipment, limitations, and experience become the foundation for a plan that actually fits.',
+    description: 'Start with a focused assessment covering goals, schedule, equipment, limitations, and experience.',
     phoneTitle: 'Assessment',
     metric: '12',
     metricLabel: 'Inputs',
     progress: 250,
+    action: 'Start the assessment',
     widgets: [
       { Icon: ClipboardList, label: 'Goals selected', detail: 'Strength, fat loss, consistency' },
       { Icon: Dumbbell, label: 'Equipment mapped', detail: 'Gym, home, or minimal setup' },
@@ -142,13 +142,14 @@ const stages = [
     id: 'membership',
     label: 'Membership',
     Icon: CreditCard,
-    eyebrow: 'Choose your support level',
-    headline: 'Pick the membership that matches the outcome.',
+    eyebrow: 'Step 2',
+    headline: 'Choose the support level that matches the outcome.',
     description: 'Starter keeps it simple, Transformation adds weekly adjustment, and Elite creates a higher-touch coaching path.',
     phoneTitle: 'Transformation',
     metric: '$199',
     metricLabel: 'Recommended',
     progress: 170,
+    action: 'View memberships',
     widgets: [
       { Icon: CreditCard, label: '6 month option', detail: 'Discounted upfront access' },
       { Icon: ShieldCheck, label: 'Private membership', detail: 'One account, one journey' },
@@ -162,13 +163,14 @@ const stages = [
     id: 'dashboard',
     label: 'Dashboard',
     Icon: LayoutDashboard,
-    eyebrow: 'Unlock the dashboard',
-    headline: 'Workouts, meals, and progress in one place.',
-    description: 'The dashboard gives members a clear next step each time they log in, not a pile of disconnected advice.',
+    eyebrow: 'Step 3',
+    headline: 'Unlock one private place for the whole plan.',
+    description: 'Workouts, meals, check-ins, and progress tracking live together so every login has a clear next step.',
     phoneTitle: 'Today',
     metric: '84',
     metricLabel: 'Consistency',
     progress: 82,
+    action: 'Open dashboard',
     widgets: [
       { Icon: Dumbbell, label: 'Workout 03', detail: 'Sets, reps, rest, and cues' },
       { Icon: Utensils, label: 'Meal guidance', detail: 'Targets and simple options' },
@@ -182,13 +184,14 @@ const stages = [
     id: 'accountability',
     label: 'Accountability',
     Icon: Repeat2,
-    eyebrow: 'Stay in the loop',
-    headline: 'Weekly check-ins keep the plan realistic.',
+    eyebrow: 'Step 4',
+    headline: 'Keep the plan realistic with weekly feedback.',
     description: 'Progress, soreness, energy, schedule changes, and missed workouts can guide the next adjustment.',
     phoneTitle: 'Check-in',
     metric: '7',
     metricLabel: 'Day streak',
     progress: 118,
+    action: 'Start with my assessment',
     widgets: [
       { Icon: Activity, label: 'Recovery check', detail: 'Energy, soreness, sleep' },
       { Icon: Repeat2, label: 'Plan adjusted', detail: 'Next week stays doable' },
@@ -207,43 +210,27 @@ export default function CinematicLandingHero({
   onDashboard,
   className,
 }) {
-  const [activeStageId, setActiveStageId] = useState('assessment')
+  const [activeSceneId, setActiveSceneId] = useState(null)
   const containerRef = useRef(null)
+  const sceneRef = useRef(null)
   const mainCardRef = useRef(null)
   const mockupRef = useRef(null)
-  const contentRef = useRef(null)
   const ringRef = useRef(null)
   const requestRef = useRef(0)
   const primaryAction = hasProgram ? onDashboard : onStart
-  const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
-  const activeIndex = stages.findIndex((stage) => stage.id === activeStage.id)
-  const progressPercent = ((activeIndex + 1) / stages.length) * 100
-  const ActiveStageIcon = activeStage.Icon
+  const activeScene = scenes.find((scene) => scene.id === activeSceneId)
+  const ActiveSceneIcon = activeScene?.Icon
 
-  function goToStage(index) {
-    const boundedIndex = Math.max(0, Math.min(stages.length - 1, index))
-    setActiveStageId(stages[boundedIndex].id)
-  }
-
-  function nextStage() {
-    if (activeIndex === stages.length - 1) {
-      primaryAction()
-      return
-    }
-    goToStage(activeIndex + 1)
+  function selectScene(sceneId) {
+    setActiveSceneId(sceneId)
   }
 
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
-        ['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'],
-        { autoAlpha: 0, y: 28, filter: 'blur(14px)' },
-        { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.9, stagger: 0.08, ease: 'expo.out' },
-      )
-      gsap.fromTo(
-        '.elevate-phone',
-        { autoAlpha: 0, y: 60, rotateX: 16, scale: 0.92 },
-        { autoAlpha: 1, y: 0, rotateX: 0, scale: 1, duration: 1.1, delay: 0.15, ease: 'expo.out' },
+        ['.opening-copy', '.scene-selector', '.opening-cta'],
+        { autoAlpha: 0, y: 34, scale: 0.96, filter: 'blur(16px)' },
+        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 1.05, stagger: 0.1, ease: 'expo.out' },
       )
     }, containerRef)
 
@@ -251,23 +238,23 @@ export default function CinematicLandingHero({
   }, [])
 
   useEffect(() => {
-    if (!contentRef.current || !ringRef.current) return
+    if (!sceneRef.current || !activeScene) return
 
     const ctx = gsap.context(() => {
       gsap.fromTo(
-        contentRef.current.querySelectorAll('.stage-animate'),
-        { autoAlpha: 0, y: 18, scale: 0.97, filter: 'blur(10px)' },
-        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.48, stagger: 0.045, ease: 'power3.out' },
+        sceneRef.current.querySelectorAll('.scene-animate'),
+        { autoAlpha: 0, y: 34, scale: 0.96, filter: 'blur(18px)' },
+        { autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)', duration: 0.72, stagger: 0.065, ease: 'expo.out' },
       )
       gsap.to(ringRef.current, {
-        strokeDashoffset: activeStage.progress,
+        strokeDashoffset: activeScene.progress,
         duration: 0.85,
         ease: 'power3.inOut',
       })
-    }, contentRef)
+    }, sceneRef)
 
     return () => ctx.revert()
-  }, [activeStage])
+  }, [activeScene])
 
   useEffect(() => {
     const handleMouseMove = (event) => {
@@ -301,7 +288,7 @@ export default function CinematicLandingHero({
   return (
     <section
       ref={containerRef}
-      className={cn('relative min-h-dvh overflow-hidden bg-bg px-4 pb-12 pt-28 text-white antialiased sm:px-6 lg:px-8 lg:pb-16 lg:pt-32', className)}
+      className={cn('relative grid min-h-dvh overflow-hidden bg-bg px-4 pb-8 pt-28 text-white antialiased sm:px-6 lg:px-8 lg:pt-32', className)}
       style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
@@ -309,19 +296,47 @@ export default function CinematicLandingHero({
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
 
-      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="elevate-copy min-w-0">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
-            <Activity size={15} />
-            <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
+      {!activeScene ? (
+        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col justify-center">
+          <div className="opening-copy max-w-5xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+              <Activity size={15} />
+              <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
+            </div>
+            <h1 className="max-w-5xl font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-[6.75rem]">
+              Your fitness plan,
+              <span className="elevate-text-accent block">built around real life.</span>
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
+              Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
+            </p>
           </div>
-          <h1 className="max-w-4xl font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
-            Your fitness plan, built around real life.
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
-            Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
-          </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+
+          <div className="scene-selector mt-10 grid gap-3 lg:grid-cols-4">
+            {scenes.map((scene) => {
+              const Icon = scene.Icon
+
+              return (
+                <button
+                  key={scene.id}
+                  type="button"
+                  onClick={() => selectScene(scene.id)}
+                  className="group min-h-36 rounded-[1.25rem] border border-white/10 bg-black/35 p-4 text-left backdrop-blur-md transition hover:-translate-y-1 hover:border-accent/70 hover:bg-accent hover:text-black"
+                >
+                  <span className="flex items-center justify-between gap-4">
+                    <span className="grid h-12 w-12 place-items-center rounded-lg bg-accent text-black transition group-hover:bg-black group-hover:text-accent">
+                      <Icon size={22} />
+                    </span>
+                    <ArrowRight className="text-accent transition group-hover:translate-x-1 group-hover:text-black" size={20} />
+                  </span>
+                  <span className="mt-5 block font-heading text-3xl uppercase leading-none">{scene.label}</span>
+                  <span className="mt-2 block text-sm leading-6 text-body group-hover:text-black/70">{scene.description}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="opening-cta mt-8 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               onClick={primaryAction}
@@ -330,130 +345,99 @@ export default function CinematicLandingHero({
               {hasProgram ? 'Open Dashboard' : 'Start Questionnaire'}
               <ArrowRight size={20} />
             </button>
-            <button
-              type="button"
-              onClick={nextStage}
-              className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
-            >
-              {activeIndex === stages.length - 1 ? 'Go To Questionnaire' : 'Continue Walkthrough'}
-            </button>
-          </div>
-
-          <div className="elevate-control-panel mt-8 rounded-[1.25rem] border border-white/10 bg-black/25 p-3 backdrop-blur-md">
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <div>
-                <p className="font-heading text-xl uppercase text-white">Short Walkthrough</p>
-                <p className="text-xs leading-5 text-body">Step {activeIndex + 1} of {stages.length}. Jump around or continue in order.</p>
-              </div>
-              <div className="hidden min-w-24 text-right font-heading text-2xl text-accent sm:block">
-                {activeIndex + 1}/{stages.length}
-              </div>
-            </div>
-            <div className="mb-3 h-2 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${progressPercent}%` }} />
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-            {stages.map((stage) => {
-              const Icon = stage.Icon
-              const isActive = activeStage.id === stage.id
-
-              return (
-                <button
-                  key={stage.id}
-                  type="button"
-                  onClick={() => setActiveStageId(stage.id)}
-                  className={`min-h-20 rounded-lg border p-3 text-left transition ${
-                    isActive
-                      ? 'border-accent bg-accent text-black shadow-[0_16px_36px_-20px_rgba(232,255,71,0.75)]'
-                      : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
-                      <Icon size={19} />
-                    </span>
-                    <span>
-                      <span className="block font-heading text-xl uppercase">{stage.label}</span>
-                      <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/70' : 'text-body'}`}>
-                        {stage.eyebrow}
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={activeIndex === 0}
-                onClick={() => goToStage(activeIndex - 1)}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 font-heading text-lg uppercase text-white transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ArrowLeft size={17} />
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={nextStage}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-4 font-heading text-lg uppercase text-black transition hover:brightness-95"
-              >
-                {activeIndex === stages.length - 1 ? 'Start' : 'Next'}
-                <ArrowRight size={17} />
-              </button>
-            </div>
           </div>
         </div>
+      ) : (
+        <div ref={sceneRef} className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+          <div className="scene-animate">
+            <button
+              type="button"
+              onClick={() => setActiveSceneId(null)}
+              className="mb-5 min-h-11 rounded-lg border border-white/10 bg-black/35 px-4 font-heading text-lg uppercase text-white backdrop-blur-md transition hover:border-accent"
+            >
+              All Steps
+            </button>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+              {ActiveSceneIcon ? <ActiveSceneIcon size={15} /> : null}
+              <span className="font-heading text-sm uppercase">{activeScene.eyebrow}: {activeScene.label}</span>
+            </div>
+            <h2 className="font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-[6rem]">
+              {activeScene.headline}
+            </h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-body sm:text-lg">
+              {activeScene.description}
+            </p>
 
-        <div
-          ref={mainCardRef}
-          className="elevate-main-card elevate-card relative min-h-[640px] overflow-hidden rounded-[28px] p-4 sm:p-6 lg:min-h-[700px] lg:rounded-[36px] lg:p-8"
-        >
-          <div className="elevate-card-sheen" aria-hidden="true" />
-          <div ref={contentRef} className="relative z-10 grid h-full gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-            <div className="flex flex-col justify-between gap-6">
-              <div>
-                <div className="stage-animate mb-4 inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-accent">
-                  <ActiveStageIcon size={15} />
-                  <span className="font-heading text-sm uppercase">Step {activeIndex + 1}: {activeStage.label}</span>
-                </div>
-                <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
-                <h2 className="stage-animate mt-3 font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
-                  {activeStage.headline}
-                </h2>
-                <p className="stage-animate mt-4 text-sm leading-7 text-body sm:text-base">
-                  {activeStage.description}
-                </p>
-              </div>
-
-              <div className="grid gap-3">
-                {activeStage.badges.map((badge) => {
-                  const Icon = badge.Icon
-                  return (
-                    <div key={badge.title} className="stage-animate elevate-floating-badge flex items-center gap-3 rounded-2xl p-4">
-                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent">
-                        <Icon size={20} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">{badge.title}</p>
-                        <p className="mt-0.5 text-sm text-body">{badge.detail}</p>
-                      </div>
+            <div className="mt-8 grid gap-3">
+              {activeScene.badges.map((badge) => {
+                const Icon = badge.Icon
+                return (
+                  <div key={badge.title} className="scene-animate elevate-floating-badge flex items-center gap-3 rounded-2xl p-4">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent">
+                      <Icon size={20} />
                     </div>
-                  )
-                })}
-              </div>
+                    <div>
+                      <p className="font-semibold text-white">{badge.title}</p>
+                      <p className="mt-0.5 text-sm text-body">{badge.detail}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                onClick={nextStage}
-                className="stage-animate inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-accent/35 bg-accent/10 px-5 font-heading text-lg uppercase text-accent transition hover:bg-accent hover:text-black"
+                onClick={primaryAction}
+                className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
               >
-                {activeIndex === stages.length - 1 ? 'Start Questionnaire' : `Next: ${stages[activeIndex + 1].label}`}
-                <ArrowRight size={18} />
+                {hasProgram ? 'Open Dashboard' : activeScene.action}
+                <ArrowRight size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentIndex = scenes.findIndex((scene) => scene.id === activeScene.id)
+                  selectScene(scenes[(currentIndex + 1) % scenes.length].id)
+                }}
+                className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+              >
+                Next Scene
               </button>
             </div>
 
-            <div className="flex items-center justify-center">
+            <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {scenes.map((scene) => {
+                const Icon = scene.Icon
+                const isActive = activeScene.id === scene.id
+                return (
+                  <button
+                    key={scene.id}
+                    type="button"
+                    onClick={() => selectScene(scene.id)}
+                    aria-pressed={isActive}
+                    className={`min-h-12 rounded-lg border px-3 font-heading text-base uppercase transition ${
+                      isActive
+                        ? 'border-accent bg-accent text-black'
+                        : 'border-white/10 bg-black/35 text-white hover:border-accent'
+                    }`}
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      <Icon size={16} />
+                      {scene.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div
+            ref={mainCardRef}
+            className="scene-animate elevate-card relative min-h-[620px] overflow-hidden rounded-[28px] p-5 lg:min-h-[720px] lg:rounded-[36px]"
+          >
+            <div className="elevate-card-sheen" aria-hidden="true" />
+            <div className="relative z-10 flex h-full items-center justify-center">
               <div className="relative flex h-[560px] w-full items-center justify-center">
                 <div ref={mockupRef} className="elevate-phone relative flex h-[560px] w-[270px] flex-col rounded-[3rem] will-change-transform">
                   <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
@@ -468,32 +452,32 @@ export default function CinematicLandingHero({
                     </div>
 
                     <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
-                      <div className="stage-animate mb-8 flex items-center justify-between">
+                      <div className="scene-animate mb-8 flex items-center justify-between">
                         <div className="flex flex-col">
                           <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
-                          <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
+                          <span className="text-xl font-bold text-white drop-shadow-md">{activeScene.phoneTitle}</span>
                         </div>
                         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
                           {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
                         </div>
                       </div>
 
-                      <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
+                      <div className="scene-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
                         <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
                           <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
                           <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
                         </svg>
                         <div className="z-10 flex flex-col items-center text-center">
-                          <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
-                          <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
+                          <span className="text-4xl font-extrabold text-white">{activeScene.metric}</span>
+                          <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeScene.metricLabel}</span>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        {activeStage.widgets.map((widget) => {
+                        {activeScene.widgets.map((widget) => {
                           const Icon = widget.Icon
                           return (
-                            <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
+                            <div key={widget.label} className="scene-animate elevate-widget flex items-center rounded-2xl p-3">
                               <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
                                 <Icon size={17} />
                               </div>
@@ -514,7 +498,7 @@ export default function CinematicLandingHero({
             </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   )
 }
