@@ -9,7 +9,7 @@ const offers = [
   'Affordable programs designed for real life',
 ]
 
-export default function Landing({ onStart }) {
+export default function Landing({ user, hasProgram, onStart, onDashboard, onSignOut }) {
   return (
     <main className="min-h-screen bg-bg text-body">
       <section className="relative overflow-hidden px-4 py-6 sm:px-6 lg:px-8">
@@ -28,38 +28,73 @@ export default function Landing({ onStart }) {
                 <p className="text-xs uppercase tracking-[0.18em] text-body">Health and Wellness</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onStart}
-              className="hidden rounded-lg border border-line bg-[#111] px-4 py-2 font-heading text-lg uppercase text-white transition hover:border-accent sm:inline-flex"
-            >
-              Start
-            </button>
+            <div className="hidden items-center gap-2 sm:flex">
+              {hasProgram ? (
+                <button
+                  type="button"
+                  onClick={onDashboard}
+                  className="rounded-lg border border-line bg-[#111] px-4 py-2 font-heading text-lg uppercase text-white transition hover:border-accent"
+                >
+                  Dashboard
+                </button>
+              ) : null}
+              {user ? (
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="rounded-lg border border-line bg-[#111] px-4 py-2 font-heading text-lg uppercase text-white transition hover:border-accent"
+                >
+                  Sign Out
+                </button>
+              ) : null}
+            </div>
           </header>
 
           <div className="grid flex-1 items-center gap-8 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:py-16">
             <div>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
                 <Sparkles size={15} />
-                <span className="font-heading text-sm uppercase">Real support. Real progress.</span>
+                <span className="font-heading text-sm uppercase">Your member dashboard</span>
               </div>
               <h1 className="max-w-4xl font-heading text-5xl uppercase leading-none text-white sm:text-7xl lg:text-8xl">
-                Welcome to Elevate Health and Wellness
+                Welcome{user?.name ? `, ${user.name}` : ''}.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
-                At Elevate Health and Wellness, our mission is simple, helping real people build healthier lifestyles in a realistic, supportive, and sustainable way.
+                This is your private Elevate dashboard. Start with the questionnaire so Elevate can build your personalized eight week workout, meal, recovery, and progress plan.
               </p>
               <p className="mt-4 max-w-2xl text-base leading-7 text-body sm:text-lg">
-                We believe fitness should feel empowering, not overwhelming. Whether you are just starting your journey, getting back on track, or looking for accountability and guidance, we are here to help you elevate your health one step at a time.
+                Once your plan is generated, it stays saved here for the full eight weeks so you can return to your workouts and guidance every time you log in.
               </p>
-              <button
-                type="button"
-                onClick={onStart}
-                className="mt-7 inline-flex min-h-13 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 py-3 font-heading text-xl uppercase text-black transition hover:brightness-95 sm:w-auto"
-              >
-                Build My Plan
-                <ArrowRight size={20} />
-              </button>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                {hasProgram ? (
+                  <button
+                    type="button"
+                    onClick={onDashboard}
+                    className="inline-flex min-h-13 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 py-3 font-heading text-xl uppercase text-black transition hover:brightness-95 sm:w-auto"
+                  >
+                    Open My Dashboard
+                    <ArrowRight size={20} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onStart}
+                    className="inline-flex min-h-13 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 py-3 font-heading text-xl uppercase text-black transition hover:brightness-95 sm:w-auto"
+                  >
+                    Start Questionnaire
+                    <ArrowRight size={20} />
+                  </button>
+                )}
+                {user ? (
+                  <button
+                    type="button"
+                    onClick={onSignOut}
+                    className="inline-flex min-h-13 w-full items-center justify-center rounded-lg border border-line bg-[#111] px-6 py-3 font-heading text-xl uppercase text-white transition hover:border-accent sm:hidden"
+                  >
+                    Sign Out
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-lg border border-line bg-card p-4 shadow-2xl shadow-black/40 sm:p-5">

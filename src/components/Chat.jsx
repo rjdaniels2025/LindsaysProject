@@ -82,13 +82,16 @@ async function extractVideoFrames(file) {
 }
 
 export default function Chat({
+  user,
   profile,
   messages,
+  programCreatedAt,
+  programEndsAt,
   isLoading,
   error,
   onSendMessage,
   onAnalyzeMedia,
-  onReset,
+  onSignOut,
 }) {
   const [media, setMedia] = useState(null)
   const [mediaError, setMediaError] = useState('')
@@ -107,6 +110,13 @@ export default function Chat({
   const latestResult = [...messages]
     .reverse()
     .find((message) => message.role === 'assistant' && !['program', 'status'].includes(message.meta?.type))
+  const statusCopy = statusMessage?.content?.replace(/^#+\s*/gm, '') ||
+    `${user?.name || 'Your'} answers are being turned into workouts, recovery steps, and progress goals.`
+  const planDates = useMemo(() => {
+    if (!programCreatedAt || !programEndsAt) return ''
+    const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    return `${formatter.format(new Date(programCreatedAt))} to ${formatter.format(new Date(programEndsAt))}`
+  }, [programCreatedAt, programEndsAt])
 
   async function runAction(action) {
     if (isLoading) return
@@ -176,13 +186,14 @@ export default function Chat({
           <div className="min-w-0">
             <h1 className="font-heading text-[1.7rem] uppercase leading-none text-white min-[420px]:text-3xl sm:text-5xl">Elevate Health and Wellness</h1>
             <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
+            {planDates ? <p className="mt-1 text-xs uppercase tracking-[0.12em] text-accent">{planDates}</p> : null}
           </div>
           <button
             type="button"
-            onClick={onReset}
+            onClick={onSignOut}
             className="min-h-11 shrink-0 rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] px-3 py-2 font-heading text-base uppercase text-white transition hover:border-accent sm:px-4 sm:text-lg"
           >
-            Reset
+            Sign Out
           </button>
         </div>
       </header>
@@ -206,8 +217,7 @@ export default function Chat({
                 </div>
                 <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Elevate is making your plan</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
-                  {statusMessage?.content?.replace(/^#+\s*/gm, '') ||
-                    'Your answers are being turned into workouts, recovery steps, and progress goals.'}
+                  {statusCopy}
                 </p>
                 <div className="mt-6">
                   <LoadingDots />
