@@ -20,7 +20,7 @@ const INJECTED_STYLES = `
   .elevate-intro-title,
   .elevate-intro-headline,
   .elevate-copy,
-  .elevate-control-panel,
+  .elevate-controls-shell,
   .elevate-main-card {
     visibility: hidden;
   }
@@ -143,6 +143,13 @@ const INJECTED_STYLES = `
     opacity: 1;
   }
 
+  .elevate-stage-wipe {
+    background:
+      linear-gradient(110deg, rgba(232,255,71,0) 0%, rgba(232,255,71,0.32) 46%, rgba(255,255,255,0.72) 50%, rgba(232,255,71,0.32) 54%, rgba(232,255,71,0) 100%),
+      linear-gradient(145deg, #e8ff47 0%, #111 58%, #050505 100%);
+    box-shadow: 0 0 80px rgba(232,255,71,0.32);
+  }
+
   @media (max-width: 767px) {
     .elevate-text-accent {
       filter: none;
@@ -259,7 +266,7 @@ const stages = [
 
 function StageControls({ activeStage, onSelect }) {
   return (
-    <div className="elevate-control-panel grid gap-2 rounded-2xl border border-white/10 bg-black/42 p-2 backdrop-blur-md sm:grid-cols-2 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
+    <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/42 p-2 backdrop-blur-md sm:grid-cols-2 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
       {stages.map((stage) => {
         const Icon = stage.Icon
         const isActive = activeStage.id === stage.id
@@ -302,24 +309,55 @@ export default function CinematicLandingHero({
   className,
 }) {
   const [activeStageId, setActiveStageId] = useState('assessment')
+  const [isStageFocused, setIsStageFocused] = useState(false)
   const containerRef = useRef(null)
   const mainCardRef = useRef(null)
   const mockupRef = useRef(null)
   const contentRef = useRef(null)
   const ringRef = useRef(null)
+  const transitionRef = useRef(null)
   const requestRef = useRef(0)
   const hasRenderedStageRef = useRef(false)
   const primaryAction = hasProgram ? onDashboard : onStart
   const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
 
   function selectStage(nextStageId, options = {}) {
-    setActiveStageId(nextStageId)
-
-    if (options.revealContent && typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
-      window.requestAnimationFrame(() => {
-        mainCardRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
-      })
+    if (typeof window === 'undefined') {
+      setActiveStageId(nextStageId)
+      setIsStageFocused(true)
+      return
     }
+
+    const isCompact = window.matchMedia('(max-width: 767px)').matches
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const revealStage = () => {
+      setActiveStageId(nextStageId)
+      setIsStageFocused(true)
+
+      if (options.revealContent && isCompact) {
+        window.requestAnimationFrame(() => {
+          mainCardRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+        })
+      }
+    }
+
+    if (prefersReducedMotion || !transitionRef.current) {
+      revealStage()
+      return
+    }
+
+    gsap.killTweensOf(transitionRef.current)
+    gsap.timeline({
+      defaults: { ease: 'power4.inOut' },
+      onComplete: () => {
+        gsap.set(transitionRef.current, { autoAlpha: 0, clipPath: 'inset(0 0 0 100%)' })
+      },
+    })
+      .set(transitionRef.current, { autoAlpha: 1, clipPath: 'inset(0 100% 0 0)' })
+      .to(transitionRef.current, { clipPath: 'inset(0 0% 0 0)', duration: 0.34 })
+      .add(revealStage)
+      .to(transitionRef.current, { clipPath: 'inset(0 0 0 100%)', duration: 0.48, ease: 'expo.inOut' })
   }
 
   function runPrimaryAction() {
@@ -334,7 +372,7 @@ export default function CinematicLandingHero({
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
       if (prefersReducedMotion) {
-        gsap.set(['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'], {
+        gsap.set(['.elevate-copy', '.elevate-controls-shell', '.elevate-main-card'], {
           autoAlpha: 1,
           y: 0,
           filter: 'blur(0px)',
@@ -366,7 +404,7 @@ export default function CinematicLandingHero({
           ease: 'power3.inOut',
         }, '+=0.45')
         .fromTo(
-          ['.elevate-copy', '.elevate-control-panel', '.elevate-main-card'],
+          ['.elevate-copy', '.elevate-controls-shell', '.elevate-main-card'],
           { autoAlpha: 0, y: 34, filter: 'blur(18px)', scale: 0.97 },
           { autoAlpha: 1, y: 0, filter: 'blur(0px)', scale: 1, duration: 0.9, stagger: 0.08 },
           '-=0.1',
@@ -462,6 +500,7 @@ export default function CinematicLandingHero({
       <div className="elevate-film-grain" aria-hidden="true" />
       <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
+      <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
 
       <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
         <div>
@@ -474,8 +513,8 @@ export default function CinematicLandingHero({
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="elevate-copy min-w-0">
+      <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
+        <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
             <Activity size={15} />
             <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
@@ -504,28 +543,52 @@ export default function CinematicLandingHero({
             </button>
           </div>
 
-          <div className="mt-6 hidden sm:mt-8 sm:block">
+          <div className="elevate-controls-shell mt-6 hidden sm:mt-8 sm:block">
             <StageControls activeStage={activeStage} onSelect={selectStage} />
           </div>
         </div>
 
-        <div className="sticky top-24 z-30 sm:hidden">
+        {isStageFocused ? (
+          <div className="z-30">
+            <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-heading text-sm uppercase text-accent">Choose a feature</p>
+                <h2 className="font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+                  Explore Elevate
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={runPrimaryAction}
+                className="elevate-btn-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase"
+              >
+                {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
+                <ArrowRight size={18} />
+              </button>
+            </div>
+            <StageControls activeStage={activeStage} onSelect={selectStage} />
+          </div>
+        ) : null}
+
+        <div className={`elevate-controls-shell sticky top-24 z-30 sm:hidden ${isStageFocused ? 'hidden' : ''}`}>
           <StageControls activeStage={activeStage} onSelect={selectStage} />
         </div>
 
         <div
           ref={mainCardRef}
-          className="elevate-main-card elevate-card relative scroll-mt-24 overflow-hidden rounded-2xl p-4 sm:min-h-[640px] sm:rounded-[28px] sm:p-6 lg:min-h-[700px] lg:scroll-mt-28 lg:rounded-[36px] lg:p-8"
+          className={`elevate-main-card elevate-card relative scroll-mt-24 overflow-hidden rounded-2xl p-4 sm:rounded-[28px] sm:p-6 lg:scroll-mt-28 lg:rounded-[36px] lg:p-8 ${
+            isStageFocused ? 'min-h-[560px] lg:min-h-[620px]' : 'sm:min-h-[640px] lg:min-h-[700px]'
+          }`}
         >
           <div className="elevate-card-sheen" aria-hidden="true" />
-          <div ref={contentRef} className="relative z-10 grid h-full gap-5 sm:gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+          <div ref={contentRef} className={`relative z-10 grid h-full gap-5 sm:gap-6 ${isStageFocused ? 'lg:grid-cols-[1fr_0.82fr]' : 'lg:grid-cols-[0.92fr_1.08fr]'}`}>
             <div className="flex flex-col justify-between gap-6">
               <div>
                 <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
-                <h2 className="stage-animate mt-3 font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
+                <h2 className={`stage-animate mt-3 font-heading uppercase leading-none text-white ${isStageFocused ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-3xl sm:text-5xl'}`}>
                   {activeStage.headline}
                 </h2>
-                <p className="stage-animate mt-4 text-sm leading-7 text-body sm:text-base">
+                <p className={`stage-animate mt-4 leading-7 text-body ${isStageFocused ? 'max-w-3xl text-base sm:text-xl sm:leading-9' : 'text-sm sm:text-base'}`}>
                   {activeStage.description}
                 </p>
               </div>
@@ -567,9 +630,9 @@ export default function CinematicLandingHero({
               </div>
             </div>
 
-            <div className="hidden items-center justify-center sm:flex">
-              <div className="relative flex h-[560px] w-full items-center justify-center">
-                <div ref={mockupRef} className="elevate-phone relative flex h-[560px] w-[270px] flex-col rounded-[3rem] will-change-transform">
+            <div className={`${isStageFocused ? 'flex' : 'hidden sm:flex'} items-center justify-center`}>
+              <div className={`${isStageFocused ? 'h-[440px] sm:h-[560px]' : 'h-[560px]'} relative flex w-full items-center justify-center`}>
+                <div ref={mockupRef} className={`${isStageFocused ? 'h-[430px] w-[210px] sm:h-[560px] sm:w-[270px]' : 'h-[560px] w-[270px]'} elevate-phone relative flex flex-col rounded-[3rem] will-change-transform`}>
                   <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
                   <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
                   <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
