@@ -511,7 +511,6 @@ export default function CinematicLandingHero({
     <section
       ref={containerRef}
       className={cn('relative min-h-dvh overflow-x-hidden bg-bg text-white antialiased', className)}
-      style={{ perspective: '1500px' }}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
       {isStageFocused ? (
@@ -578,6 +577,7 @@ export default function CinematicLandingHero({
         className={`relative isolate min-h-dvh overflow-hidden px-4 pb-8 sm:px-6 lg:px-8 lg:pb-16 ${
           isStageFocused ? 'pt-44 sm:pt-44 lg:pt-40' : 'pt-16 sm:pt-20 lg:pt-24'
         }`}
+        style={{ perspective: '1500px' }}
       >
         <div className="elevate-film-grain" aria-hidden="true" />
         <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
