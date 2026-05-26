@@ -71,7 +71,7 @@ export default function MembershipGate({
   onSelectPlan,
   onSelectBilling,
   onCreateAccount,
-  onCheckout,
+  onGeneratePlan,
   onBack,
   error,
 }) {
@@ -124,19 +124,19 @@ export default function MembershipGate({
               </div>
               <div>
                 <p className="font-heading text-2xl uppercase text-white">Next Step</p>
-                <p className="text-sm text-body">{user ? 'Activate checkout' : 'Create your member account'}</p>
+                <p className="text-sm text-body">{user ? 'Generate your dashboard' : 'Create your member account'}</p>
               </div>
             </div>
             {error ? <p className="mt-4 rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
             <button
               type="button"
-              onClick={user ? onCheckout : onCreateAccount}
+              onClick={user ? onGeneratePlan : onCreateAccount}
               className="mt-5 min-h-13 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:brightness-95"
             >
-              {user ? 'Continue To Checkout' : 'Create Account To Continue'}
+              {user ? 'Generate My Plan' : 'Create Account To Continue'}
             </button>
             <p className="mt-3 text-xs leading-5 text-body">
-              Stripe checkout and subscription activation will connect here when the backend is added.
+              Payment processing is temporarily skipped while account creation and saved dashboards are being finalized.
             </p>
           </aside>
         </section>

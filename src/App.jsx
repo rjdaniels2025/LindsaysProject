@@ -19,6 +19,12 @@ function emptyAppState() {
   }
 }
 
+function addWeeks(date, weeks) {
+  const nextDate = new Date(date)
+  nextDate.setDate(nextDate.getDate() + weeks * 7)
+  return nextDate.toISOString()
+}
+
 function createMessage(role, content, meta = {}) {
   return {
     id: crypto.randomUUID(),
@@ -265,6 +271,7 @@ function App() {
       if (returnToMembershipAfterAuth && profileDraft) {
         setStage('membership')
         setProfile(profileDraft)
+        setProfileDraft(profileDraft)
         setReturnToMembershipAfterAuth(false)
       }
       if (data?.display_name && data.display_name !== nextUser.name) {
@@ -354,8 +361,44 @@ function App() {
     setStage(profileDraft ? 'membership' : 'landing')
   }
 
-  function startCheckoutPlaceholder() {
-    setError('Stripe checkout is the next backend step. Once connected, this button will create a checkout session for the selected membership.')
+  async function generateProgram() {
+    const nextProfile = profileDraft || profile
+
+    if (!currentUser) {
+      startAccountCreation()
+      return
+    }
+
+    if (!nextProfile) {
+      setError('Complete the questionnaire before generating your plan.')
+      setStage('onboarding')
+      return
+    }
+
+    const createdAt = new Date().toISOString()
+    setError('')
+    setIsLoading(true)
+    setProfile(nextProfile)
+    setProfileDraft(nextProfile)
+    setProgramCreatedAt(createdAt)
+    setProgramEndsAt(addWeeks(createdAt, 8))
+    setStage('chat')
+    setMessages([
+      createMessage(
+        'assistant',
+        `## Building ${nextProfile.name}'s program\n\nYour assessment is saved to your member account. Elevate is generating your complete 8-week plan now.`,
+        { type: 'status' },
+      ),
+    ])
+
+    try {
+      const program = await programService.generateProgram(nextProfile)
+      setMessages([createMessage('assistant', program, { type: 'program' })])
+    } catch (caughtError) {
+      setError(caughtError.message || 'Unable to generate the program.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   async function sendMessage(text, meta = {}) {
@@ -458,7 +501,7 @@ function App() {
         onSelectPlan={setSelectedPlan}
         onSelectBilling={setSelectedBilling}
         onCreateAccount={startAccountCreation}
-        onCheckout={startCheckoutPlaceholder}
+        onGeneratePlan={generateProgram}
         onBack={() => setStage('onboarding')}
         error={error}
       />
