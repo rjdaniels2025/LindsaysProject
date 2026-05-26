@@ -216,6 +216,13 @@ export default function CinematicLandingHero({
   const primaryAction = hasProgram ? onDashboard : onStart
   const activeStage = stages.find((stage) => stage.id === activeStageId) || stages[0]
 
+  function runPrimaryAction() {
+    if (!hasProgram && typeof window !== 'undefined') {
+      window.history.pushState(null, '', '#assessment')
+    }
+    primaryAction()
+  }
+
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.fromTo(
@@ -307,7 +314,7 @@ export default function CinematicLandingHero({
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={primaryAction}
+              onClick={runPrimaryAction}
               className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
             >
               {hasProgram ? 'Open Dashboard' : 'Start Assessment'}

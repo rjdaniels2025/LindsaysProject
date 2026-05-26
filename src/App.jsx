@@ -23,6 +23,12 @@ function normalizeStage(stage) {
   return stage === 'onboarding' ? 'assessment' : stage
 }
 
+function stageFromHash() {
+  if (typeof window === 'undefined') return ''
+  const hashStage = window.location.hash.replace(/^#\/?/, '')
+  return ['landing', 'assessment', 'membership', 'account', 'chat'].includes(hashStage) ? hashStage : ''
+}
+
 function addWeeks(date, weeks) {
   const nextDate = new Date(date)
   nextDate.setDate(nextDate.getDate() + weeks * 7)
@@ -229,7 +235,7 @@ function AccountGate({ onBack, onAuthenticated }) {
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null)
-  const [stage, setStage] = useState('landing')
+  const [stage, setStage] = useState(() => stageFromHash() || 'landing')
   const [profile, setProfile] = useState(null)
   const [messages, setMessages] = useState([])
   const [profileDraft, setProfileDraft] = useState(null)
@@ -244,8 +250,18 @@ function App() {
   const [error, setError] = useState('')
   const programService = useProgramService()
 
+  const navigateStage = useCallback((nextStage) => {
+    const normalizedStage = normalizeStage(nextStage)
+    setStage(normalizedStage)
+
+    if (typeof window !== 'undefined') {
+      const nextHash = normalizedStage === 'landing' ? window.location.pathname : `#${normalizedStage}`
+      window.history.pushState(null, '', nextHash)
+    }
+  }, [])
+
   const applyAppState = useCallback((nextState) => {
-    setStage(normalizeStage(nextState.stage))
+    setStage(stageFromHash() || normalizeStage(nextState.stage))
     setProfile(nextState.profile)
     setMessages(nextState.messages)
     setProfileDraft(nextState.profileDraft)
@@ -280,7 +296,7 @@ function App() {
       const nextState = { ...emptyAppState(), ...(data?.app_state || {}) }
       applyAppState(nextState)
       if (returnToMembershipAfterAuth && profileDraft) {
-        setStage('membership')
+        navigateStage('membership')
         setProfile(profileDraft)
         setProfileDraft(profileDraft)
         setReturnToMembershipAfterAuth(false)
@@ -292,7 +308,7 @@ function App() {
 
     setIsProgramLoaded(true)
     setIsAuthLoading(false)
-  }, [applyAppState, profileDraft, returnToMembershipAfterAuth])
+  }, [applyAppState, navigateStage, profileDraft, returnToMembershipAfterAuth])
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -318,6 +334,21 @@ function App() {
       listener.subscription.unsubscribe()
     }
   }, [loadUserProgram])
+
+  useEffect(() => {
+    function handleNavigation() {
+      const nextStage = stageFromHash()
+      if (nextStage) setStage(nextStage)
+    }
+
+    window.addEventListener('hashchange', handleNavigation)
+    window.addEventListener('popstate', handleNavigation)
+
+    return () => {
+      window.removeEventListener('hashchange', handleNavigation)
+      window.removeEventListener('popstate', handleNavigation)
+    }
+  }, [])
 
   useEffect(() => {
     if (!currentUser || !isProgramLoaded) return
@@ -356,22 +387,22 @@ function App() {
     setError('')
     setProfileDraft(nextProfile)
     setProfile(nextProfile)
-    setStage('membership')
-  }, [])
+    navigateStage('membership')
+  }, [navigateStage])
 
   function startAccountCreation() {
     setError('')
     if (!isSupabaseConfigured) {
-      setStage('account')
+      navigateStage('account')
       return
     }
     setReturnToMembershipAfterAuth(true)
-    setStage('account')
+    navigateStage('account')
   }
 
   function handleAuthenticated() {
     setReturnToMembershipAfterAuth(false)
-    setStage(profileDraft ? 'membership' : 'landing')
+    navigateStage(profileDraft ? 'membership' : 'landing')
   }
 
   async function generateProgram() {
@@ -384,7 +415,7 @@ function App() {
 
     if (!nextProfile) {
       setError('Complete the questionnaire before generating your plan.')
-      setStage('assessment')
+      navigateStage('assessment')
       return
     }
 
@@ -395,7 +426,7 @@ function App() {
     setProfileDraft(nextProfile)
     setProgramCreatedAt(createdAt)
     setProgramEndsAt(addWeeks(createdAt, 8))
-    setStage('chat')
+    navigateStage('chat')
     setMessages([
       createMessage(
         'assistant',
@@ -457,6 +488,7 @@ function App() {
     setError('')
     setIsLoading(false)
     setIsProgramLoaded(false)
+    navigateStage('landing')
   }
 
   if (isAuthLoading) {
@@ -486,10 +518,10 @@ function App() {
 
   if (stage === 'account') {
     if (!isSupabaseConfigured) {
-      return <MissingSupabaseGate onBack={() => setStage('membership')} />
+      return <MissingSupabaseGate onBack={() => navigateStage('membership')} />
     }
 
-    return <AccountGate onBack={() => setStage('membership')} onAuthenticated={handleAuthenticated} />
+    return <AccountGate onBack={() => navigateStage('membership')} onAuthenticated={handleAuthenticated} />
   }
 
   if (stage === 'assessment') {
@@ -509,8 +541,8 @@ function App() {
       <Landing
         user={currentUser}
         hasProgram={messages.some((message) => message.meta?.type === 'program')}
-        onStart={() => setStage('assessment')}
-        onDashboard={() => setStage('chat')}
+        onStart={() => navigateStage('assessment')}
+        onDashboard={() => navigateStage('chat')}
         onSignOut={signOut}
       />
     )
@@ -527,7 +559,7 @@ function App() {
         onSelectBilling={setSelectedBilling}
         onCreateAccount={startAccountCreation}
         onGeneratePlan={generateProgram}
-        onBack={() => setStage('assessment')}
+        onBack={() => navigateStage('assessment')}
         error={error}
       />
     )
