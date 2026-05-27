@@ -801,7 +801,11 @@ export default function CinematicLandingHero({
       >
         <div className="elevate-film-grain" aria-hidden="true" />
         <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
-        <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
+        <div
+          className={`pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)] ${
+            isStageFocused ? 'hidden sm:block' : ''
+          }`}
+        />
         <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
 
         <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
