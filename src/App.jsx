@@ -102,6 +102,18 @@ function clearAuthCallbackFromUrl() {
   window.history.replaceState(null, '', window.location.pathname || '/')
 }
 
+function LoadingScreen() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-bg px-4 text-body">
+      <div className="w-full max-w-sm rounded-lg border border-line bg-card p-6 text-center shadow-2xl shadow-black/50">
+        <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
+        <p className="mt-3 font-heading text-4xl uppercase leading-none text-white">Loading</p>
+        <p className="mt-3 text-sm leading-6 text-body">Getting your member area ready.</p>
+      </div>
+    </main>
+  )
+}
+
 function MissingSupabaseGate({ onBack, onHome }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
@@ -718,17 +730,8 @@ function App() {
     navigateStage('landing')
   }
 
-  if (isAuthLoading || (currentUser && !isProgramLoaded)) {
-    return (
-      <Landing
-        user={currentUser}
-        hasProgram={false}
-        onStart={() => navigateStage('assessment')}
-        onDashboard={() => navigateStage('chat')}
-        onLogin={goToLogin}
-        onSignOut={signOut}
-      />
-    )
+  if (isAuthLoading) {
+    return <LoadingScreen />
   }
 
   if (stage === 'chat') {

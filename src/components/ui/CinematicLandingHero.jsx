@@ -641,9 +641,6 @@ export default function CinematicLandingHero({
   }
 
   function runPrimaryAction() {
-    if (!hasProgram && typeof window !== 'undefined') {
-      window.history.pushState(null, '', '#assessment')
-    }
     primaryAction()
   }
 
