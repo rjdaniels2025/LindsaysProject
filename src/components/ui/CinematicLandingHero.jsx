@@ -398,7 +398,7 @@ function AssessmentVisual() {
 
   return (
     <div className="stage-animate relative w-full max-w-md">
-      <div className="absolute inset-8 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+      <div className="absolute inset-8 hidden rounded-full bg-accent/10 blur-3xl sm:block" aria-hidden="true" />
       <div className="relative rounded-[2rem] border border-accent/20 bg-black/45 p-4 shadow-2xl shadow-black/60 backdrop-blur-md sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
@@ -441,7 +441,7 @@ function PersonalPlanVisual() {
 
   return (
     <div className="stage-animate relative w-full max-w-md">
-      <div className="absolute -inset-4 rounded-[2.5rem] border border-accent/10 bg-[radial-gradient(circle_at_50%_0%,rgba(232,255,71,0.18),transparent_58%)]" aria-hidden="true" />
+      <div className="absolute -inset-4 hidden rounded-[2.5rem] border border-accent/10 bg-[radial-gradient(circle_at_50%_0%,rgba(232,255,71,0.18),transparent_58%)] sm:block" aria-hidden="true" />
       <div className="relative rounded-[2rem] border border-white/10 bg-black/48 p-4 shadow-2xl shadow-black/60 backdrop-blur-md sm:p-5">
         <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4">
           <p className="font-heading text-sm uppercase tracking-[0.24em] text-accent">8 Week Blueprint</p>
@@ -470,8 +470,8 @@ function AccountabilityVisual() {
 
   return (
     <div className="stage-animate relative w-full max-w-md">
-      <div className="absolute inset-10 rounded-full border border-accent/20" aria-hidden="true" />
-      <div className="absolute inset-16 rounded-full border border-white/10" aria-hidden="true" />
+      <div className="absolute inset-10 hidden rounded-full border border-accent/20 sm:block" aria-hidden="true" />
+      <div className="absolute inset-16 hidden rounded-full border border-white/10 sm:block" aria-hidden="true" />
       <div className="relative rounded-[2rem] border border-white/10 bg-black/45 p-5 shadow-2xl shadow-black/60 backdrop-blur-md">
         <div className="mx-auto grid h-32 w-32 place-items-center rounded-full border border-accent/40 bg-accent/10 text-center shadow-[0_0_40px_rgba(232,255,71,0.12)]">
           <div>
