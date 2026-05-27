@@ -81,23 +81,23 @@ export default function MembershipGate({
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] || user?.name || 'your'
 
   return (
-    <main className="min-h-screen bg-bg px-4 py-6 text-body sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-            <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white sm:text-7xl">
+            <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl sm:text-7xl">
               Unlock {firstName} plan
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-body">
               Your questionnaire is saved. Choose a membership to create your account, activate access, and generate the full personalized dashboard.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:items-end">
+          <div className="grid gap-3 sm:flex sm:shrink-0 sm:flex-col sm:items-end">
             <button
               type="button"
               onClick={onHome}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent sm:w-auto"
             >
               <ArrowLeft size={18} />
               Home
@@ -105,7 +105,7 @@ export default function MembershipGate({
             <button
               type="button"
               onClick={onBack}
-              className="min-h-11 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+              className="min-h-11 w-full rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent sm:w-auto"
             >
               Edit Assessment
             </button>

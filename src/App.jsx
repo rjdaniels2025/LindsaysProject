@@ -79,10 +79,10 @@ function LoadingScreen({ label = 'Loading your dashboard' }) {
 
 function MissingSupabaseGate({ onBack, onHome }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-bg px-4 text-body">
-      <div className="w-full max-w-md rounded-lg border border-red-400/40 bg-card p-6 shadow-2xl shadow-black/50">
+    <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
+      <div className="w-full max-w-md rounded-lg border border-red-400/40 bg-card p-5 shadow-2xl shadow-black/50 sm:p-6">
         <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-        <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white">Account Setup Needed</h1>
+        <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl">Account Setup Needed</h1>
         <p className="mt-3 text-sm leading-6 text-body">
           Account creation is ready, but Supabase is not connected to this deployment yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.
         </p>
@@ -181,10 +181,10 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-bg px-4 text-body">
-      <form onSubmit={submit} className="w-full max-w-md rounded-lg border border-line bg-card p-6 shadow-2xl shadow-black/50">
+    <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
+      <form onSubmit={submit} className="w-full max-w-md rounded-lg border border-line bg-card p-5 shadow-2xl shadow-black/50 sm:p-6">
         <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-        <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white">
+        <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl">
           {isCreating ? 'Create Account' : 'Member Login'}
         </h1>
         <p className="mt-3 text-sm leading-6 text-body">

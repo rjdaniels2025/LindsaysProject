@@ -318,6 +318,72 @@ function orderedHeaderStages(activeStage) {
   ]
 }
 
+function StageHeader({ activeStage, onSelect, onSignOut }) {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-bg/92 px-3 py-2 backdrop-blur-md sm:px-6 sm:py-3 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:gap-3">
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <img
+              src="/ehw-logo.jpeg"
+              alt="Elevate Health and Wellness"
+              className="h-9 w-9 shrink-0 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
+            />
+            <div className="min-w-0">
+              <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
+              <p className="truncate text-[10px] uppercase tracking-[0.2em] text-body sm:text-xs">
+                Health and Wellness
+              </p>
+            </div>
+          </div>
+
+          {onSignOut ? (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-black/35 text-white backdrop-blur-md transition hover:border-accent/60"
+              aria-label="Sign out"
+            >
+              <LogOut size={17} />
+            </button>
+          ) : null}
+        </div>
+
+        <nav
+          className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0"
+          aria-label="Elevate sections"
+        >
+          {orderedHeaderStages(activeStage).map((stage) => {
+            const Icon = stage.Icon
+            const isActive = activeStage.id === stage.id
+
+            return (
+              <button
+                key={`header-${stage.id}`}
+                type="button"
+                onClick={() => onSelect(stage.id, { revealContent: true })}
+                aria-current={isActive ? 'page' : undefined}
+                className={`inline-flex min-h-11 min-w-[9.75rem] flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:min-w-0 sm:px-4 ${
+                  isActive
+                    ? 'border-accent bg-accent text-black shadow-none'
+                    : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
+                }`}
+              >
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
+                  <Icon size={16} />
+                </span>
+                <span className="min-w-0 truncate font-heading text-sm uppercase leading-none sm:text-base">
+                  {stage.navLabel}
+                </span>
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+    </header>
+  )
+}
+
 export default function CinematicLandingHero({
   user,
   hasProgram,
@@ -521,68 +587,11 @@ export default function CinematicLandingHero({
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
       {isStageFocused ? (
-        <div className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-bg/90 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:gap-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src="/ehw-logo.jpeg"
-                  alt="Elevate Health and Wellness"
-                  className="h-10 w-10 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
-                />
-                <div className="min-w-0">
-                  <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-body sm:text-xs">Health and Wellness</p>
-                </div>
-              </div>
-
-              {onSignOut ? (
-                <button
-                  type="button"
-                  onClick={onSignOut}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-white backdrop-blur-md transition hover:border-accent/60 sm:px-4"
-                  aria-label="Sign out"
-                >
-                  <LogOut size={16} />
-                </button>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              {orderedHeaderStages(activeStage).map((stage) => {
-                const Icon = stage.Icon
-                const isActive = activeStage.id === stage.id
-
-                return (
-                  <button
-                    key={`header-${stage.id}`}
-                    type="button"
-                    onClick={() => selectStage(stage.id, { revealContent: true })}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`inline-flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:px-4 ${
-                      isActive
-                        ? 'border-accent bg-accent text-black shadow-none'
-                        : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
-                    }`}
-                  >
-                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
-                      <Icon size={16} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-heading text-sm uppercase leading-none sm:text-base">
-                        {stage.navLabel}
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+        <StageHeader activeStage={activeStage} onSelect={selectStage} onSignOut={onSignOut} />
       ) : null}
       <div
         className={`relative isolate min-h-dvh overflow-hidden px-4 pb-8 sm:px-6 lg:px-8 lg:pb-16 ${
-          isStageFocused ? 'pt-44 sm:pt-44 lg:pt-40' : 'pt-16 sm:pt-20 lg:pt-24'
+          isStageFocused ? 'pt-32 sm:pt-36 lg:pt-40' : 'pt-14 sm:pt-20 lg:pt-24'
         }`}
         style={{ perspective: '1500px' }}
       >
@@ -603,165 +612,166 @@ export default function CinematicLandingHero({
         </div>
 
         <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
-        <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
-            <Activity size={15} />
-            <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
-          </div>
-          <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
-            Your fitness plan, built around real life.
-          </h1>
-          <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
-            Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
-          </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={runPrimaryAction}
-              className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
-            >
-              {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
-              <ArrowRight size={20} />
-            </button>
-            <button
-              type="button"
-              onClick={() => selectStage('membership', { revealContent: true })}
-              className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
-            >
-              See How It Works
-            </button>
-          </div>
-
-          <div className="elevate-controls-shell mt-6 hidden sm:mt-8 sm:block">
-            <StageControls activeStage={activeStage} onSelect={selectStage} />
-          </div>
-        </div>
-
-        {isStageFocused ? (
-          <div className="z-30">
-            <div className="mb-4 flex justify-center sm:mb-5 sm:justify-end">
+          <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
+              <Activity size={15} />
+              <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
+            </div>
+            <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
+              Your fitness plan, built around real life.
+            </h1>
+            <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
+              Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={runPrimaryAction}
-                className="elevate-btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase sm:w-auto"
+                className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
               >
                 {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
-                <ArrowRight size={18} />
+                <ArrowRight size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={() => selectStage('membership', { revealContent: true })}
+                className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+              >
+                See How It Works
               </button>
             </div>
+
+            <div className="elevate-controls-shell mt-6 hidden sm:mt-8 sm:block">
+              <StageControls activeStage={activeStage} onSelect={selectStage} />
+            </div>
           </div>
-        ) : null}
 
-        <div
-          ref={mainCardRef}
-          className={`elevate-main-card elevate-card relative scroll-mt-24 overflow-hidden rounded-2xl p-4 sm:rounded-[28px] sm:p-6 lg:scroll-mt-28 lg:rounded-[36px] lg:p-8 ${
-            isStageFocused ? 'min-h-0 sm:min-h-[560px] lg:min-h-[620px]' : 'min-h-0 sm:min-h-[640px] lg:min-h-[700px]'
-          }`}
-        >
-          <div className="elevate-card-sheen" aria-hidden="true" />
-          <div ref={contentRef} className={`relative z-10 grid h-full gap-5 sm:gap-6 ${isStageFocused ? 'lg:grid-cols-[1fr_0.82fr]' : 'lg:grid-cols-[0.92fr_1.08fr]'}`}>
-            <div className="flex flex-col gap-6 text-center sm:justify-between sm:text-left">
-              <div>
-                <p className="stage-animate text-xs uppercase tracking-[0.24em] text-accent">{activeStage.eyebrow}</p>
-                <h2 className={`stage-animate text-balance mt-3 font-heading uppercase leading-[0.9] text-white ${isStageFocused ? 'text-4xl sm:text-6xl lg:text-7xl' : 'text-3xl sm:text-5xl'}`}>
-                  {activeStage.headline}
-                </h2>
-                <p className={`stage-animate text-balance mt-4 leading-7 text-body ${isStageFocused ? 'mx-auto max-w-3xl text-base sm:mx-0 sm:text-xl sm:leading-9' : 'text-sm sm:text-base'}`}>
-                  {activeStage.description}
-                </p>
-              </div>
-
-              <div className="grid gap-3">
-                {activeStage.badges.map((badge) => {
-                  const Icon = badge.Icon
-                  return (
-                    <div key={badge.title} className="stage-animate elevate-floating-badge flex items-center gap-3 rounded-2xl p-4">
-                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent">
-                        <Icon size={20} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">{badge.title}</p>
-                        <p className="mt-0.5 text-sm text-body">{badge.detail}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="stage-animate grid gap-3 sm:grid-cols-2">
-                {activeStage.widgets.map((widget) => {
-                  const Icon = widget.Icon
-                  return (
-                    <div key={widget.label} className="elevate-widget rounded-2xl p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
-                          <Icon size={18} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white">{widget.label}</p>
-                          <p className="mt-0.5 text-xs leading-5 text-body">{widget.detail}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+          {isStageFocused ? (
+            <div className="z-30">
+              <div className="mb-4 flex justify-stretch sm:mb-5 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={runPrimaryAction}
+                  className="elevate-btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase sm:w-auto"
+                >
+                  {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
+                  <ArrowRight size={18} />
+                </button>
               </div>
             </div>
+          ) : null}
 
-            <div className={`${isStageFocused ? 'flex' : 'hidden sm:flex'} items-center justify-center`}>
-              <div className={`${isStageFocused ? 'h-[440px] sm:h-[560px]' : 'h-[560px]'} relative flex w-full items-center justify-center`}>
-                <div ref={mockupRef} className={`${isStageFocused ? 'h-[430px] w-[210px] sm:h-[560px] sm:w-[270px]' : 'h-[560px] w-[270px]'} elevate-phone relative flex flex-col rounded-[3rem] will-change-transform`}>
-                  <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
-                  <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
-                  <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
-                  <div className="elevate-hardware-btn absolute -right-[3px] top-[168px] z-0 h-[70px] w-[3px] scale-x-[-1] rounded-r-md" aria-hidden="true" />
+          <div
+            ref={mainCardRef}
+            className={`elevate-main-card elevate-card relative scroll-mt-32 overflow-hidden rounded-2xl p-4 sm:scroll-mt-36 sm:rounded-[28px] sm:p-6 lg:scroll-mt-40 lg:rounded-[36px] lg:p-8 ${
+              isStageFocused ? 'min-h-0 lg:min-h-[620px]' : 'min-h-0 sm:min-h-[640px] lg:min-h-[700px]'
+            }`}
+          >
+            <div className="elevate-card-sheen" aria-hidden="true" />
+            <div ref={contentRef} className={`relative z-10 grid h-full gap-5 sm:gap-6 ${isStageFocused ? 'md:grid-cols-[1fr_0.8fr]' : 'lg:grid-cols-[0.92fr_1.08fr]'}`}>
+              <div className="flex flex-col gap-5 text-left sm:justify-between sm:gap-6">
+                <div>
+                  <p className="stage-animate text-xs uppercase tracking-[0.22em] text-accent sm:tracking-[0.24em]">{activeStage.eyebrow}</p>
+                  <h2 className={`stage-animate text-balance mt-3 font-heading uppercase leading-[0.9] text-white ${isStageFocused ? 'text-3xl min-[380px]:text-4xl sm:text-6xl lg:text-7xl' : 'text-3xl sm:text-5xl'}`}>
+                    {activeStage.headline}
+                  </h2>
+                  <p className={`stage-animate text-balance mt-4 leading-7 text-body ${isStageFocused ? 'max-w-3xl text-sm sm:text-xl sm:leading-9' : 'text-sm sm:text-base'}`}>
+                    {activeStage.description}
+                  </p>
+                </div>
 
-                  <div className="absolute inset-[7px] z-10 overflow-hidden rounded-[2.5rem] bg-[#050605] text-white shadow-[inset_0_0_15px_rgba(0,0,0,1)]">
-                    <div className="elevate-screen-glare pointer-events-none absolute inset-0 z-40" aria-hidden="true" />
-                    <div className="absolute left-1/2 top-[5px] z-50 flex h-[28px] w-[100px] -translate-x-1/2 items-center justify-end rounded-full bg-black px-3 shadow-[inset_0_-1px_2px_rgba(255,255,255,0.1)]">
-                      <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_rgba(232,255,71,0.8)]" />
-                    </div>
-
-                    <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
-                      <div className="stage-animate mb-8 flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
-                          <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
+                <div className="grid gap-3">
+                  {activeStage.badges.map((badge) => {
+                    const Icon = badge.Icon
+                    return (
+                      <div key={badge.title} className="stage-animate elevate-floating-badge flex items-center gap-3 rounded-2xl p-3 sm:p-4">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-accent/30 bg-accent/10 text-accent sm:h-11 sm:w-11">
+                          <Icon size={20} />
                         </div>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
-                          {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
-                        </div>
-                      </div>
-
-                      <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
-                        <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
-                          <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
-                          <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
-                        </svg>
-                        <div className="z-10 flex flex-col items-center text-center">
-                          <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
-                          <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white">{badge.title}</p>
+                          <p className="mt-0.5 text-sm text-body">{badge.detail}</p>
                         </div>
                       </div>
+                    )
+                  })}
+                </div>
 
-                      <div className="space-y-3">
-                        {activeStage.widgets.map((widget) => {
-                          const Icon = widget.Icon
-                          return (
-                            <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
-                              <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
-                                <Icon size={17} />
+                <div className="stage-animate grid gap-3 sm:grid-cols-2">
+                  {activeStage.widgets.map((widget) => {
+                    const Icon = widget.Icon
+                    return (
+                      <div key={widget.label} className="elevate-widget rounded-2xl p-3 sm:p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                            <Icon size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white">{widget.label}</p>
+                            <p className="mt-0.5 text-xs leading-5 text-body">{widget.detail}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className={`${isStageFocused ? 'hidden md:flex' : 'hidden sm:flex'} items-center justify-center`}>
+                <div className={`${isStageFocused ? 'h-[500px] lg:h-[560px]' : 'h-[560px]'} relative flex w-full items-center justify-center`}>
+                  <div ref={mockupRef} className={`${isStageFocused ? 'h-[500px] w-[240px] lg:h-[560px] lg:w-[270px]' : 'h-[560px] w-[270px]'} elevate-phone relative flex flex-col rounded-[3rem] will-change-transform`}>
+                    <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
+                    <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
+                    <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
+                    <div className="elevate-hardware-btn absolute -right-[3px] top-[168px] z-0 h-[70px] w-[3px] scale-x-[-1] rounded-r-md" aria-hidden="true" />
+
+                    <div className="absolute inset-[7px] z-10 overflow-hidden rounded-[2.5rem] bg-[#050605] text-white shadow-[inset_0_0_15px_rgba(0,0,0,1)]">
+                      <div className="elevate-screen-glare pointer-events-none absolute inset-0 z-40" aria-hidden="true" />
+                      <div className="absolute left-1/2 top-[5px] z-50 flex h-[28px] w-[100px] -translate-x-1/2 items-center justify-end rounded-full bg-black px-3 shadow-[inset_0_-1px_2px_rgba(255,255,255,0.1)]">
+                        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_rgba(232,255,71,0.8)]" />
+                      </div>
+
+                      <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
+                        <div className="stage-animate mb-8 flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
+                            <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
+                          </div>
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
+                            {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
+                          </div>
+                        </div>
+
+                        <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
+                          <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
+                            <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
+                            <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
+                          </svg>
+                          <div className="z-10 flex flex-col items-center text-center">
+                            <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
+                            <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          {activeStage.widgets.map((widget) => {
+                            const Icon = widget.Icon
+                            return (
+                              <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
+                                <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
+                                  <Icon size={17} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-white">{widget.label}</p>
+                                  <p className="mt-0.5 truncate text-xs text-body">{widget.detail}</p>
+                                </div>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-white">{widget.label}</p>
-                                <p className="mt-0.5 truncate text-xs text-body">{widget.detail}</p>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                            )
+                          })}
+                        </div>
 
-                      <div className="absolute bottom-2 left-1/2 h-[4px] w-[120px] -translate-x-1/2 rounded-full bg-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                        <div className="absolute bottom-2 left-1/2 h-[4px] w-[120px] -translate-x-1/2 rounded-full bg-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -769,7 +779,6 @@ export default function CinematicLandingHero({
             </div>
           </div>
         </div>
-      </div>
       </div>
     </section>
   )

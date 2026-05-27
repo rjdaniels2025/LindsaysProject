@@ -183,13 +183,13 @@ export default function Chat({
   return (
     <main className="min-h-screen bg-bg text-body">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+        <div className="mx-auto grid max-w-6xl gap-3 sm:flex sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h1 className="font-heading text-[1.7rem] uppercase leading-none text-white min-[420px]:text-3xl sm:text-5xl">Elevate Health and Wellness</h1>
+            <h1 className="text-balance font-heading text-2xl uppercase leading-none text-white min-[420px]:text-3xl sm:text-5xl">Elevate Health and Wellness</h1>
             <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
             {planDates ? <p className="mt-1 text-xs uppercase tracking-[0.12em] text-accent">{planDates}</p> : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
             <button
               type="button"
               onClick={onHome}

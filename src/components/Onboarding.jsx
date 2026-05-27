@@ -177,27 +177,27 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
   }
 
   return (
-    <main className="min-h-screen bg-bg px-4 py-6 text-body sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
       {isLoading ? <GeneratingOverlay /> : null}
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col justify-center">
-        <div className="mb-8 flex items-end justify-between gap-6">
-          <div>
+      <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-6xl flex-col justify-center">
+        <div className="mb-6 grid gap-4 sm:mb-8 sm:flex sm:items-end sm:justify-between sm:gap-6">
+          <div className="min-w-0">
             <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-            <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white sm:text-7xl">
+            <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl sm:text-7xl">
               Build Your Program
             </h1>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-3">
+          <div className="grid gap-3 sm:flex sm:shrink-0 sm:flex-col sm:items-end">
             <button
               type="button"
               onClick={onHome}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-4 font-heading text-lg uppercase text-white transition hover:border-accent sm:w-auto"
             >
               <ArrowLeft size={18} />
               Home
             </button>
-            <div className="hidden text-right sm:block">
-              <p className="font-heading text-3xl text-white">0{step}/03</p>
+            <div className="flex items-center justify-between rounded-lg border border-line bg-card px-4 py-3 sm:block sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
+              <p className="font-heading text-2xl text-white sm:text-3xl">0{step}/03</p>
               <p className="text-sm uppercase text-body">Assessment</p>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
           <div className="h-full bg-accent transition-all duration-500" style={{ width: `${(step / 3) * 100}%` }} />
         </div>
 
-        <form onSubmit={submit} className="rounded-lg border border-line bg-card p-5 sm:p-8">
+        <form onSubmit={submit} className="rounded-lg border border-line bg-card p-4 sm:p-8">
           {step === 1 ? (
             <section className="grid gap-5 md:grid-cols-2">
               <Field label="Name" error={touched.name && errors.name}>
@@ -289,13 +289,13 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
           {step === 3 ? (
             <section className="grid gap-6">
               <Field label="Days Per Week" error={touched.daysPerWeek && errors.daysPerWeek}>
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-5 gap-2 sm:gap-3">
                   {[2, 3, 4, 5, 6].map((day) => (
                     <button
                       key={day}
                       type="button"
                       onClick={() => setValue('daysPerWeek', String(day))}
-                      className={`aspect-square rounded-lg border font-heading text-3xl transition ${
+                      className={`aspect-square min-h-11 rounded-lg border font-heading text-2xl transition sm:text-3xl ${
                         profile.daysPerWeek === String(day)
                           ? 'border-accent bg-accent text-black'
                           : 'border-line bg-[#111] text-white hover:border-accent/70'

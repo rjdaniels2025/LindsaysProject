@@ -250,8 +250,8 @@ function FocusCard({ icon: Icon, label, value }) {
       <div className="mb-2 grid h-8 w-8 place-items-center rounded bg-accent text-black sm:mb-3 sm:h-9 sm:w-9">
         <Icon size={17} />
       </div>
-      <p className="font-heading text-xs uppercase text-body sm:text-sm">{label}</p>
-      <p className="mt-1 break-words text-sm font-bold text-white sm:text-lg">{value}</p>
+      <p className="font-heading text-[11px] uppercase text-body sm:text-sm">{label}</p>
+      <p className="mt-1 break-words text-sm font-bold leading-tight text-white sm:text-lg">{value}</p>
     </div>
   )
 }
@@ -643,7 +643,7 @@ function WorkoutTracker({ workouts }) {
               Start when you are ready. Elevate will walk you through the workout one exercise and one set at a time.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:min-w-72">
+          <div className="grid gap-2 min-[420px]:grid-cols-3 sm:min-w-72">
             <FocusCard icon={Dumbbell} label="Moves" value={String(exercises.length)} />
             <FocusCard icon={ClipboardCheck} label="Done" value={`${finishedExerciseCount}/${exercises.length}`} />
             <FocusCard icon={Timer} label="Rest" value={currentExercise?.rest || 'Custom'} />
@@ -910,7 +910,7 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
               Elevate built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 lg:min-w-80">
+          <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
             <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
             <FocusCard icon={CalendarDays} label="Schedule" value={`${profile?.daysPerWeek || '-'} days`} />
             <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
