@@ -46,6 +46,13 @@ function createMessage(role, content, meta = {}) {
   }
 }
 
+function membershipIsActive(membership) {
+  if (!membership) return false
+  if (!['active', 'trialing'].includes(membership.status)) return false
+  if (!membership.current_period_end) return true
+  return new Date(membership.current_period_end).getTime() > Date.now()
+}
+
 function userFromSession(session) {
   const user = session?.user
   if (!user) return null
@@ -284,6 +291,7 @@ function App() {
   const [profileDraft, setProfileDraft] = useState(null)
   const [selectedPlan, setSelectedPlan] = useState('transformation')
   const [selectedBilling, setSelectedBilling] = useState('monthly')
+  const [membership, setMembership] = useState(null)
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
   const [programEndsAt, setProgramEndsAt] = useState(null)
   const [returnToMembershipAfterAuth, setReturnToMembershipAfterAuth] = useState(false)
@@ -324,6 +332,7 @@ function App() {
 
     if (!nextUser) {
       applyAppState(emptyAppState())
+      setMembership(null)
       setIsProgramLoaded(false)
       setIsAuthLoading(false)
       return
@@ -351,6 +360,19 @@ function App() {
       if (data?.display_name && data.display_name !== nextUser.name) {
         setCurrentUser({ ...nextUser, name: data.display_name })
       }
+    }
+
+    const { data: membershipData, error: membershipError } = await supabase
+      .from('user_memberships')
+      .select('plan_id, billing, status, current_period_end')
+      .eq('user_id', nextUser.id)
+      .maybeSingle()
+
+    if (membershipError) {
+      setError(membershipError.message)
+      setMembership(null)
+    } else {
+      setMembership(membershipData)
     }
 
     setIsProgramLoaded(true)
@@ -485,6 +507,38 @@ function App() {
     navigateStage(profileDraft ? 'membership' : 'landing')
   }
 
+  async function startCheckout() {
+    if (!currentUser) {
+      startAccountCreation()
+      return
+    }
+
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const { data, error: checkoutError } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          planId: selectedPlan,
+          billing: selectedBilling,
+        },
+      })
+
+      if (checkoutError) {
+        throw new Error(checkoutError.message)
+      }
+
+      if (!data?.url) {
+        throw new Error('Stripe did not return a checkout URL.')
+      }
+
+      window.location.assign(data.url)
+    } catch (caughtError) {
+      setError(caughtError.message || 'Unable to start checkout.')
+      setIsLoading(false)
+    }
+  }
+
   async function generateProgram() {
     const nextProfile = profileDraft || profile
 
@@ -496,6 +550,12 @@ function App() {
     if (!nextProfile) {
       setError('Complete the questionnaire before generating your plan.')
       navigateStage('assessment')
+      return
+    }
+
+    if (!membershipIsActive(membership)) {
+      setError('Complete checkout before generating your plan.')
+      navigateStage('membership')
       return
     }
 
@@ -565,6 +625,7 @@ function App() {
     await supabase.auth.signOut()
     setCurrentUser(null)
     applyAppState(emptyAppState())
+    setMembership(null)
     setError('')
     setIsLoading(false)
     setIsProgramLoaded(false)
@@ -644,7 +705,10 @@ function App() {
         onSelectPlan={setSelectedPlan}
         onSelectBilling={setSelectedBilling}
         onCreateAccount={startAccountCreation}
+        onCheckout={startCheckout}
         onGeneratePlan={generateProgram}
+        hasActiveMembership={membershipIsActive(membership)}
+        isLoading={isLoading}
         onBack={() => navigateStage('assessment')}
         onHome={goHome}
         error={error}

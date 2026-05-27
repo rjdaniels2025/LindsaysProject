@@ -71,7 +71,10 @@ export default function MembershipGate({
   onSelectPlan,
   onSelectBilling,
   onCreateAccount,
+  onCheckout,
   onGeneratePlan,
+  hasActiveMembership,
+  isLoading,
   onBack,
   onHome,
   error,
@@ -79,6 +82,17 @@ export default function MembershipGate({
   const activePlan = selectedPlan || 'transformation'
   const billing = selectedBilling || 'monthly'
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] || user?.name || 'your'
+  const nextStepLabel = !user
+    ? 'Create your member account'
+    : hasActiveMembership
+      ? 'Generate your dashboard'
+      : 'Secure checkout'
+  const actionLabel = !user
+    ? 'Create Account To Continue'
+    : hasActiveMembership
+      ? 'Generate My Plan'
+      : 'Continue To Checkout'
+  const actionHandler = !user ? onCreateAccount : hasActiveMembership ? onGeneratePlan : onCheckout
 
   return (
     <main className="min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
@@ -135,19 +149,20 @@ export default function MembershipGate({
               </div>
               <div>
                 <p className="font-heading text-2xl uppercase text-white">Next Step</p>
-                <p className="text-sm text-body">{user ? 'Generate your dashboard' : 'Create your member account'}</p>
+                <p className="text-sm text-body">{nextStepLabel}</p>
               </div>
             </div>
             {error ? <p className="mt-4 rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
             <button
               type="button"
-              onClick={user ? onGeneratePlan : onCreateAccount}
+              onClick={actionHandler}
+              disabled={isLoading}
               className="mt-5 min-h-13 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:brightness-95"
             >
-              {user ? 'Generate My Plan' : 'Create Account To Continue'}
+              {isLoading ? 'Working' : actionLabel}
             </button>
             <p className="mt-3 text-xs leading-5 text-body">
-              Payment processing is temporarily skipped while account creation and saved dashboards are being finalized.
+              Stripe handles payment securely. Your dashboard unlocks after payment is confirmed.
             </p>
           </aside>
         </section>
