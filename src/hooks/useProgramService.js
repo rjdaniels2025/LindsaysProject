@@ -141,61 +141,63 @@ Include:
 - Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks`
 }
 
-export function useProgramService() {
-  async function generateProgram(profile) {
-    return callProgramService([
-      {
-        role: 'user',
-        content: programPrompt(profile),
-      },
-    ])
-  }
+async function generateProgram(profile) {
+  return callProgramService([
+    {
+      role: 'user',
+      content: programPrompt(profile),
+    },
+  ])
+}
 
-  async function sendMessage(history, userText) {
-    return callProgramService([
-      ...history,
-      {
-        role: 'user',
-        content: userText,
-      },
-    ])
-  }
+async function sendMessage(history, userText) {
+  return callProgramService([
+    ...history,
+    {
+      role: 'user',
+      content: userText,
+    },
+  ])
+}
 
-  async function analyzeMedia(history, mediaPayload) {
-    const mediaBlocks =
-      mediaPayload.type === 'video'
-        ? mediaPayload.framesBase64.map((frame) => ({
-            type: 'input_image',
-            image_url: dataUrl('image/jpeg', frame),
-            detail: 'high',
-          }))
-        : [
-            {
-              type: 'input_image',
-              image_url: dataUrl(mediaPayload.mimeType, mediaPayload.base64),
-              detail: 'high',
-            },
-          ]
-
-    return callProgramService([
-      ...history,
-      {
-        role: 'user',
-        content: [
-          ...mediaBlocks,
+async function analyzeMedia(history, mediaPayload) {
+  const mediaBlocks =
+    mediaPayload.type === 'video'
+      ? mediaPayload.framesBase64.map((frame) => ({
+          type: 'input_image',
+          image_url: dataUrl('image/jpeg', frame),
+          detail: 'high',
+        }))
+      : [
           {
-            type: 'input_text',
-            text:
-              'Analyze this exercise media like an elite biomechanics coach. Use simple words. Give clear form feedback, safety notes, corrective exercises, useful cues, and program changes. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.',
+            type: 'input_image',
+            image_url: dataUrl(mediaPayload.mimeType, mediaPayload.base64),
+            detail: 'high',
           },
-        ],
-      },
-    ])
-  }
+        ]
 
-  return {
-    generateProgram,
-    sendMessage,
-    analyzeMedia,
-  }
+  return callProgramService([
+    ...history,
+    {
+      role: 'user',
+      content: [
+        ...mediaBlocks,
+        {
+          type: 'input_text',
+          text:
+            'Analyze this exercise media like an elite biomechanics coach. Use simple words. Give clear form feedback, safety notes, corrective exercises, useful cues, and program changes. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.',
+        },
+      ],
+    },
+  ])
+}
+
+const programService = {
+  generateProgram,
+  sendMessage,
+  analyzeMedia,
+}
+
+export function useProgramService() {
+  return programService
 }

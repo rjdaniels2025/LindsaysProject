@@ -608,7 +608,7 @@ function App() {
       return
     }
 
-    navigateStage('assessment')
+    navigateStage('chat')
   }
 
   function startAccountCreation() {
