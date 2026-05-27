@@ -53,6 +53,10 @@ function membershipIsActive(membership) {
   return new Date(membership.current_period_end).getTime() > Date.now()
 }
 
+function hasGeneratedProgram(messages) {
+  return messages.some((message) => message.meta?.type === 'program')
+}
+
 function userFromSession(session) {
   const user = session?.user
   if (!user) return null
@@ -315,8 +319,16 @@ function App() {
     navigateStage('landing')
   }, [navigateStage])
 
-  const applyAppState = useCallback((nextState) => {
-    setStage(stageFromHash() || normalizeStage(nextState.stage))
+  const applyAppState = useCallback((nextState, options = {}) => {
+    const nextStage = options.preferHash === false
+      ? normalizeStage(nextState.stage)
+      : stageFromHash() || normalizeStage(nextState.stage)
+
+    setStage(nextStage)
+    if (options.syncUrl && typeof window !== 'undefined') {
+      const nextHash = nextStage === 'landing' ? window.location.pathname : `#${nextStage}`
+      window.history.replaceState(null, '', nextHash)
+    }
     setProfile(nextState.profile)
     setMessages(nextState.messages)
     setProfileDraft(nextState.profileDraft)
@@ -325,6 +337,33 @@ function App() {
     setProgramCreatedAt(nextState.programCreatedAt)
     setProgramEndsAt(nextState.programEndsAt)
   }, [])
+
+  const generateProgramForProfile = useCallback(async (nextProfile) => {
+    const createdAt = new Date().toISOString()
+    setError('')
+    setIsLoading(true)
+    setProfile(nextProfile)
+    setProfileDraft(nextProfile)
+    setProgramCreatedAt(createdAt)
+    setProgramEndsAt(addWeeks(createdAt, 8))
+    navigateStage('chat')
+    setMessages([
+      createMessage(
+        'assistant',
+        `## Building ${nextProfile.name}'s program\n\nYour assessment is saved to your member account. Elevate is generating your complete 8-week plan now.`,
+        { type: 'status' },
+      ),
+    ])
+
+    try {
+      const program = await programService.generateProgram(nextProfile)
+      setMessages([createMessage('assistant', program, { type: 'program' })])
+    } catch (caughtError) {
+      setError(caughtError.message || 'Unable to generate the program.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [navigateStage, programService])
 
   const loadUserProgram = useCallback(async (session) => {
     const nextUser = userFromSession(session)
@@ -345,18 +384,12 @@ function App() {
       .eq('user_id', nextUser.id)
       .maybeSingle()
 
+    let loadedState = emptyAppState()
+
     if (loadError) {
       setError(loadError.message)
-      applyAppState(emptyAppState())
     } else {
-      const nextState = { ...emptyAppState(), ...(data?.app_state || {}) }
-      applyAppState(nextState)
-      if (returnToMembershipAfterAuth && profileDraft) {
-        navigateStage('membership')
-        setProfile(profileDraft)
-        setProfileDraft(profileDraft)
-        setReturnToMembershipAfterAuth(false)
-      }
+      loadedState = { ...loadedState, ...(data?.app_state || {}) }
       if (data?.display_name && data.display_name !== nextUser.name) {
         setCurrentUser({ ...nextUser, name: data.display_name })
       }
@@ -375,9 +408,47 @@ function App() {
       setMembership(membershipData)
     }
 
+    const draftProfile = profileDraft || loadedState.profileDraft || loadedState.profile
+    const hasProgram = hasGeneratedProgram(loadedState.messages)
+    const hasActiveAccess = membershipIsActive(membershipData)
+    let autoGenerateProfile = null
+
+    if (returnToMembershipAfterAuth && profileDraft) {
+      loadedState = {
+        ...loadedState,
+        stage: 'membership',
+        profile: profileDraft,
+        profileDraft,
+      }
+      setReturnToMembershipAfterAuth(false)
+    } else if (hasProgram) {
+      loadedState = { ...loadedState, stage: 'chat' }
+    } else if (draftProfile && hasActiveAccess) {
+      loadedState = {
+        ...loadedState,
+        stage: 'chat',
+        profile: draftProfile,
+        profileDraft: draftProfile,
+      }
+      autoGenerateProfile = draftProfile
+    } else if (draftProfile) {
+      loadedState = {
+        ...loadedState,
+        stage: 'membership',
+        profile: draftProfile,
+        profileDraft: draftProfile,
+      }
+    }
+
+    applyAppState(loadedState, { preferHash: false, syncUrl: true })
+
     setIsProgramLoaded(true)
     setIsAuthLoading(false)
-  }, [applyAppState, navigateStage, profileDraft, returnToMembershipAfterAuth])
+
+    if (autoGenerateProfile) {
+      generateProgramForProfile(autoGenerateProfile)
+    }
+  }, [applyAppState, generateProgramForProfile, profileDraft, returnToMembershipAfterAuth])
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -503,8 +574,10 @@ function App() {
   }
 
   function handleAuthenticated() {
-    setReturnToMembershipAfterAuth(false)
-    navigateStage(profileDraft ? 'membership' : 'landing')
+    if (profileDraft) {
+      setReturnToMembershipAfterAuth(true)
+      navigateStage('membership')
+    }
   }
 
   async function startCheckout() {
@@ -559,30 +632,7 @@ function App() {
       return
     }
 
-    const createdAt = new Date().toISOString()
-    setError('')
-    setIsLoading(true)
-    setProfile(nextProfile)
-    setProfileDraft(nextProfile)
-    setProgramCreatedAt(createdAt)
-    setProgramEndsAt(addWeeks(createdAt, 8))
-    navigateStage('chat')
-    setMessages([
-      createMessage(
-        'assistant',
-        `## Building ${nextProfile.name}'s program\n\nYour assessment is saved to your member account. Elevate is generating your complete 8-week plan now.`,
-        { type: 'status' },
-      ),
-    ])
-
-    try {
-      const program = await programService.generateProgram(nextProfile)
-      setMessages([createMessage('assistant', program, { type: 'program' })])
-    } catch (caughtError) {
-      setError(caughtError.message || 'Unable to generate the program.')
-    } finally {
-      setIsLoading(false)
-    }
+    generateProgramForProfile(nextProfile)
   }
 
   async function sendMessage(text, meta = {}) {
