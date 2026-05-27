@@ -563,6 +563,11 @@ function App() {
     navigateStage('membership')
   }, [navigateStage])
 
+  function goToLogin() {
+    setError('')
+    navigateStage(currentUser ? 'chat' : 'account')
+  }
+
   function startAccountCreation() {
     setError('')
     if (!isSupabaseConfigured) {
@@ -689,6 +694,7 @@ function App() {
         hasProgram={false}
         onStart={() => navigateStage('assessment')}
         onDashboard={() => navigateStage('chat')}
+        onLogin={goToLogin}
         onSignOut={signOut}
       />
     )
@@ -740,6 +746,7 @@ function App() {
         hasProgram={messages.some((message) => message.meta?.type === 'program')}
         onStart={() => navigateStage('assessment')}
         onDashboard={() => navigateStage('chat')}
+        onLogin={goToLogin}
         onSignOut={signOut}
       />
     )

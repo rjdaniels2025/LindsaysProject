@@ -8,6 +8,7 @@ import {
   Dumbbell,
   Flame,
   LayoutDashboard,
+  LogIn,
   LogOut,
   Repeat2,
   ShieldCheck,
@@ -583,6 +584,7 @@ export default function CinematicLandingHero({
   hasProgram,
   onStart,
   onDashboard,
+  onLogin,
   onSignOut,
   className,
 }) {
@@ -828,6 +830,14 @@ export default function CinematicLandingHero({
               >
                 {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
                 <ArrowRight size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={onLogin}
+                className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+              >
+                Member Login
+                <LogIn size={20} />
               </button>
               <button
                 type="button"

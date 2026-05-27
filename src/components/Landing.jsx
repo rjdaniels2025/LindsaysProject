@@ -1,5 +1,5 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, HeartPulse, ShieldCheck, Target, Users } from 'lucide-react'
+import { ArrowRight, HeartPulse, LogIn, ShieldCheck, Target, Users } from 'lucide-react'
 
 const coachingPrinciples = [
   {
@@ -19,10 +19,17 @@ const coachingPrinciples = [
   },
 ]
 
-export default function Landing({ user, hasProgram, onStart, onDashboard, onSignOut }) {
+export default function Landing({ user, hasProgram, onStart, onDashboard, onLogin, onSignOut }) {
   return (
     <main className="min-h-screen bg-bg text-body">
-      <CinematicLandingHero user={user} hasProgram={hasProgram} onStart={onStart} onDashboard={onDashboard} onSignOut={onSignOut} />
+      <CinematicLandingHero
+        user={user}
+        hasProgram={hasProgram}
+        onStart={onStart}
+        onDashboard={onDashboard}
+        onLogin={onLogin}
+        onSignOut={onSignOut}
+      />
 
       <section className="relative overflow-hidden border-t border-white/10 bg-[#0b0b0b] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.1),transparent_24rem),radial-gradient(circle_at_84%_0%,rgba(255,255,255,0.06),transparent_28rem)]" />
@@ -80,14 +87,24 @@ export default function Landing({ user, hasProgram, onStart, onDashboard, onSign
               })}
             </div>
 
-            <button
-              type="button"
-              onClick={hasProgram ? onDashboard : onStart}
-              className="mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 font-heading text-xl uppercase text-black transition hover:bg-white sm:w-auto"
-            >
-              {hasProgram ? 'Open Dashboard' : 'Start Your Assessment'}
-              <ArrowRight size={20} />
-            </button>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={hasProgram ? onDashboard : onStart}
+                className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 font-heading text-xl uppercase text-black transition hover:bg-white sm:w-auto"
+              >
+                {hasProgram ? 'Open Dashboard' : 'Start Your Assessment'}
+                <ArrowRight size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={onLogin}
+                className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-accent/70 bg-black/35 px-6 font-heading text-xl uppercase text-white transition hover:border-accent hover:bg-accent/10 sm:w-auto"
+              >
+                Member Login
+                <LogIn size={20} />
+              </button>
+            </div>
           </div>
         </div>
       </section>
