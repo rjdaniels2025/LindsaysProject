@@ -672,7 +672,12 @@ export default function CinematicLandingHero({
             }`}
           >
             <div className="elevate-card-sheen" aria-hidden="true" />
-            <div ref={contentRef} className={`relative z-10 grid h-full gap-5 sm:gap-6 ${isStageFocused ? 'md:grid-cols-[1fr_0.8fr]' : 'lg:grid-cols-[0.92fr_1.08fr]'}`}>
+            <div
+              ref={contentRef}
+              className={`relative z-10 grid h-full gap-5 sm:gap-6 ${
+                isStageFocused ? 'lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]' : 'lg:grid-cols-[0.92fr_1.08fr]'
+              }`}
+            >
               <div className="flex flex-col gap-5 text-left sm:justify-between sm:gap-6">
                 <div>
                   <p className="stage-animate text-xs uppercase tracking-[0.22em] text-accent sm:tracking-[0.24em]">{activeStage.eyebrow}</p>
@@ -701,18 +706,22 @@ export default function CinematicLandingHero({
                   })}
                 </div>
 
-                <div className="stage-animate grid gap-3 sm:grid-cols-2">
+                <div className={`stage-animate grid gap-3 ${isStageFocused ? 'xl:grid-cols-2' : 'md:grid-cols-2'}`}>
                   {activeStage.widgets.map((widget) => {
                     const Icon = widget.Icon
                     return (
-                      <div key={widget.label} className="elevate-widget rounded-2xl p-3 sm:p-4">
-                        <div className="flex items-center gap-3">
+                      <div key={widget.label} className="elevate-widget min-h-[5.75rem] rounded-2xl p-3 sm:p-4">
+                        <div className="flex h-full items-center gap-3">
                           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
                             <Icon size={18} />
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">{widget.label}</p>
-                            <p className="mt-0.5 text-xs leading-5 text-body">{widget.detail}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-base font-semibold leading-snug text-white sm:text-sm lg:text-base">
+                              {widget.label}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-body sm:text-xs sm:leading-5 lg:text-sm lg:leading-6">
+                              {widget.detail}
+                            </p>
                           </div>
                         </div>
                       </div>
