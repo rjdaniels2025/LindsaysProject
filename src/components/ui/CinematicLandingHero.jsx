@@ -393,6 +393,191 @@ function StageHeader({ activeStage, onSelect, onStart, onSignOut }) {
   )
 }
 
+function AssessmentVisual() {
+  const inputs = ['Goals', 'Schedule', 'Equipment', 'Limitations']
+
+  return (
+    <div className="stage-animate relative w-full max-w-md">
+      <div className="absolute inset-8 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+      <div className="relative rounded-[2rem] border border-accent/20 bg-black/45 p-4 shadow-2xl shadow-black/60 backdrop-blur-md sm:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="font-heading text-sm uppercase tracking-[0.24em] text-accent">Assessment Map</p>
+            <p className="mt-1 text-sm text-body">Your answers become the plan.</p>
+          </div>
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-accent text-black">
+            <ClipboardList size={23} />
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          {inputs.map((item, index) => (
+            <div key={item} className="elevate-widget flex items-center gap-3 rounded-2xl p-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-accent/30 bg-accent/10 font-heading text-sm text-accent">
+                0{index + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-white">{item}</p>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${92 - index * 12}%` }} />
+                </div>
+              </div>
+              <CheckCircle2 className="shrink-0 text-accent" size={20} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PersonalPlanVisual() {
+  const blocks = [
+    { Icon: CalendarCheck, label: 'Week 1', detail: 'Start clear' },
+    { Icon: Dumbbell, label: 'Workouts', detail: 'Guided sets' },
+    { Icon: Utensils, label: 'Nutrition', detail: 'Simple targets' },
+    { Icon: Flame, label: 'Progress', detail: 'Build momentum' },
+  ]
+
+  return (
+    <div className="stage-animate relative w-full max-w-md">
+      <div className="absolute -inset-4 rounded-[2.5rem] border border-accent/10 bg-[radial-gradient(circle_at_50%_0%,rgba(232,255,71,0.18),transparent_58%)]" aria-hidden="true" />
+      <div className="relative rounded-[2rem] border border-white/10 bg-black/48 p-4 shadow-2xl shadow-black/60 backdrop-blur-md sm:p-5">
+        <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4">
+          <p className="font-heading text-sm uppercase tracking-[0.24em] text-accent">8 Week Blueprint</p>
+          <p className="mt-2 font-heading text-3xl uppercase leading-none text-white">Personal Plan</p>
+          <p className="mt-2 text-sm leading-6 text-body">A practical path built from the assessment.</p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {blocks.map(({ Icon, label, detail }) => (
+            <div key={label} className="elevate-widget rounded-2xl p-3">
+              <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                <Icon size={20} />
+              </div>
+              <p className="font-heading text-xl uppercase leading-none text-white">{label}</p>
+              <p className="mt-1 text-sm text-body">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AccountabilityVisual() {
+  const loop = ['Check in', 'Review', 'Adjust', 'Continue']
+
+  return (
+    <div className="stage-animate relative w-full max-w-md">
+      <div className="absolute inset-10 rounded-full border border-accent/20" aria-hidden="true" />
+      <div className="absolute inset-16 rounded-full border border-white/10" aria-hidden="true" />
+      <div className="relative rounded-[2rem] border border-white/10 bg-black/45 p-5 shadow-2xl shadow-black/60 backdrop-blur-md">
+        <div className="mx-auto grid h-32 w-32 place-items-center rounded-full border border-accent/40 bg-accent/10 text-center shadow-[0_0_40px_rgba(232,255,71,0.12)]">
+          <div>
+            <Repeat2 className="mx-auto text-accent" size={28} />
+            <p className="mt-2 font-heading text-3xl uppercase leading-none text-white">7</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-accent">Day loop</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {loop.map((item, index) => (
+            <div key={item} className="elevate-widget flex items-center gap-3 rounded-2xl p-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-black">
+                <span className="font-heading text-sm">{index + 1}</span>
+              </div>
+              <p className="font-heading text-xl uppercase text-white">{item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DashboardPhoneVisual({ activeStage, user, ringRef, mockupRef, isStageFocused }) {
+  return (
+    <div className="flex items-center justify-center">
+      <div className={`${isStageFocused ? 'h-[420px] sm:h-[500px] lg:h-[560px]' : 'h-[420px] sm:h-[560px]'} relative flex w-full items-center justify-center`}>
+        <div ref={mockupRef} className={`${isStageFocused ? 'h-[410px] w-[198px] sm:h-[500px] sm:w-[240px] lg:h-[560px] lg:w-[270px]' : 'h-[410px] w-[198px] sm:h-[560px] sm:w-[270px]'} elevate-phone relative flex flex-col rounded-[2.45rem] sm:rounded-[3rem] will-change-transform`}>
+          <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
+          <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
+          <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
+          <div className="elevate-hardware-btn absolute -right-[3px] top-[168px] z-0 h-[70px] w-[3px] scale-x-[-1] rounded-r-md" aria-hidden="true" />
+
+          <div className="absolute inset-[7px] z-10 overflow-hidden rounded-[2.5rem] bg-[#050605] text-white shadow-[inset_0_0_15px_rgba(0,0,0,1)]">
+            <div className="elevate-screen-glare pointer-events-none absolute inset-0 z-40" aria-hidden="true" />
+            <div className="absolute left-1/2 top-[5px] z-50 flex h-[28px] w-[100px] -translate-x-1/2 items-center justify-end rounded-full bg-black px-3 shadow-[inset_0_-1px_2px_rgba(255,255,255,0.1)]">
+              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_rgba(232,255,71,0.8)]" />
+            </div>
+
+            <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
+              <div className="stage-animate mb-8 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
+                  <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
+                  {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
+                </div>
+              </div>
+
+              <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
+                <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
+                  <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
+                  <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
+                </svg>
+                <div className="z-10 flex flex-col items-center text-center">
+                  <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
+                  <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {activeStage.widgets.map((widget) => {
+                  const Icon = widget.Icon
+                  return (
+                    <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
+                      <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
+                        <Icon size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-white">{widget.label}</p>
+                        <p className="mt-0.5 truncate text-xs text-body">{widget.detail}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="absolute bottom-2 left-1/2 h-[4px] w-[120px] -translate-x-1/2 rounded-full bg-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StageArtwork({ activeStage, user, ringRef, mockupRef, isStageFocused }) {
+  if (activeStage.id === 'dashboard') {
+    return (
+      <DashboardPhoneVisual
+        activeStage={activeStage}
+        user={user}
+        ringRef={ringRef}
+        mockupRef={mockupRef}
+        isStageFocused={isStageFocused}
+      />
+    )
+  }
+
+  if (activeStage.id === 'assessment') return <AssessmentVisual />
+  if (activeStage.id === 'membership') return <PersonalPlanVisual />
+  return <AccountabilityVisual />
+}
+
 export default function CinematicLandingHero({
   user,
   hasProgram,
@@ -518,7 +703,7 @@ export default function CinematicLandingHero({
   }, [])
 
   useEffect(() => {
-    if (!contentRef.current || !ringRef.current) return
+    if (!contentRef.current) return
 
     const ctx = gsap.context(() => {
       const isCompact = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -548,11 +733,13 @@ export default function CinematicLandingHero({
         )
       }
 
-      gsap.to(ringRef.current, {
-        strokeDashoffset: activeStage.progress,
-        duration: isCompact ? 0 : 0.85,
-        ease: 'power3.inOut',
-      })
+      if (ringRef.current) {
+        gsap.to(ringRef.current, {
+          strokeDashoffset: activeStage.progress,
+          duration: isCompact ? 0 : 0.85,
+          ease: 'power3.inOut',
+        })
+      }
     }, contentRef)
 
     return () => ctx.revert()
@@ -717,65 +904,13 @@ export default function CinematicLandingHero({
                 </div>
               </div>
 
-              <div className="flex items-center justify-center">
-                <div className={`${isStageFocused ? 'h-[420px] sm:h-[500px] lg:h-[560px]' : 'h-[420px] sm:h-[560px]'} relative flex w-full items-center justify-center`}>
-                  <div ref={mockupRef} className={`${isStageFocused ? 'h-[410px] w-[198px] sm:h-[500px] sm:w-[240px] lg:h-[560px] lg:w-[270px]' : 'h-[410px] w-[198px] sm:h-[560px] sm:w-[270px]'} elevate-phone relative flex flex-col rounded-[2.45rem] sm:rounded-[3rem] will-change-transform`}>
-                    <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
-                    <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
-                    <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
-                    <div className="elevate-hardware-btn absolute -right-[3px] top-[168px] z-0 h-[70px] w-[3px] scale-x-[-1] rounded-r-md" aria-hidden="true" />
-
-                    <div className="absolute inset-[7px] z-10 overflow-hidden rounded-[2.5rem] bg-[#050605] text-white shadow-[inset_0_0_15px_rgba(0,0,0,1)]">
-                      <div className="elevate-screen-glare pointer-events-none absolute inset-0 z-40" aria-hidden="true" />
-                      <div className="absolute left-1/2 top-[5px] z-50 flex h-[28px] w-[100px] -translate-x-1/2 items-center justify-end rounded-full bg-black px-3 shadow-[inset_0_-1px_2px_rgba(255,255,255,0.1)]">
-                        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_rgba(232,255,71,0.8)]" />
-                      </div>
-
-                      <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
-                        <div className="stage-animate mb-8 flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
-                            <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
-                          </div>
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
-                            {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
-                          </div>
-                        </div>
-
-                        <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
-                          <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
-                            <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
-                            <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
-                          </svg>
-                          <div className="z-10 flex flex-col items-center text-center">
-                            <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
-                            <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          {activeStage.widgets.map((widget) => {
-                            const Icon = widget.Icon
-                            return (
-                              <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
-                                <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
-                                  <Icon size={17} />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-white">{widget.label}</p>
-                                  <p className="mt-0.5 truncate text-xs text-body">{widget.detail}</p>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-
-                        <div className="absolute bottom-2 left-1/2 h-[4px] w-[120px] -translate-x-1/2 rounded-full bg-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <StageArtwork
+                activeStage={activeStage}
+                user={user}
+                ringRef={ringRef}
+                mockupRef={mockupRef}
+                isStageFocused={isStageFocused}
+              />
             </div>
           </div>
         </div>
