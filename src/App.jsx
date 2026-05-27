@@ -365,7 +365,7 @@ function App() {
     }
   }, [navigateStage, programService])
 
-  const loadUserProgram = useCallback(async (session) => {
+  const loadUserProgram = useCallback(async (session, options = {}) => {
     const nextUser = userFromSession(session)
     setCurrentUser(nextUser)
 
@@ -411,9 +411,18 @@ function App() {
     const draftProfile = profileDraft || loadedState.profileDraft || loadedState.profile
     const hasProgram = hasGeneratedProgram(loadedState.messages)
     const hasActiveAccess = membershipIsActive(membershipData)
+    const requestedStage = stageFromHash()
+    const shouldPreserveCurrentRoute = Boolean(requestedStage && !options.forceRoute)
     let autoGenerateProfile = null
 
-    if (returnToMembershipAfterAuth && profileDraft) {
+    if (shouldPreserveCurrentRoute) {
+      loadedState = {
+        ...loadedState,
+        stage: requestedStage,
+        profile: draftProfile || loadedState.profile,
+        profileDraft: draftProfile || loadedState.profileDraft,
+      }
+    } else if (returnToMembershipAfterAuth && profileDraft) {
       loadedState = {
         ...loadedState,
         stage: 'membership',
@@ -440,12 +449,12 @@ function App() {
       }
     }
 
-    applyAppState(loadedState, { preferHash: false, syncUrl: true })
+    applyAppState(loadedState, { preferHash: shouldPreserveCurrentRoute, syncUrl: true })
 
     setIsProgramLoaded(true)
     setIsAuthLoading(false)
 
-    if (autoGenerateProfile) {
+    if (autoGenerateProfile && !shouldPreserveCurrentRoute) {
       generateProgramForProfile(autoGenerateProfile)
     }
   }, [applyAppState, generateProgramForProfile, profileDraft, returnToMembershipAfterAuth])
@@ -479,7 +488,7 @@ function App() {
           return
         }
 
-        loadUserProgram(data.session)
+        loadUserProgram(data.session, { forceRoute: true })
         return
       }
 
@@ -498,7 +507,7 @@ function App() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        loadUserProgram(session)
+        loadUserProgram(session, { forceRoute: event === 'SIGNED_IN' })
       }
     })
 
