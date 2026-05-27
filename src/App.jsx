@@ -57,26 +57,6 @@ function userFromSession(session) {
   }
 }
 
-function LoadingScreen({ label = 'Loading your dashboard' }) {
-  return (
-    <main className="grid min-h-screen place-items-center bg-bg px-4 text-body">
-      <div className="w-full max-w-md rounded-lg border border-line bg-card p-6 text-center shadow-2xl shadow-black/50">
-        <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-        <h1 className="mt-2 font-heading text-5xl uppercase leading-none text-white">{label}</h1>
-        <div className="mx-auto mt-6 flex justify-center gap-2">
-          {[0, 1, 2].map((dot) => (
-            <span
-              key={dot}
-              className="h-3 w-3 animate-pulse rounded-full bg-accent"
-              style={{ animationDelay: `${dot * 150}ms` }}
-            />
-          ))}
-        </div>
-      </div>
-    </main>
-  )
-}
-
 function MissingSupabaseGate({ onBack, onHome }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
@@ -526,12 +506,16 @@ function App() {
     navigateStage('landing')
   }
 
-  if (isAuthLoading) {
-    return <LoadingScreen />
-  }
-
-  if (currentUser && !isProgramLoaded) {
-    return <LoadingScreen label="Loading your plan" />
+  if (isAuthLoading || (currentUser && !isProgramLoaded)) {
+    return (
+      <Landing
+        user={currentUser}
+        hasProgram={false}
+        onStart={() => navigateStage('assessment')}
+        onDashboard={() => navigateStage('chat')}
+        onSignOut={signOut}
+      />
+    )
   }
 
   if (stage === 'chat') {
