@@ -276,7 +276,7 @@ const stages = [
 
 function StageControls({ activeStage, onSelect }) {
   return (
-    <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/42 p-2 backdrop-blur-md sm:grid-cols-2 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
+    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/42 p-2 backdrop-blur-md sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
       {stages.map((stage) => {
         const Icon = stage.Icon
         const isActive = activeStage.id === stage.id
@@ -298,8 +298,8 @@ function StageControls({ activeStage, onSelect }) {
                 <Icon size={19} />
               </span>
               <span>
-                <span className="block font-heading text-lg uppercase sm:text-xl">{stage.label}</span>
-                <span className={`mt-0.5 block text-xs leading-5 ${isActive ? 'text-black/75' : 'text-body'}`}>
+                <span className="block font-heading text-base uppercase min-[380px]:text-lg sm:text-xl">{stage.label}</span>
+                <span className={`mt-0.5 block text-xs leading-4 sm:leading-5 ${isActive ? 'text-black/75' : 'text-body'}`}>
                   {stage.eyebrow}
                 </span>
               </span>
@@ -349,10 +349,7 @@ function StageHeader({ activeStage, onSelect, onSignOut }) {
           ) : null}
         </div>
 
-        <nav
-          className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0"
-          aria-label="Elevate sections"
-        >
+        <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Elevate sections">
           {orderedHeaderStages(activeStage).map((stage) => {
             const Icon = stage.Icon
             const isActive = activeStage.id === stage.id
@@ -363,7 +360,7 @@ function StageHeader({ activeStage, onSelect, onSignOut }) {
                 type="button"
                 onClick={() => onSelect(stage.id, { revealContent: true })}
                 aria-current={isActive ? 'page' : undefined}
-                className={`inline-flex min-h-11 min-w-[9.75rem] flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-left transition sm:min-w-0 sm:px-4 ${
+                className={`inline-flex min-h-11 w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition sm:px-4 ${
                   isActive
                     ? 'border-accent bg-accent text-black shadow-none'
                     : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
@@ -372,7 +369,7 @@ function StageHeader({ activeStage, onSelect, onSignOut }) {
                 <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
                   <Icon size={16} />
                 </span>
-                <span className="min-w-0 truncate font-heading text-sm uppercase leading-none sm:text-base">
+                <span className="min-w-0 truncate font-heading text-xs uppercase leading-none min-[380px]:text-sm sm:text-base">
                   {stage.navLabel}
                 </span>
               </button>
@@ -454,9 +451,7 @@ export default function CinematicLandingHero({
   useEffect(() => {
     const ctx = gsap.context(() => {
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      const isCompact = window.matchMedia('(max-width: 767px)').matches
-
-      if (prefersReducedMotion || isCompact) {
+      if (prefersReducedMotion) {
         gsap.set(['.elevate-copy', '.elevate-controls-shell', '.elevate-main-card'], {
           autoAlpha: 1,
           y: 0,
@@ -591,7 +586,7 @@ export default function CinematicLandingHero({
       ) : null}
       <div
         className={`relative isolate min-h-dvh overflow-hidden px-4 pb-8 sm:px-6 lg:px-8 lg:pb-16 ${
-          isStageFocused ? 'pt-32 sm:pt-36 lg:pt-40' : 'pt-14 sm:pt-20 lg:pt-24'
+          isStageFocused ? 'pt-44 sm:pt-36 lg:pt-40' : 'pt-14 sm:pt-20 lg:pt-24'
         }`}
         style={{ perspective: '1500px' }}
       >
@@ -641,7 +636,7 @@ export default function CinematicLandingHero({
               </button>
             </div>
 
-            <div className="elevate-controls-shell mt-6 hidden sm:mt-8 sm:block">
+            <div className="elevate-controls-shell mt-6 sm:mt-8">
               <StageControls activeStage={activeStage} onSelect={selectStage} />
             </div>
           </div>
@@ -663,7 +658,7 @@ export default function CinematicLandingHero({
 
           <div
             ref={mainCardRef}
-            className={`elevate-main-card elevate-card relative scroll-mt-32 overflow-hidden rounded-2xl p-4 sm:scroll-mt-36 sm:rounded-[28px] sm:p-6 lg:scroll-mt-40 lg:rounded-[36px] lg:p-8 ${
+            className={`elevate-main-card elevate-card relative scroll-mt-44 overflow-hidden rounded-2xl p-4 sm:scroll-mt-36 sm:rounded-[28px] sm:p-6 lg:scroll-mt-40 lg:rounded-[36px] lg:p-8 ${
               isStageFocused ? 'min-h-0 lg:min-h-[620px]' : 'min-h-0 sm:min-h-[640px] lg:min-h-[700px]'
             }`}
           >
@@ -717,9 +712,9 @@ export default function CinematicLandingHero({
                 </div>
               </div>
 
-              <div className={`${isStageFocused ? 'hidden md:flex' : 'hidden sm:flex'} items-center justify-center`}>
-                <div className={`${isStageFocused ? 'h-[500px] lg:h-[560px]' : 'h-[560px]'} relative flex w-full items-center justify-center`}>
-                  <div ref={mockupRef} className={`${isStageFocused ? 'h-[500px] w-[240px] lg:h-[560px] lg:w-[270px]' : 'h-[560px] w-[270px]'} elevate-phone relative flex flex-col rounded-[3rem] will-change-transform`}>
+              <div className="flex items-center justify-center">
+                <div className={`${isStageFocused ? 'h-[420px] sm:h-[500px] lg:h-[560px]' : 'h-[420px] sm:h-[560px]'} relative flex w-full items-center justify-center`}>
+                  <div ref={mockupRef} className={`${isStageFocused ? 'h-[410px] w-[198px] sm:h-[500px] sm:w-[240px] lg:h-[560px] lg:w-[270px]' : 'h-[410px] w-[198px] sm:h-[560px] sm:w-[270px]'} elevate-phone relative flex flex-col rounded-[2.45rem] sm:rounded-[3rem] will-change-transform`}>
                     <div className="elevate-hardware-btn absolute -left-[3px] top-[118px] z-0 h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
                     <div className="elevate-hardware-btn absolute -left-[3px] top-[158px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
                     <div className="elevate-hardware-btn absolute -left-[3px] top-[218px] z-0 h-[45px] w-[3px] rounded-l-md" aria-hidden="true" />
