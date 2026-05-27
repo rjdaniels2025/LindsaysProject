@@ -59,7 +59,7 @@ function userFromSession(session) {
 
 function authRedirectUrl() {
   if (typeof window === 'undefined') return undefined
-  return `${window.location.origin}/#account`
+  return window.location.origin
 }
 
 function MissingSupabaseGate({ onBack, onHome }) {
