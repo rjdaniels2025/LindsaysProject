@@ -62,6 +62,35 @@ function authRedirectUrl() {
   return window.location.origin
 }
 
+function readAuthCallbackFromUrl() {
+  if (typeof window === 'undefined') {
+    return { code: '', error: '', hasAuthParams: false }
+  }
+
+  const searchParams = new URLSearchParams(window.location.search)
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const code = searchParams.get('code') || hashParams.get('code') || ''
+  const error = searchParams.get('error_description') ||
+    hashParams.get('error_description') ||
+    searchParams.get('error') ||
+    hashParams.get('error') ||
+    ''
+  const hasAuthParams = Boolean(
+    code ||
+    error ||
+    searchParams.get('token_hash') ||
+    hashParams.get('access_token') ||
+    hashParams.get('refresh_token'),
+  )
+
+  return { code, error, hasAuthParams }
+}
+
+function clearAuthCallbackFromUrl() {
+  if (typeof window === 'undefined') return
+  window.history.replaceState(null, '', window.location.pathname || '/')
+}
+
 function MissingSupabaseGate({ onBack, onHome }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
@@ -335,10 +364,43 @@ function App() {
 
     let isMounted = true
 
-    supabase.auth.getSession().then(({ data }) => {
+    async function initializeAuth() {
+      const callback = readAuthCallbackFromUrl()
+
+      if (callback.error) {
+        clearAuthCallbackFromUrl()
+        if (!isMounted) return
+        setError(callback.error)
+        setIsAuthLoading(false)
+        return
+      }
+
+      if (callback.code) {
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(callback.code)
+        clearAuthCallbackFromUrl()
+        if (!isMounted) return
+
+        if (exchangeError) {
+          setError(exchangeError.message)
+          setIsAuthLoading(false)
+          return
+        }
+
+        loadUserProgram(data.session)
+        return
+      }
+
+      const { data } = await supabase.auth.getSession()
       if (!isMounted) return
+
+      if (callback.hasAuthParams) {
+        clearAuthCallbackFromUrl()
+      }
+
       loadUserProgram(data.session)
-    })
+    }
+
+    initializeAuth()
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return
