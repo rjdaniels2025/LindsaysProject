@@ -512,39 +512,39 @@ function DashboardPhoneVisual({ activeStage, user, ringRef, mockupRef, isStageFo
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_rgba(232,255,71,0.8)]" />
             </div>
 
-            <div className="relative flex h-full w-full flex-col px-5 pb-8 pt-12">
-              <div className="stage-animate mb-8 flex items-center justify-between">
+            <div className="relative flex h-full w-full flex-col px-4 pb-7 pt-11 sm:px-5 sm:pb-8 sm:pt-12">
+              <div className="stage-animate mb-5 flex items-center justify-between sm:mb-8">
                 <div className="flex flex-col">
                   <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Elevate</span>
-                  <span className="text-xl font-bold text-white drop-shadow-md">{activeStage.phoneTitle}</span>
+                  <span className="text-lg font-bold text-white drop-shadow-md sm:text-xl">{activeStage.phoneTitle}</span>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-neutral-200 shadow-lg shadow-black/50">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-bold text-neutral-200 shadow-lg shadow-black/50 sm:h-9 sm:w-9 sm:text-sm">
                   {user?.name?.slice(0, 1)?.toUpperCase() || 'E'}
                 </div>
               </div>
 
-              <div className="stage-animate relative mx-auto mb-8 flex h-44 w-44 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)]">
-                <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
+              <div className="stage-animate relative mx-auto mb-5 flex h-36 w-36 items-center justify-center drop-shadow-[0_15px_25px_rgba(0,0,0,0.8)] sm:mb-8 sm:h-44 sm:w-44">
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 176 176" aria-hidden="true">
                   <circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="12" />
                   <circle ref={ringRef} className="elevate-progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#e8ff47" strokeWidth="12" />
                 </svg>
                 <div className="z-10 flex flex-col items-center text-center">
-                  <span className="text-4xl font-extrabold text-white">{activeStage.metric}</span>
-                  <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-accent/60">{activeStage.metricLabel}</span>
+                  <span className="text-3xl font-extrabold text-white sm:text-4xl">{activeStage.metric}</span>
+                  <span className="mt-0.5 text-[7px] font-bold uppercase tracking-[0.1em] text-accent/60 sm:text-[8px]">{activeStage.metricLabel}</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {activeStage.widgets.map((widget) => {
                   const Icon = widget.Icon
                   return (
-                    <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-3">
-                      <div className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner">
-                        <Icon size={17} />
+                    <div key={widget.label} className="stage-animate elevate-widget flex items-center rounded-2xl p-2.5 sm:p-3">
+                      <div className="mr-2.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent shadow-inner sm:mr-3 sm:h-10 sm:w-10">
+                        <Icon size={16} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white">{widget.label}</p>
-                        <p className="mt-0.5 truncate text-xs text-body">{widget.detail}</p>
+                        <p className="text-xs font-semibold text-white sm:text-sm">{widget.label}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-body sm:text-xs">{widget.detail}</p>
                       </div>
                     </div>
                   )
