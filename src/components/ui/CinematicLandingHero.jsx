@@ -371,12 +371,14 @@ function StageHeader({ activeStage, onSelect, onStart, onSignOut }) {
                 }}
                 aria-current={isActive ? 'page' : undefined}
                 className={`inline-flex min-h-11 w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition sm:px-4 ${
-                  isActive
+                  isAssessment
+                    ? 'border-accent bg-accent/10 text-accent shadow-[0_0_0_1px_rgba(232,255,71,0.22)] hover:bg-accent hover:text-black'
+                    : isActive
                     ? 'border-accent bg-accent text-black shadow-none'
                     : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
                 }`}
               >
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${isActive && !isAssessment ? 'bg-black text-accent' : 'bg-white/10 text-accent'}`}>
                   <Icon size={16} />
                 </span>
                 <span className="min-w-0 truncate font-heading text-xs uppercase leading-none min-[380px]:text-sm sm:text-base">
@@ -649,21 +651,6 @@ export default function CinematicLandingHero({
               <StageControls activeStage={activeStage} onSelect={selectStage} />
             </div>
           </div>
-
-          {isStageFocused ? (
-            <div className="z-30">
-              <div className="mb-4 flex justify-stretch sm:mb-5 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={runPrimaryAction}
-                  className="elevate-btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 font-heading text-lg uppercase sm:w-auto"
-                >
-                  {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
-                  <ArrowRight size={18} />
-                </button>
-              </div>
-            </div>
-          ) : null}
 
           <div
             ref={mainCardRef}
