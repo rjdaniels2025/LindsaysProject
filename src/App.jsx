@@ -565,7 +565,29 @@ function App() {
 
   function goToLogin() {
     setError('')
-    navigateStage(currentUser ? 'chat' : 'account')
+    if (!currentUser) {
+      navigateStage('account')
+      return
+    }
+
+    const nextProfile = profileDraft || profile
+
+    if (hasGeneratedProgram(messages)) {
+      navigateStage('chat')
+      return
+    }
+
+    if (nextProfile && membershipIsActive(membership)) {
+      generateProgramForProfile(nextProfile)
+      return
+    }
+
+    if (nextProfile) {
+      navigateStage('membership')
+      return
+    }
+
+    navigateStage('assessment')
   }
 
   function startAccountCreation() {
