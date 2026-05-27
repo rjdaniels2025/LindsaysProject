@@ -372,7 +372,7 @@ function StageHeader({ activeStage, onSelect, onStart, onSignOut }) {
                 aria-current={isActive ? 'page' : undefined}
                 className={`inline-flex min-h-11 w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition sm:px-4 ${
                   isAssessment
-                    ? 'border-accent bg-accent/10 text-accent shadow-[0_0_0_1px_rgba(232,255,71,0.22)] hover:bg-accent hover:text-black'
+                    ? 'border-accent bg-black/35 text-white hover:border-accent'
                     : isActive
                     ? 'border-accent bg-accent text-black shadow-none'
                     : 'border-white/10 bg-black/35 text-white backdrop-blur-md hover:border-accent/60'
