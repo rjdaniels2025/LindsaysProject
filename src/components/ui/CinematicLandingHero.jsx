@@ -160,7 +160,6 @@ const INJECTED_STYLES = `
     .elevate-intro-lockup {
       position: fixed;
       inset: 0;
-      z-index: 20;
       display: grid;
       place-items: center;
       padding: 1rem;
@@ -592,6 +591,16 @@ export default function CinematicLandingHero({
       className={cn('relative min-h-dvh overflow-x-hidden bg-bg text-white antialiased', className)}
     >
       <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
+      <div className="elevate-intro-lockup pointer-events-none fixed inset-0 z-[60] grid place-items-center px-4 text-center">
+        <div className="w-full max-w-[42rem]">
+          <p className="elevate-intro-title font-heading text-[clamp(3.55rem,18vw,4.8rem)] uppercase leading-[0.86] text-white sm:text-7xl lg:text-[8rem]">
+            Elevate
+          </p>
+          <p className="elevate-intro-headline elevate-text-accent mx-auto mt-3 max-w-full whitespace-nowrap font-heading text-[clamp(1.65rem,8.4vw,2.45rem)] uppercase leading-none sm:text-5xl lg:text-[4rem]">
+            Health &amp; Fitness
+          </p>
+        </div>
+      </div>
       {isStageFocused ? (
         <StageHeader activeStage={activeStage} onSelect={selectStage} onSignOut={onSignOut} />
       ) : null}
@@ -605,17 +614,6 @@ export default function CinematicLandingHero({
         <div className="elevate-grid pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.14),transparent_30rem),radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.07),transparent_26rem)]" />
         <div ref={transitionRef} className="elevate-stage-wipe pointer-events-none absolute inset-0 z-40 opacity-0" aria-hidden="true" />
-
-        <div className="elevate-intro-lockup pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 text-center">
-          <div className="w-full max-w-[42rem]">
-            <p className="elevate-intro-title font-heading text-[4rem] uppercase leading-[0.86] text-white min-[380px]:text-[4.8rem] sm:text-7xl lg:text-[8rem]">
-              Elevate
-            </p>
-            <p className="elevate-intro-headline elevate-text-accent mx-auto mt-3 max-w-full whitespace-nowrap font-heading text-[2rem] uppercase leading-none min-[380px]:text-[2.45rem] sm:text-5xl lg:text-[4rem]">
-              Health &amp; Fitness
-            </p>
-          </div>
-        </div>
 
         <div className={`relative z-10 mx-auto grid max-w-7xl items-center gap-5 sm:gap-8 ${isStageFocused ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.9fr_1.1fr]'}`}>
           <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
