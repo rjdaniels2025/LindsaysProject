@@ -706,20 +706,20 @@ export default function CinematicLandingHero({
                   })}
                 </div>
 
-                <div className={`stage-animate grid gap-3 ${isStageFocused ? 'xl:grid-cols-2' : 'md:grid-cols-2'}`}>
+                <div className="stage-animate grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3">
                   {activeStage.widgets.map((widget) => {
                     const Icon = widget.Icon
                     return (
-                      <div key={widget.label} className="elevate-widget min-h-[5.75rem] rounded-2xl p-3 sm:p-4">
+                      <div key={widget.label} className="elevate-widget min-h-[6.5rem] rounded-2xl p-4">
                         <div className="flex h-full items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
-                            <Icon size={18} />
+                          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                            <Icon size={20} />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-base font-semibold leading-snug text-white sm:text-sm lg:text-base">
+                            <p className="text-base font-semibold leading-tight text-white sm:text-lg">
                               {widget.label}
                             </p>
-                            <p className="mt-1 text-sm leading-6 text-body sm:text-xs sm:leading-5 lg:text-sm lg:leading-6">
+                            <p className="mt-1 text-sm leading-6 text-body">
                               {widget.detail}
                             </p>
                           </div>
