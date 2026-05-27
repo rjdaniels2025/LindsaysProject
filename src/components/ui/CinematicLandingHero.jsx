@@ -321,14 +321,7 @@ function StageControls({ activeStage, onSelect }) {
   )
 }
 
-function orderedHeaderStages(activeStage) {
-  return [
-    activeStage,
-    ...stages.filter((stage) => stage.id !== activeStage.id),
-  ]
-}
-
-function StageHeader({ activeStage, onSelect, onSignOut }) {
+function StageHeader({ activeStage, onSelect, onStart, onSignOut }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-bg/92 px-3 py-2 backdrop-blur-md sm:px-6 sm:py-3 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:gap-3">
@@ -360,15 +353,23 @@ function StageHeader({ activeStage, onSelect, onSignOut }) {
         </div>
 
         <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Elevate sections">
-          {orderedHeaderStages(activeStage).map((stage) => {
+          {stages.map((stage) => {
             const Icon = stage.Icon
             const isActive = activeStage.id === stage.id
+            const isAssessment = stage.id === 'assessment'
 
             return (
               <button
                 key={`header-${stage.id}`}
                 type="button"
-                onClick={() => onSelect(stage.id, { revealContent: true })}
+                onClick={() => {
+                  if (isAssessment) {
+                    onStart()
+                    return
+                  }
+
+                  onSelect(stage.id, { revealContent: true })
+                }}
                 aria-current={isActive ? 'page' : undefined}
                 className={`inline-flex min-h-11 w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition sm:px-4 ${
                   isActive
@@ -602,7 +603,7 @@ export default function CinematicLandingHero({
         </div>
       </div>
       {isStageFocused ? (
-        <StageHeader activeStage={activeStage} onSelect={selectStage} onSignOut={onSignOut} />
+        <StageHeader activeStage={activeStage} onSelect={selectStage} onStart={onStart} onSignOut={onSignOut} />
       ) : null}
       <div
         className={`relative isolate min-h-dvh overflow-hidden px-4 pb-8 sm:px-6 lg:px-8 lg:pb-16 ${
