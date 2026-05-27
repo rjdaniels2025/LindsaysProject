@@ -51,7 +51,7 @@ export default function Landing({ user, hasProgram, onStart, onDashboard, onSign
             </h2>
             <div className="mt-6 space-y-4 text-base leading-8 text-body sm:text-lg">
               <p>
-                Hi, I&apos;m Lindsay, founder of Elevate Health &amp; Fitness. I created this business to help everyday people build healthier lifestyles without extreme diets, intimidating gyms, or unrealistic expectations.
+                Hi, I&apos;m Lindsay a.k.a Dukes, founder of Elevate Health &amp; Fitness. I created this business to help everyday people build healthier lifestyles without extreme diets, intimidating gyms, or unrealistic expectations.
               </p>
               <p>
                 I know how overwhelming starting a health journey can feel, which is why my coaching focuses on simple workouts, meal guidance, accountability, and sustainable habits that fit real life.
