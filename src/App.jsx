@@ -57,6 +57,11 @@ function userFromSession(session) {
   }
 }
 
+function authRedirectUrl() {
+  if (typeof window === 'undefined') return undefined
+  return `${window.location.origin}/#account`
+}
+
 function MissingSupabaseGate({ onBack, onHome }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
@@ -117,11 +122,12 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
 
     try {
       const trimmedEmail = email.trim()
-      let result = isCreating
+      const result = isCreating
         ? await supabase.auth.signUp({
             email: trimmedEmail,
             password,
             options: {
+              emailRedirectTo: authRedirectUrl(),
               data: {
                 name: name.trim(),
               },
@@ -133,20 +139,10 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
           })
 
       if (result.error) {
-        setError(result.error.message)
+        setError(result.error.message.includes('Email not confirmed')
+          ? 'Check your email and confirm your account before logging in.'
+          : result.error.message)
         return
-      }
-
-      if (isCreating && !result.data.session) {
-        result = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password,
-        })
-
-        if (result.error) {
-          setError(result.error.message)
-          return
-        }
       }
 
       if (result.data.session) {
@@ -154,7 +150,14 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
         return
       }
 
-      setError('Account created, but sign in is still blocked by the Supabase email confirmation setting.')
+      if (isCreating) {
+        setPassword('')
+        setMode('login')
+        setMessage(`Check ${trimmedEmail} to confirm your account, then log in here.`)
+        return
+      }
+
+      setError('Unable to create a session. Try logging in again.')
     } finally {
       setIsSubmitting(false)
     }
