@@ -7,102 +7,81 @@ import Onboarding from './components/Onboarding.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
-function emptyAppState() {
-  return {
-    stage: 'landing',
-    profile: null,
-    messages: [],
-    profileDraft: null,
-    selectedPlan: 'transformation',
-    selectedBilling: 'monthly',
-    programCreatedAt: null,
-    programEndsAt: null,
-  }
-}
-
-function normalizeStage(stage) {
-  return stage === 'onboarding' ? 'assessment' : stage
-}
-
-function stageFromHash() {
-  if (typeof window === 'undefined') return ''
-  const hashStage = window.location.hash.replace(/^#\/?/, '')
-  return ['landing', 'assessment', 'membership', 'account', 'chat'].includes(hashStage) ? hashStage : ''
-}
+// ─── Pure helpers (no React) ──────────────────────────────────────────────────
 
 function addWeeks(date, weeks) {
-  const nextDate = new Date(date)
-  nextDate.setDate(nextDate.getDate() + weeks * 7)
-  return nextDate.toISOString()
+  const d = new Date(date)
+  d.setDate(d.getDate() + weeks * 7)
+  return d.toISOString()
 }
 
-function createMessage(role, content, meta = {}) {
-  return {
-    id: crypto.randomUUID(),
-    role,
-    content,
-    timestamp: new Date().toISOString(),
-    meta,
-  }
+function makeMessage(role, content, meta = {}) {
+  return { id: crypto.randomUUID(), role, content, timestamp: new Date().toISOString(), meta }
 }
 
-function membershipIsActive(membership) {
-  if (!membership) return false
-  if (!['active', 'trialing'].includes(membership.status)) return false
-  if (!membership.current_period_end) return true
-  return new Date(membership.current_period_end).getTime() > Date.now()
+function membershipIsActive(m) {
+  if (!m || !['active', 'trialing'].includes(m.status)) return false
+  return !m.current_period_end || new Date(m.current_period_end).getTime() > Date.now()
 }
 
-function hasGeneratedProgram(messages) {
-  return messages.some((message) => message.meta?.type === 'program')
+function hasProgramMessage(messages) {
+  return messages.some((m) => m.meta?.type === 'program')
 }
 
 function userFromSession(session) {
-  const user = session?.user
-  if (!user) return null
-
+  const u = session?.user
+  if (!u) return null
   return {
-    id: user.id,
-    email: user.email,
-    name: user.user_metadata?.name || user.email?.split('@')[0] || 'Member',
+    id: u.id,
+    email: u.email,
+    name: u.user_metadata?.name || u.email?.split('@')[0] || 'Member',
   }
 }
 
 function authRedirectUrl() {
-  if (typeof window === 'undefined') return undefined
-  return window.location.origin
+  return typeof window !== 'undefined' ? window.location.origin : undefined
 }
 
-function readAuthCallbackFromUrl() {
-  if (typeof window === 'undefined') {
-    return { code: '', error: '', hasAuthParams: false, checkoutSuccess: false, isRecovery: false }
-  }
+const VALID_STAGES = ['landing', 'assessment', 'membership', 'account', 'chat']
 
-  const searchParams = new URLSearchParams(window.location.search)
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-  const code = searchParams.get('code') || hashParams.get('code') || ''
-  const error = searchParams.get('error_description') ||
-    hashParams.get('error_description') ||
-    searchParams.get('error') ||
-    hashParams.get('error') ||
-    ''
-  const hasAuthParams = Boolean(
-    code ||
-    error ||
-    searchParams.get('token_hash') ||
-    hashParams.get('access_token') ||
-    hashParams.get('refresh_token'),
-  )
-  const checkoutSuccess = searchParams.get('checkout') === 'success'
-  const isRecovery = hashParams.get('type') === 'recovery'
-
-  return { code, error, hasAuthParams, checkoutSuccess, isRecovery }
+function stageFromHash() {
+  if (typeof window === 'undefined') return ''
+  const h = window.location.hash.replace(/^#\/?/, '')
+  return VALID_STAGES.includes(h) ? h : ''
 }
 
-function clearAuthCallbackFromUrl() {
+function pushStage(stage) {
   if (typeof window === 'undefined') return
-  window.history.replaceState(null, '', window.location.pathname || '/')
+  window.history.pushState(null, '', stage === 'landing' ? '/' : `#${stage}`)
 }
+
+function replaceStage(stage) {
+  if (typeof window === 'undefined') return
+  window.history.replaceState(null, '', stage === 'landing' ? '/' : `#${stage}`)
+}
+
+function clearUrl() {
+  if (typeof window === 'undefined') return
+  window.history.replaceState(null, '', '/')
+}
+
+// Where to send a logged-in user after restoring their session on page load.
+// Stage is never saved — it is always derived fresh from actual data.
+function resolveLoadRoute({ membership, profile, messages }) {
+  if (hasProgramMessage(messages)) return 'chat'
+  if (membershipIsActive(membership) && profile) return 'chat' // will auto-generate
+  return 'landing'
+}
+
+// Where to send a user immediately after they log in.
+function resolveLoginRoute({ membership, profile, messages }) {
+  if (hasProgramMessage(messages)) return 'chat'
+  if (membershipIsActive(membership) && profile) return 'chat' // will auto-generate
+  if (profile) return 'membership'
+  return 'assessment'
+}
+
+// ─── UI components ────────────────────────────────────────────────────────────
 
 function LoadingScreen() {
   return (
@@ -121,9 +100,12 @@ function MissingSupabaseGate({ onBack, onHome }) {
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
       <div className="w-full max-w-md rounded-lg border border-red-400/40 bg-card p-5 shadow-2xl shadow-black/50 sm:p-6">
         <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
-        <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl">Account Setup Needed</h1>
+        <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl">
+          Account Setup Needed
+        </h1>
         <p className="mt-3 text-sm leading-6 text-body">
-          Account creation is ready, but Supabase is not connected to this deployment yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.
+          Account creation is ready, but Supabase is not connected to this deployment yet.
+          Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.
         </p>
         <div className="mt-5 grid gap-3">
           <button
@@ -131,7 +113,7 @@ function MissingSupabaseGate({ onBack, onHome }) {
             onClick={onBack}
             className="min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white"
           >
-            Back To Membership
+            Back
           </button>
           <button
             type="button"
@@ -159,8 +141,8 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
   const isForgot = mode === 'forgot'
   const isReset = mode === 'reset'
 
-  async function submit(event) {
-    event.preventDefault()
+  async function submit(e) {
+    e.preventDefault()
     setError('')
     setMessage('')
 
@@ -168,10 +150,10 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       if (!email.trim()) { setError('Enter your email address.'); return }
       setIsSubmitting(true)
       try {
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: authRedirectUrl(),
         })
-        if (resetError) setError(resetError.message)
+        if (err) setError(err.message)
         else setMessage(`Reset link sent to ${email.trim()}. Check your inbox.`)
       } finally {
         setIsSubmitting(false)
@@ -183,8 +165,8 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       if (!password || password.length < 6) { setError('Use at least 6 characters for your new password.'); return }
       setIsSubmitting(true)
       try {
-        const { error: updateError } = await supabase.auth.updateUser({ password })
-        if (updateError) setError(updateError.message)
+        const { error: err } = await supabase.auth.updateUser({ password })
+        if (err) setError(err.message)
         else onResetPassword?.()
       } finally {
         setIsSubmitting(false)
@@ -196,31 +178,28 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       setError('Complete every required field.')
       return
     }
-
     if (password.length < 6) {
       setError('Use at least 6 characters for your password.')
       return
     }
 
     setIsSubmitting(true)
-
     try {
       const trimmedEmail = email.trim()
       const result = isCreating
         ? await supabase.auth.signUp({
             email: trimmedEmail,
             password,
-            options: {
-              emailRedirectTo: authRedirectUrl(),
-              data: { name: name.trim() },
-            },
+            options: { emailRedirectTo: authRedirectUrl(), data: { name: name.trim() } },
           })
         : await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
 
       if (result.error) {
-        setError(result.error.message.includes('Email not confirmed')
-          ? 'Check your email and confirm your account before logging in.'
-          : result.error.message)
+        setError(
+          result.error.message.includes('Email not confirmed')
+            ? 'Check your email and confirm your account before logging in.'
+            : result.error.message,
+        )
         return
       }
 
@@ -247,14 +226,18 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
 
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
-      <form onSubmit={submit} className="w-full max-w-md rounded-lg border border-line bg-card p-5 shadow-2xl shadow-black/50 sm:p-6">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md rounded-lg border border-line bg-card p-5 shadow-2xl shadow-black/50 sm:p-6"
+      >
         <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
         <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl">
           {heading}
         </h1>
         {!isReset && !isForgot ? (
           <p className="mt-3 text-sm leading-6 text-body">
-            Create your member account so your questionnaire, subscription, dashboard, and eight week plan can be saved securely.
+            Create your member account so your questionnaire, subscription, dashboard, and eight week plan can be saved
+            securely.
           </p>
         ) : null}
         {isCreating ? (
@@ -309,7 +292,7 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
         {!isReset ? (
           <button
             type="button"
-            onClick={() => { setMode(isForgot ? 'login' : isCreating ? 'login' : 'create'); setError(''); setMessage('') }}
+            onClick={() => { setMode(isForgot || isCreating ? 'login' : 'create'); setError(''); setMessage('') }}
             className="mt-3 min-h-11 w-full rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
           >
             {isForgot ? 'Back to login' : isCreating ? 'I already have an account' : 'Create a new account'}
@@ -346,98 +329,80 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
   )
 }
 
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 function App() {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [stage, setStage] = useState(() => stageFromHash() || 'landing')
+  // ── Core data ──
+  const [user, setUser] = useState(null)
+  const [membership, setMembership] = useState(null)
   const [profile, setProfile] = useState(null)
   const [messages, setMessages] = useState([])
-  const [profileDraft, setProfileDraft] = useState(null)
   const [selectedPlan, setSelectedPlan] = useState('transformation')
   const [selectedBilling, setSelectedBilling] = useState('monthly')
-  const [membership, setMembership] = useState(null)
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
   const [programEndsAt, setProgramEndsAt] = useState(null)
-  const [returnToMembershipAfterAuth, setReturnToMembershipAfterAuth] = useState(false)
-  const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured)
-  const [isProgramLoaded, setIsProgramLoaded] = useState(false)
+
+  // ── UI state ──
+  const [stage, setStage] = useState(() => stageFromHash() || 'landing')
+  const [profileDraft, setProfileDraft] = useState(null) // local only, not persisted
+  const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured) // skip loading if no Supabase
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const programService = useProgramService()
-
-  // Refs hold current values so loadUserProgram doesn't need them in its dep array,
-  // preventing the auth subscription from being torn down on every state change.
-  const profileDraftRef = useRef(null)
-  const returnToMembershipRef = useRef(false)
-  const pendingPaymentVerificationRef = useRef(false)
-
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
   const [isPasswordReset, setIsPasswordReset] = useState(false)
-  const [accountReturnTo, setAccountReturnTo] = useState('membership')
+  const [accountOrigin, setAccountOrigin] = useState('landing')
 
-  const navigateStage = useCallback((nextStage) => {
-    const normalizedStage = normalizeStage(nextStage)
-    setStage(normalizedStage)
+  const programService = useProgramService()
 
-    if (typeof window !== 'undefined') {
-      const nextHash = normalizedStage === 'landing' ? window.location.pathname : `#${normalizedStage}`
-      window.history.pushState(null, '', nextHash)
-    }
-  }, [])
+  // Stable refs — read by callbacks without causing re-renders or re-subscriptions
+  const isInitializedRef = useRef(false)  // blocks SIGNED_IN during initial auth load
+  const profileRef = useRef(null)          // current profile, read synchronously in callbacks
+  const pendingCheckoutRef = useRef(false) // set when returning from Stripe
 
-  const goHome = useCallback(() => {
-    navigateStage('landing')
-  }, [navigateStage])
+  // ── Navigation ───────────────────────────────────────────────────────────────
 
-  const applyAppState = useCallback((nextState, options = {}) => {
-    const nextStage = options.preferHash === false
-      ? normalizeStage(nextState.stage)
-      : stageFromHash() || normalizeStage(nextState.stage)
-
+  const navigate = useCallback((nextStage, { replace = false } = {}) => {
     setStage(nextStage)
-    if (options.syncUrl && typeof window !== 'undefined') {
-      const nextHash = nextStage === 'landing' ? window.location.pathname : `#${nextStage}`
-      window.history.replaceState(null, '', nextHash)
-    }
-    setProfile(nextState.profile)
-    setMessages(nextState.messages)
-    profileDraftRef.current = nextState.profileDraft ?? null
-    setProfileDraft(nextState.profileDraft)
-    setSelectedPlan(nextState.selectedPlan || 'transformation')
-    setSelectedBilling(nextState.selectedBilling || 'monthly')
-    setProgramCreatedAt(nextState.programCreatedAt)
-    setProgramEndsAt(nextState.programEndsAt)
+    if (replace) replaceStage(nextStage)
+    else pushStage(nextStage)
   }, [])
 
-  const generateProgramForProfile = useCallback(async (nextProfile) => {
+  const goHome = useCallback(() => navigate('landing'), [navigate])
+
+  // ── Program generation ───────────────────────────────────────────────────────
+
+  const generateProgramForProfile = useCallback(async (targetProfile) => {
     const createdAt = new Date().toISOString()
     setError('')
     setIsLoading(true)
-    setProfile(nextProfile)
-    setProfileDraft(nextProfile)
+    setProfile(targetProfile)
+    profileRef.current = targetProfile
     setProgramCreatedAt(createdAt)
     setProgramEndsAt(addWeeks(createdAt, 8))
-    navigateStage('chat')
+    navigate('chat')
     setMessages([
-      createMessage(
+      makeMessage(
         'assistant',
-        `## Building ${nextProfile.name}'s program\n\nYour assessment is saved to your member account. Elevate is generating your complete 8-week plan now.`,
+        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your member account. Elevate is generating your complete 8-week plan now.`,
         { type: 'status' },
       ),
     ])
 
     try {
-      const program = await programService.generateProgram(nextProfile)
-      setMessages([createMessage('assistant', program, { type: 'program' })])
-    } catch (caughtError) {
-      setError(caughtError.message || 'Unable to generate the program.')
+      const text = await programService.generateProgram(targetProfile)
+      setMessages([makeMessage('assistant', text, { type: 'program' })])
+    } catch (err) {
+      setError(err.message || 'Unable to generate the program.')
     } finally {
       setIsLoading(false)
     }
-  }, [navigateStage, programService])
+  }, [navigate, programService])
 
-  const pollForActiveMembership = useCallback(async (userId, draftProfile) => {
+  // ── Payment polling ──────────────────────────────────────────────────────────
+
+  const pollForActiveMembership = useCallback(async (userId, targetProfile) => {
     setIsVerifyingPayment(true)
-    for (let attempt = 0; attempt < 24; attempt++) {
+    for (let i = 0; i < 24; i++) {
       await new Promise((r) => setTimeout(r, 2500))
       const { data } = await supabase
         .from('user_memberships')
@@ -447,7 +412,7 @@ function App() {
       if (membershipIsActive(data)) {
         setMembership(data)
         setIsVerifyingPayment(false)
-        if (draftProfile) generateProgramForProfile(draftProfile)
+        if (targetProfile) generateProgramForProfile(targetProfile)
         return
       }
     }
@@ -455,336 +420,301 @@ function App() {
     setError('Payment is still processing — once your confirmation email arrives, click "Generate My Plan" to continue.')
   }, [generateProgramForProfile])
 
-  const loadUserProgram = useCallback(async (session, options = {}) => {
+  // ── Data loading ─────────────────────────────────────────────────────────────
+
+  // Loads a user's saved data from Supabase and routes them to the right stage.
+  // isLogin=true means they just authenticated (fresh sign-in), which uses
+  // stricter routing (resume their flow) vs a page reload (go to landing).
+  const loadUserData = useCallback(async (session, { isLogin = false } = {}) => {
     const nextUser = userFromSession(session)
-    setCurrentUser(nextUser)
 
     if (!nextUser) {
-      applyAppState(emptyAppState())
+      setUser(null)
       setMembership(null)
-      setIsProgramLoaded(false)
-      setIsAuthLoading(false)
+      setProfile(null)
+      profileRef.current = null
+      setMessages([])
+      setSelectedPlan('transformation')
+      setSelectedBilling('monthly')
+      setProgramCreatedAt(null)
+      setProgramEndsAt(null)
+      setIsAuthReady(true)
+      navigate('landing', { replace: true })
       return
     }
 
-    setIsProgramLoaded(false)
-    const { data, error: loadError } = await supabase
-      .from('user_programs')
-      .select('display_name, app_state')
-      .eq('user_id', nextUser.id)
-      .maybeSingle()
+    setUser(nextUser)
 
-    let loadedState = emptyAppState()
+    // Fetch program data and membership in parallel
+    const [programRes, membershipRes] = await Promise.all([
+      supabase
+        .from('user_programs')
+        .select('display_name, app_state')
+        .eq('user_id', nextUser.id)
+        .maybeSingle(),
+      supabase
+        .from('user_memberships')
+        .select('plan_id, billing, status, current_period_end')
+        .eq('user_id', nextUser.id)
+        .maybeSingle(),
+    ])
 
-    if (loadError) {
-      setError(loadError.message)
-    } else {
-      loadedState = { ...loadedState, ...(data?.app_state || {}) }
-      if (data?.display_name && data.display_name !== nextUser.name) {
-        setCurrentUser({ ...nextUser, name: data.display_name })
-      }
+    const saved = programRes.data?.app_state || {}
+    const membershipData = membershipRes.data || null
+
+    if (programRes.error) setError(programRes.error.message)
+    if (membershipRes.error) setError(membershipRes.error.message)
+
+    // Update display name if the saved one differs from the auth name
+    const displayName = programRes.data?.display_name
+    if (displayName && displayName !== nextUser.name) {
+      setUser({ ...nextUser, name: displayName })
     }
 
-    const { data: membershipData, error: membershipError } = await supabase
-      .from('user_memberships')
-      .select('plan_id, billing, status, current_period_end')
-      .eq('user_id', nextUser.id)
-      .maybeSingle()
-
-    if (membershipError) {
-      setError(membershipError.message)
-      setMembership(null)
-    } else {
-      setMembership(membershipData)
-    }
-
-    // Read current values from refs to avoid stale closures. This keeps the auth
-    // subscription stable (no teardown/resubscribe on every profileDraft change).
-    const currentProfileDraft = profileDraftRef.current
-    const currentReturnToMembership = returnToMembershipRef.current
-
-    // Recover a profile draft saved to localStorage before the email-confirmation
-    // redirect — the page reloads so React state is lost, but the draft survives.
+    // Recover profile draft from localStorage — survives the email-confirmation redirect
     let storedDraft = null
     try {
       const raw = localStorage.getItem('elevate_draft')
-      if (raw) {
-        storedDraft = JSON.parse(raw)
-        localStorage.removeItem('elevate_draft')
-      }
+      if (raw) { storedDraft = JSON.parse(raw); localStorage.removeItem('elevate_draft') }
     } catch {}
 
-    const draftProfile = currentProfileDraft || loadedState.profileDraft || loadedState.profile || storedDraft
+    // profile and profileDraft are treated as one field for loading purposes
+    const loadedProfile = saved.profile || saved.profileDraft || storedDraft || null
+    const loadedMessages = Array.isArray(saved.messages) ? saved.messages : []
+    const loadedPlan = saved.selectedPlan || 'transformation'
+    const loadedBilling = saved.selectedBilling || 'monthly'
+    const loadedCreatedAt = saved.programCreatedAt || null
+    const loadedEndsAt = saved.programEndsAt || null
 
-    if (storedDraft && !loadedState.profileDraft) {
-      loadedState = { ...loadedState, profileDraft: storedDraft, profile: storedDraft }
+    setProfile(loadedProfile)
+    profileRef.current = loadedProfile
+    setMessages(loadedMessages)
+    setMembership(membershipData)
+    setSelectedPlan(loadedPlan)
+    setSelectedBilling(loadedBilling)
+    setProgramCreatedAt(loadedCreatedAt)
+    setProgramEndsAt(loadedEndsAt)
+
+    // Determine destination stage
+    const routeData = { membership: membershipData, profile: loadedProfile, messages: loadedMessages }
+    const hashStage = stageFromHash()
+    let destination
+
+    if (hashStage && !isLogin) {
+      // On a normal page load, respect the URL hash (user may have bookmarked or navigated directly)
+      destination = hashStage
+    } else {
+      destination = isLogin ? resolveLoginRoute(routeData) : resolveLoadRoute(routeData)
     }
 
-    const hasProgram = hasGeneratedProgram(loadedState.messages)
-    const hasActiveAccess = membershipIsActive(membershipData)
-    const requestedStage = stageFromHash()
-    const shouldPreserveCurrentRoute = Boolean(requestedStage && !options.forceRoute)
-    let autoGenerateProfile = null
+    setIsAuthReady(true)
+    navigate(destination, { replace: true })
 
-    if (shouldPreserveCurrentRoute) {
-      loadedState = {
-        ...loadedState,
-        stage: requestedStage,
-        profile: draftProfile || loadedState.profile,
-        profileDraft: draftProfile || loadedState.profileDraft,
+    // Auto-generate program if membership is active and they have a profile but no program yet
+    if (membershipIsActive(membershipData) && loadedProfile && !hasProgramMessage(loadedMessages)) {
+      if (!hashStage || isLogin) {
+        generateProgramForProfile(loadedProfile)
       }
-    } else if (currentReturnToMembership && currentProfileDraft) {
-      loadedState = {
-        ...loadedState,
-        stage: 'membership',
-        profile: currentProfileDraft,
-        profileDraft: currentProfileDraft,
-      }
-      returnToMembershipRef.current = false
-      setReturnToMembershipAfterAuth(false)
-    } else if (hasProgram) {
-      loadedState = { ...loadedState, stage: 'chat' }
-    } else if (draftProfile && hasActiveAccess) {
-      loadedState = {
-        ...loadedState,
-        stage: 'chat',
-        profile: draftProfile,
-        profileDraft: draftProfile,
-      }
-      autoGenerateProfile = draftProfile
-    } else if (draftProfile && options.forceRoute) {
-      // User just logged in and has a profile but no membership — resume the flow.
-      loadedState = {
-        ...loadedState,
-        stage: 'membership',
-        profile: draftProfile,
-        profileDraft: draftProfile,
-      }
-    } else if (options.forceRoute) {
-      // Newly authenticated user with no saved data — start them at the assessment.
-      loadedState = { ...loadedState, stage: 'assessment' }
     }
 
-    applyAppState(loadedState, { preferHash: shouldPreserveCurrentRoute, syncUrl: true })
-
-    setIsProgramLoaded(true)
-    setIsAuthLoading(false)
-
-    if (autoGenerateProfile && !shouldPreserveCurrentRoute) {
-      generateProgramForProfile(autoGenerateProfile)
-    } else if (pendingPaymentVerificationRef.current && nextUser) {
-      pendingPaymentVerificationRef.current = false
-      pollForActiveMembership(nextUser.id, draftProfile)
+    // Start polling if returning from Stripe checkout
+    if (pendingCheckoutRef.current) {
+      pendingCheckoutRef.current = false
+      pollForActiveMembership(nextUser.id, loadedProfile)
     }
-  }, [applyAppState, generateProgramForProfile, pollForActiveMembership])
+  }, [navigate, generateProgramForProfile, pollForActiveMembership])
+
+  // ── Auth setup (runs once) ────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      return undefined
-    }
+    if (!isSupabaseConfigured) return
 
-    let isMounted = true
+    let mounted = true
 
-    async function initializeAuth() {
-      const callback = readAuthCallbackFromUrl()
+    async function init() {
+      const searchParams = new URLSearchParams(window.location.search)
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
 
-      if (callback.checkoutSuccess) {
-        pendingPaymentVerificationRef.current = true
-        // Strip the checkout param but keep the hash
+      // Stripe returned the user after checkout
+      if (searchParams.get('checkout') === 'success') {
+        pendingCheckoutRef.current = true
         const url = new URL(window.location.href)
         url.searchParams.delete('checkout')
         window.history.replaceState(null, '', url.pathname + url.search + url.hash)
       }
 
-      if (callback.error) {
-        clearAuthCallbackFromUrl()
-        if (!isMounted) return
-        setError(callback.error)
-        setIsAuthLoading(false)
+      // Auth error from Supabase redirect
+      const authError = searchParams.get('error_description') || hashParams.get('error_description') ||
+        searchParams.get('error') || hashParams.get('error') || ''
+      if (authError) {
+        clearUrl()
+        if (!mounted) return
+        setError(authError)
+        setIsAuthReady(true)
         return
       }
 
-      if (callback.isRecovery) {
-        clearAuthCallbackFromUrl()
-        if (!isMounted) return
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData.session) setCurrentUser(userFromSession(sessionData.session))
+      // Password reset link — show the reset form, don't load program data
+      if (hashParams.get('type') === 'recovery') {
+        clearUrl()
+        if (!mounted) return
+        const { data } = await supabase.auth.getSession()
+        if (data.session) setUser(userFromSession(data.session))
         setIsPasswordReset(true)
-        setIsAuthLoading(false)
+        setIsAuthReady(true)
+        navigate('account', { replace: true })
+        isInitializedRef.current = true
         return
       }
 
-      if (callback.code) {
-        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(callback.code)
-        clearAuthCallbackFromUrl()
-        if (!isMounted) return
-
-        if (exchangeError) {
-          setError(exchangeError.message)
-          setIsAuthLoading(false)
-          return
-        }
-
-        loadUserProgram(data.session, { forceRoute: true })
+      // Email confirmation code exchange
+      const code = searchParams.get('code') || hashParams.get('code') || ''
+      if (code) {
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        clearUrl()
+        if (!mounted) return
+        if (exchangeError) { setError(exchangeError.message); setIsAuthReady(true); isInitializedRef.current = true; return }
+        await loadUserData(data.session, { isLogin: true })
+        isInitializedRef.current = true
         return
       }
 
+      // Implicit token in hash (magic link, OAuth)
+      const hasImplicitToken = hashParams.get('access_token') || hashParams.get('refresh_token') || searchParams.get('token_hash')
+      if (hasImplicitToken) {
+        clearUrl()
+      }
+
+      // Standard session restore
       const { data } = await supabase.auth.getSession()
-      if (!isMounted) return
-
-      if (callback.hasAuthParams) {
-        clearAuthCallbackFromUrl()
-      }
-
-      loadUserProgram(data.session)
+      if (!mounted) return
+      await loadUserData(data.session)
+      isInitializedRef.current = true
     }
 
-    initializeAuth()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isMounted) return
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordReset(true)
-        setCurrentUser(userFromSession(session))
-        navigateStage('account')
-        setIsAuthLoading(false)
+        setUser(userFromSession(session))
+        navigate('account')
+        setIsAuthReady(true)
         return
       }
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        loadUserProgram(session, { forceRoute: event === 'SIGNED_IN' })
+
+      // Ignore events that fire before init completes — init handles the initial session itself
+      if (!isInitializedRef.current) return
+
+      if (event === 'SIGNED_OUT') {
+        loadUserData(null)
+        return
+      }
+
+      if (event === 'SIGNED_IN') {
+        loadUserData(session, { isLogin: true })
       }
     })
 
+    init()
+
     return () => {
-      isMounted = false
-      listener.subscription.unsubscribe()
+      mounted = false
+      subscription.unsubscribe()
     }
-  }, [loadUserProgram])
+  }, [loadUserData, navigate])
+
+  // ── Browser navigation (back/forward) ────────────────────────────────────────
 
   useEffect(() => {
-    function handleNavigation() {
-      const nextStage = stageFromHash()
-      if (nextStage) setStage(nextStage)
+    function onNavigation() {
+      const next = stageFromHash()
+      if (next) setStage(next)
     }
-
-    window.addEventListener('hashchange', handleNavigation)
-    window.addEventListener('popstate', handleNavigation)
-
+    window.addEventListener('hashchange', onNavigation)
+    window.addEventListener('popstate', onNavigation)
     return () => {
-      window.removeEventListener('hashchange', handleNavigation)
-      window.removeEventListener('popstate', handleNavigation)
+      window.removeEventListener('hashchange', onNavigation)
+      window.removeEventListener('popstate', onNavigation)
     }
   }, [])
 
+  // ── Persist user data to Supabase (debounced) ─────────────────────────────────
+
   useEffect(() => {
-    if (!currentUser || !isProgramLoaded) return
+    if (!user || !isAuthReady) return
 
-    const nextState = {
-      stage,
-      profile,
-      messages,
-      profileDraft,
-      selectedPlan,
-      selectedBilling,
-      programCreatedAt,
-      programEndsAt,
-    }
-
-    const saveTimer = window.setTimeout(async () => {
-      const { error: saveError } = await supabase
-        .from('user_programs')
-        .upsert({
-          user_id: currentUser.id,
-          display_name: currentUser.name,
-          app_state: nextState,
-        })
-
+    const timer = setTimeout(async () => {
+      const { error: saveError } = await supabase.from('user_programs').upsert({
+        user_id: user.id,
+        display_name: user.name,
+        app_state: {
+          profile,
+          messages,
+          selectedPlan,
+          selectedBilling,
+          programCreatedAt,
+          programEndsAt,
+        },
+      })
       if (saveError) setError(saveError.message)
-    }, 350)
+    }, 500)
 
-    return () => window.clearTimeout(saveTimer)
-  }, [currentUser, isProgramLoaded, stage, profile, messages, profileDraft, selectedPlan, selectedBilling, programCreatedAt, programEndsAt])
+    return () => clearTimeout(timer)
+  }, [user, isAuthReady, profile, messages, selectedPlan, selectedBilling, programCreatedAt, programEndsAt])
 
-  const saveProfileDraft = useCallback((nextProfile) => {
-    profileDraftRef.current = nextProfile
-    setProfileDraft(nextProfile)
-  }, [])
+  // ── User actions ──────────────────────────────────────────────────────────────
 
-  const prepareMembership = useCallback((nextProfile) => {
+  function openLogin() {
     setError('')
-    profileDraftRef.current = nextProfile
-    setProfileDraft(nextProfile)
-    setProfile(nextProfile)
-    navigateStage('membership')
-  }, [navigateStage])
-
-  function goToLogin() {
-    setError('')
-    setAccountReturnTo('landing')
-    if (!currentUser) {
-      navigateStage('account')
+    setAccountOrigin('landing')
+    if (!user) {
+      navigate('account')
       return
     }
-
-    const nextProfile = profileDraft || profile
-
-    if (hasGeneratedProgram(messages)) {
-      navigateStage('chat')
-      return
-    }
-
-    if (nextProfile && membershipIsActive(membership)) {
-      generateProgramForProfile(nextProfile)
-      return
-    }
-
-    navigateStage('assessment')
-  }
-
-  function startAccountCreation() {
-    setError('')
-    setAccountReturnTo('membership')
-    if (!isSupabaseConfigured) {
-      navigateStage('account')
-      return
-    }
-    // Persist the draft to localStorage so it survives the email-confirmation redirect.
-    if (profileDraftRef.current) {
-      try { localStorage.setItem('elevate_draft', JSON.stringify(profileDraftRef.current)) } catch {}
-    }
-    returnToMembershipRef.current = true
-    setReturnToMembershipAfterAuth(true)
-    navigateStage('account')
-  }
-
-  function handleAuthenticated() {
-    // Provide immediate optimistic navigation; the SIGNED_IN event's loadUserProgram
-    // will confirm and finalize the destination once async data loads.
-    if (profileDraftRef.current) {
-      returnToMembershipRef.current = true
-      setReturnToMembershipAfterAuth(true)
-      navigateStage('membership')
+    // Already logged in — route to wherever they should be
+    const routeData = { membership, profile, messages }
+    const dest = resolveLoginRoute(routeData)
+    if (dest === 'chat' && membershipIsActive(membership) && profile && !hasProgramMessage(messages)) {
+      generateProgramForProfile(profile)
+    } else {
+      navigate(dest)
     }
   }
 
-  function retryGenerateProgram() {
-    const nextProfile = profileDraftRef.current || profile
-    if (!nextProfile) return
-    setMessages([])
+  function openAccountForCheckout() {
     setError('')
-    generateProgramForProfile(nextProfile)
+    setAccountOrigin('membership')
+    if (profileDraft || profileRef.current) {
+      try { localStorage.setItem('elevate_draft', JSON.stringify(profileDraft || profileRef.current)) } catch {}
+    }
+    navigate('account')
   }
 
-  function handlePasswordReset() {
+  function onAccountAuthenticated() {
+    // Called when signInWithPassword returns a session immediately.
+    // The SIGNED_IN event will fire and loadUserData will handle routing.
+    // Nothing to do here — just let the auth listener take over.
+  }
+
+  function onPasswordReset() {
     setIsPasswordReset(false)
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) loadUserProgram(data.session, { forceRoute: true })
+      if (data.session) loadUserData(data.session, { isLogin: true })
     })
+  }
+
+  function completeAssessment(completedProfile) {
+    setError('')
+    setProfile(completedProfile)
+    profileRef.current = completedProfile
+    setProfileDraft(completedProfile)
+    navigate('membership')
   }
 
   async function startCheckout() {
-    if (!currentUser) {
-      startAccountCreation()
+    if (!user) {
+      openAccountForCheckout()
       return
     }
 
@@ -792,81 +722,66 @@ function App() {
     setIsLoading(true)
 
     try {
-      const { data, error: checkoutError } = await supabase.functions.invoke('create-checkout-session', {
-        body: {
-          planId: selectedPlan,
-          billing: selectedBilling,
-        },
+      const { data, error: err } = await supabase.functions.invoke('create-checkout-session', {
+        body: { planId: selectedPlan, billing: selectedBilling },
       })
 
-      if (checkoutError) {
-        throw new Error(checkoutError.message)
-      }
-
-      if (!data?.url) {
-        throw new Error('Stripe did not return a checkout URL.')
-      }
+      if (err) throw new Error(err.message)
+      if (!data?.url) throw new Error('Stripe did not return a checkout URL.')
 
       window.location.assign(data.url)
-    } catch (caughtError) {
-      setError(caughtError.message || 'Unable to start checkout.')
+    } catch (err) {
+      setError(err.message || 'Unable to start checkout.')
       setIsLoading(false)
     }
   }
 
   async function generateProgram() {
-    const nextProfile = profileDraft || profile
+    const targetProfile = profile || profileDraft
 
-    if (!currentUser) {
-      startAccountCreation()
-      return
-    }
+    if (!user) { openAccountForCheckout(); return }
+    if (!targetProfile) { setError('Complete the questionnaire first.'); navigate('assessment'); return }
+    if (!membershipIsActive(membership)) { setError('Complete checkout before generating your plan.'); navigate('membership'); return }
 
-    if (!nextProfile) {
-      setError('Complete the questionnaire before generating your plan.')
-      navigateStage('assessment')
-      return
-    }
+    generateProgramForProfile(targetProfile)
+  }
 
-    if (!membershipIsActive(membership)) {
-      setError('Complete checkout before generating your plan.')
-      navigateStage('membership')
-      return
-    }
-
-    generateProgramForProfile(nextProfile)
+  function retryGenerateProgram() {
+    const targetProfile = profileRef.current || profile
+    if (!targetProfile) return
+    setMessages([])
+    setError('')
+    generateProgramForProfile(targetProfile)
   }
 
   async function sendMessage(text, meta = {}) {
-    const userMessage = createMessage('user', text, { type: 'request', label: meta.label || text })
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
+    const userMsg = makeMessage('user', text, { type: 'request', label: meta.label || text })
+    const next = [...messages, userMsg]
+    setMessages(next)
     setError('')
     setIsLoading(true)
-
     try {
-      const response = await programService.sendMessage(messages, text)
-      setMessages([...nextMessages, createMessage('assistant', response, { type: 'result', label: meta.label || text })])
-    } catch (caughtError) {
-      setError(caughtError.message || 'Unable to send this message.')
+      const reply = await programService.sendMessage(messages, text)
+      setMessages([...next, makeMessage('assistant', reply, { type: 'result', label: meta.label || text })])
+    } catch (err) {
+      setError(err.message || 'Unable to send this message.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  async function analyzeMedia(mediaPayload) {
-    const label = mediaPayload.type === 'video' ? `Analyze video: ${mediaPayload.name}` : `Analyze image: ${mediaPayload.name}`
-    const userMessage = createMessage('user', label, { type: 'media', mediaName: mediaPayload.name })
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
+  async function analyzeMedia(payload) {
+    const label = payload.type === 'video' ? `Analyze video: ${payload.name}` : `Analyze image: ${payload.name}`
+    const userMsg = makeMessage('user', label, { type: 'media', mediaName: payload.name })
+    const next = [...messages, userMsg]
+    setMessages(next)
     setError('')
     setIsLoading(true)
-
     try {
-      const response = await programService.analyzeMedia(messages, mediaPayload)
-      setMessages([...nextMessages, createMessage('assistant', response, { type: 'analysis', label: 'Form feedback' })])
-    } catch (caughtError) {
-      setError(caughtError.message || 'Unable to analyze this media.')
+      const reply = await programService.analyzeMedia(messages, payload)
+      setMessages([...next, makeMessage('assistant', reply, { type: 'analysis', label: 'Form feedback' })])
+    } catch (err) {
+      setError(err.message || 'Unable to analyze this media.')
     } finally {
       setIsLoading(false)
     }
@@ -875,23 +790,17 @@ function App() {
   async function signOut() {
     if (!supabase) return
     await supabase.auth.signOut()
-    setCurrentUser(null)
-    applyAppState(emptyAppState())
-    setMembership(null)
-    setError('')
-    setIsLoading(false)
-    setIsProgramLoaded(false)
-    navigateStage('landing')
+    // SIGNED_OUT event will call loadUserData(null) which resets everything
   }
 
-  if (isAuthLoading) {
-    return <LoadingScreen />
-  }
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  if (!isAuthReady) return <LoadingScreen />
 
   if (stage === 'chat') {
     return (
       <Chat
-        user={currentUser}
+        user={user}
         profile={profile}
         messages={messages}
         programCreatedAt={programCreatedAt}
@@ -909,17 +818,21 @@ function App() {
 
   if (stage === 'account') {
     if (!isSupabaseConfigured) {
-      return <MissingSupabaseGate onBack={() => navigateStage(accountReturnTo)} onHome={goHome} />
+      return (
+        <MissingSupabaseGate
+          onBack={() => navigate(accountOrigin)}
+          onHome={goHome}
+        />
+      )
     }
-
     return (
       <AccountGate
-        onBack={() => navigateStage(accountReturnTo)}
+        onBack={() => navigate(accountOrigin)}
         onHome={goHome}
-        onAuthenticated={handleAuthenticated}
-        onResetPassword={handlePasswordReset}
+        onAuthenticated={onAccountAuthenticated}
+        onResetPassword={onPasswordReset}
         isPasswordReset={isPasswordReset}
-        backLabel={accountReturnTo === 'landing' ? 'Back to home' : 'Back to membership'}
+        backLabel={accountOrigin === 'landing' ? 'Back to home' : 'Back to membership'}
       />
     )
   }
@@ -928,24 +841,11 @@ function App() {
     return (
       <Onboarding
         initialProfile={profileDraft}
-        onProfileChange={saveProfileDraft}
-        onComplete={prepareMembership}
+        onProfileChange={setProfileDraft}
+        onComplete={completeAssessment}
         onHome={goHome}
         isLoading={isLoading}
         error={error}
-      />
-    )
-  }
-
-  if (stage === 'landing') {
-    return (
-      <Landing
-        user={currentUser}
-        hasProgram={messages.some((message) => message.meta?.type === 'program')}
-        onStart={() => navigateStage('assessment')}
-        onDashboard={() => navigateStage('chat')}
-        onLogin={goToLogin}
-        onSignOut={signOut}
       />
     )
   }
@@ -953,33 +853,34 @@ function App() {
   if (stage === 'membership') {
     return (
       <MembershipGate
-        user={currentUser}
-        profile={profileDraft || profile}
+        user={user}
+        profile={profile || profileDraft}
         selectedPlan={selectedPlan}
         selectedBilling={selectedBilling}
         onSelectPlan={setSelectedPlan}
         onSelectBilling={setSelectedBilling}
-        onCreateAccount={startAccountCreation}
+        onCreateAccount={openAccountForCheckout}
         onCheckout={startCheckout}
         onGeneratePlan={generateProgram}
         hasActiveMembership={membershipIsActive(membership)}
         isLoading={isLoading}
         isVerifyingPayment={isVerifyingPayment}
-        onBack={() => navigateStage('assessment')}
+        onBack={() => navigate('assessment')}
         onHome={goHome}
         error={error}
       />
     )
   }
 
+  // landing (default)
   return (
-    <Onboarding
-      initialProfile={profileDraft}
-      onProfileChange={saveProfileDraft}
-      onComplete={prepareMembership}
-      onHome={goHome}
-      isLoading={isLoading}
-      error={error}
+    <Landing
+      user={user}
+      hasProgram={hasProgramMessage(messages)}
+      onStart={() => navigate('assessment')}
+      onDashboard={() => navigate('chat')}
+      onLogin={openLogin}
+      onSignOut={signOut}
     />
   )
 }
