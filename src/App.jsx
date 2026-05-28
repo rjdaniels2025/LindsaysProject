@@ -552,7 +552,8 @@ function App() {
         profileDraft: draftProfile,
       }
       autoGenerateProfile = draftProfile
-    } else if (draftProfile) {
+    } else if (draftProfile && options.forceRoute) {
+      // User just logged in and has a profile but no membership — resume the flow.
       loadedState = {
         ...loadedState,
         stage: 'membership',
