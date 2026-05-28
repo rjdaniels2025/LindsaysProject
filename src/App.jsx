@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
-import MembershipGate from './components/MembershipGate.jsx'
 import Onboarding from './components/Onboarding.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
-// ─── Pure helpers (no React) ──────────────────────────────────────────────────
+// ─── Pure helpers ─────────────────────────────────────────────────────────────
 
 function addWeeks(date, weeks) {
   const d = new Date(date)
@@ -17,11 +16,6 @@ function addWeeks(date, weeks) {
 
 function makeMessage(role, content, meta = {}) {
   return { id: crypto.randomUUID(), role, content, timestamp: new Date().toISOString(), meta }
-}
-
-function membershipIsActive(m) {
-  if (!m || !['active', 'trialing'].includes(m.status)) return false
-  return !m.current_period_end || new Date(m.current_period_end).getTime() > Date.now()
 }
 
 function hasProgramMessage(messages) {
@@ -42,7 +36,7 @@ function authRedirectUrl() {
   return typeof window !== 'undefined' ? window.location.origin : undefined
 }
 
-const VALID_STAGES = ['landing', 'assessment', 'membership', 'account', 'chat']
+const VALID_STAGES = ['landing', 'assessment', 'account', 'chat']
 
 function stageFromHash() {
   if (typeof window === 'undefined') return ''
@@ -65,19 +59,16 @@ function clearUrl() {
   window.history.replaceState(null, '', '/')
 }
 
-// Where to send a logged-in user after restoring their session on page load.
-// Stage is never saved — it is always derived fresh from actual data.
-function resolveLoadRoute({ membership, profile, messages }) {
+// Where to send a logged-in user on page load (session restore)
+function resolveLoadRoute({ messages }) {
   if (hasProgramMessage(messages)) return 'chat'
-  if (membershipIsActive(membership) && profile) return 'chat' // will auto-generate
   return 'landing'
 }
 
-// Where to send a user immediately after they log in.
-function resolveLoginRoute({ membership, profile, messages }) {
+// Where to send a user after they log in — only used when they already have a program
+function resolveLoginRoute({ messages }) {
   if (hasProgramMessage(messages)) return 'chat'
-  if (membershipIsActive(membership) && profile) return 'chat' // will auto-generate
-  return 'assessment'
+  return 'assessment' // no program yet — assessment or auto-generate handles it
 }
 
 // ─── UI components ────────────────────────────────────────────────────────────
@@ -94,7 +85,7 @@ function LoadingScreen() {
   )
 }
 
-function MissingSupabaseGate({ onBack, onHome }) {
+function MissingSupabaseGate({ onHome }) {
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
       <div className="w-full max-w-md rounded-lg border border-red-400/40 bg-card p-5 shadow-2xl shadow-black/50 sm:p-6">
@@ -106,30 +97,21 @@ function MissingSupabaseGate({ onBack, onHome }) {
           Account creation is ready, but Supabase is not connected to this deployment yet.
           Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.
         </p>
-        <div className="mt-5 grid gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white"
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            onClick={onHome}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
-          >
-            <ArrowLeft size={18} />
-            Home
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onHome}
+          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
+        >
+          <ArrowLeft size={18} />
+          Home
+        </button>
       </div>
     </main>
   )
 }
 
-function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPasswordReset, backLabel }) {
-  const [mode, setMode] = useState(isPasswordReset ? 'reset' : 'login')
+function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPasswordReset, backLabel, initialMode = 'login' }) {
+  const [mode, setMode] = useState(isPasswordReset ? 'reset' : initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -235,8 +217,9 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
         </h1>
         {!isReset && !isForgot ? (
           <p className="mt-3 text-sm leading-6 text-body">
-            Create your member account so your questionnaire, subscription, dashboard, and eight week plan can be saved
-            securely.
+            {isCreating
+              ? 'Create your account to generate your personalized 8-week training plan and dashboard.'
+              : 'Log in to access your personalized training dashboard.'}
           </p>
         ) : null}
         {isCreating ? (
@@ -333,33 +316,27 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
 function App() {
   // ── Core data ──
   const [user, setUser] = useState(null)
-  const [membership, setMembership] = useState(null)
   const [profile, setProfile] = useState(null)
   const [messages, setMessages] = useState([])
-  const [selectedPlan, setSelectedPlan] = useState('transformation')
-  const [selectedBilling, setSelectedBilling] = useState('monthly')
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
   const [programEndsAt, setProgramEndsAt] = useState(null)
 
   // ── UI state ──
   const [stage, setStage] = useState(() => stageFromHash() || 'landing')
-  const [profileDraft, setProfileDraft] = useState(null) // local only, not persisted
-  const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured) // skip loading if no Supabase
+  const [profileDraft, setProfileDraft] = useState(null)
+  const [accountMode, setAccountMode] = useState('login') // 'login' | 'create'
+  const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
   const [isPasswordReset, setIsPasswordReset] = useState(false)
-  const [accountOrigin, setAccountOrigin] = useState('landing')
 
   const programService = useProgramService()
 
-  // Stable refs — read by callbacks without causing re-renders or re-subscriptions
-  const isInitializedRef = useRef(false)  // blocks SIGNED_IN during initial auth load
-  const profileRef = useRef(null)          // current profile, read synchronously in callbacks
-  const pendingCheckoutRef = useRef(false) // set when returning from Stripe
-  const postAuthDestRef = useRef(null)    // explicit post-auth destination, set by openAccountForCheckout
+  // Stable refs — read inside callbacks without causing re-subscriptions
+  const isInitializedRef = useRef(false)
+  const profileRef = useRef(null)
 
-  // ── Navigation ───────────────────────────────────────────────────────────────
+  // ── Navigation ────────────────────────────────────────────────────────────
 
   const navigate = useCallback((nextStage, { replace = false } = {}) => {
     setStage(nextStage)
@@ -369,7 +346,7 @@ function App() {
 
   const goHome = useCallback(() => navigate('landing'), [navigate])
 
-  // ── Program generation ───────────────────────────────────────────────────────
+  // ── Program generation ────────────────────────────────────────────────────
 
   const generateProgramForProfile = useCallback(async (targetProfile) => {
     const createdAt = new Date().toISOString()
@@ -383,7 +360,7 @@ function App() {
     setMessages([
       makeMessage(
         'assistant',
-        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your member account. Elevate is generating your complete 8-week plan now.`,
+        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Elevate is generating your complete 8-week plan now.`,
         { type: 'status' },
       ),
     ])
@@ -398,44 +375,16 @@ function App() {
     }
   }, [navigate, programService])
 
-  // ── Payment polling ──────────────────────────────────────────────────────────
+  // ── Data loading ──────────────────────────────────────────────────────────
 
-  const pollForActiveMembership = useCallback(async (userId, targetProfile) => {
-    setIsVerifyingPayment(true)
-    for (let i = 0; i < 24; i++) {
-      await new Promise((r) => setTimeout(r, 2500))
-      const { data } = await supabase
-        .from('user_memberships')
-        .select('plan_id, billing, status, current_period_end')
-        .eq('user_id', userId)
-        .maybeSingle()
-      if (membershipIsActive(data)) {
-        setMembership(data)
-        setIsVerifyingPayment(false)
-        if (targetProfile) generateProgramForProfile(targetProfile)
-        return
-      }
-    }
-    setIsVerifyingPayment(false)
-    setError('Payment is still processing — once your confirmation email arrives, click "Generate My Plan" to continue.')
-  }, [generateProgramForProfile])
-
-  // ── Data loading ─────────────────────────────────────────────────────────────
-
-  // Loads a user's saved data from Supabase and routes them to the right stage.
-  // isLogin=true means they just authenticated (fresh sign-in), which uses
-  // stricter routing (resume their flow) vs a page reload (go to landing).
   const loadUserData = useCallback(async (session, { isLogin = false } = {}) => {
     const nextUser = userFromSession(session)
 
     if (!nextUser) {
       setUser(null)
-      setMembership(null)
       setProfile(null)
       profileRef.current = null
       setMessages([])
-      setSelectedPlan('transformation')
-      setSelectedBilling('monthly')
       setProgramCreatedAt(null)
       setProgramEndsAt(null)
       setIsAuthReady(true)
@@ -445,92 +394,58 @@ function App() {
 
     setUser(nextUser)
 
-    // Fetch program data and membership in parallel
-    const [programRes, membershipRes] = await Promise.all([
-      supabase
-        .from('user_programs')
-        .select('display_name, app_state')
-        .eq('user_id', nextUser.id)
-        .maybeSingle(),
-      supabase
-        .from('user_memberships')
-        .select('plan_id, billing, status, current_period_end')
-        .eq('user_id', nextUser.id)
-        .maybeSingle(),
-    ])
+    const { data: programData, error: programError } = await supabase
+      .from('user_programs')
+      .select('display_name, app_state')
+      .eq('user_id', nextUser.id)
+      .maybeSingle()
 
-    const saved = programRes.data?.app_state || {}
-    const membershipData = membershipRes.data || null
+    if (programError) setError(programError.message)
 
-    if (programRes.error) setError(programRes.error.message)
-    if (membershipRes.error) setError(membershipRes.error.message)
-
-    // Update display name if the saved one differs from the auth name
-    const displayName = programRes.data?.display_name
+    const saved = programData?.app_state || {}
+    const displayName = programData?.display_name
     if (displayName && displayName !== nextUser.name) {
-      setUser({ ...nextUser, name: displayName })
+      setUser((prev) => ({ ...prev, name: displayName }))
     }
 
-    // Recover profile draft from localStorage — survives the email-confirmation redirect
+    // Recover profile saved before navigating to account (survives email-confirmation redirect)
     let storedDraft = null
     try {
       const raw = localStorage.getItem('elevate_draft')
       if (raw) { storedDraft = JSON.parse(raw); localStorage.removeItem('elevate_draft') }
     } catch {}
 
-    // profile and profileDraft are treated as one field for loading purposes
     const loadedProfile = saved.profile || saved.profileDraft || storedDraft || null
     const loadedMessages = Array.isArray(saved.messages) ? saved.messages : []
-    const loadedPlan = saved.selectedPlan || 'transformation'
-    const loadedBilling = saved.selectedBilling || 'monthly'
-    const loadedCreatedAt = saved.programCreatedAt || null
-    const loadedEndsAt = saved.programEndsAt || null
 
     setProfile(loadedProfile)
     profileRef.current = loadedProfile
     setMessages(loadedMessages)
-    setMembership(membershipData)
-    setSelectedPlan(loadedPlan)
-    setSelectedBilling(loadedBilling)
-    setProgramCreatedAt(loadedCreatedAt)
-    setProgramEndsAt(loadedEndsAt)
-
-    // Determine destination stage
-    const routeData = { membership: membershipData, profile: loadedProfile, messages: loadedMessages }
-    const hashStage = stageFromHash()
-    let destination
-
-    if (hashStage && !isLogin) {
-      // On a normal page load, respect the URL hash (user may have bookmarked or navigated directly)
-      destination = hashStage
-    } else if (isLogin) {
-      // Use explicit destination if set (e.g. returning to membership after account creation),
-      // otherwise fall back to data-driven routing
-      const forcedDest = postAuthDestRef.current
-      postAuthDestRef.current = null
-      destination = forcedDest || resolveLoginRoute(routeData)
-    } else {
-      destination = resolveLoadRoute(routeData)
-    }
+    setProgramCreatedAt(saved.programCreatedAt || null)
+    setProgramEndsAt(saved.programEndsAt || null)
 
     setIsAuthReady(true)
+
+    // If they have a profile but no program, generate it now (handles post-signup and login)
+    if (loadedProfile && !hasProgramMessage(loadedMessages)) {
+      generateProgramForProfile(loadedProfile)
+      return
+    }
+
+    // Otherwise route based on what data they have
+    const hashStage = stageFromHash()
+    let destination
+    if (hashStage && !isLogin) {
+      destination = hashStage
+    } else {
+      destination = isLogin
+        ? resolveLoginRoute({ messages: loadedMessages })
+        : resolveLoadRoute({ messages: loadedMessages })
+    }
     navigate(destination, { replace: true })
+  }, [navigate, generateProgramForProfile])
 
-    // Auto-generate program if membership is active and they have a profile but no program yet
-    if (membershipIsActive(membershipData) && loadedProfile && !hasProgramMessage(loadedMessages)) {
-      if (!hashStage || isLogin) {
-        generateProgramForProfile(loadedProfile)
-      }
-    }
-
-    // Start polling if returning from Stripe checkout
-    if (pendingCheckoutRef.current) {
-      pendingCheckoutRef.current = false
-      pollForActiveMembership(nextUser.id, loadedProfile)
-    }
-  }, [navigate, generateProgramForProfile, pollForActiveMembership])
-
-  // ── Auth setup (runs once) ────────────────────────────────────────────────────
+  // ── Auth setup (runs once) ────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -541,26 +456,19 @@ function App() {
       const searchParams = new URLSearchParams(window.location.search)
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
 
-      // Stripe returned the user after checkout
-      if (searchParams.get('checkout') === 'success') {
-        pendingCheckoutRef.current = true
-        const url = new URL(window.location.href)
-        url.searchParams.delete('checkout')
-        window.history.replaceState(null, '', url.pathname + url.search + url.hash)
-      }
-
-      // Auth error from Supabase redirect
-      const authError = searchParams.get('error_description') || hashParams.get('error_description') ||
+      const authError =
+        searchParams.get('error_description') || hashParams.get('error_description') ||
         searchParams.get('error') || hashParams.get('error') || ''
       if (authError) {
         clearUrl()
         if (!mounted) return
         setError(authError)
         setIsAuthReady(true)
+        isInitializedRef.current = true
         return
       }
 
-      // Password reset link — show the reset form, don't load program data
+      // Password reset link
       if (hashParams.get('type') === 'recovery') {
         clearUrl()
         if (!mounted) return
@@ -579,17 +487,21 @@ function App() {
         const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
         clearUrl()
         if (!mounted) return
-        if (exchangeError) { setError(exchangeError.message); setIsAuthReady(true); isInitializedRef.current = true; return }
+        if (exchangeError) {
+          setError(exchangeError.message)
+          setIsAuthReady(true)
+          isInitializedRef.current = true
+          return
+        }
         await loadUserData(data.session, { isLogin: true })
         isInitializedRef.current = true
         return
       }
 
-      // Implicit token in hash (magic link, OAuth)
-      const hasImplicitToken = hashParams.get('access_token') || hashParams.get('refresh_token') || searchParams.get('token_hash')
-      if (hasImplicitToken) {
-        clearUrl()
-      }
+      // Implicit token (magic link, OAuth)
+      const hasImplicitToken =
+        hashParams.get('access_token') || hashParams.get('refresh_token') || searchParams.get('token_hash')
+      if (hasImplicitToken) clearUrl()
 
       // Standard session restore
       const { data } = await supabase.auth.getSession()
@@ -609,17 +521,10 @@ function App() {
         return
       }
 
-      // Ignore events that fire before init completes — init handles the initial session itself
       if (!isInitializedRef.current) return
 
-      if (event === 'SIGNED_OUT') {
-        loadUserData(null)
-        return
-      }
-
-      if (event === 'SIGNED_IN') {
-        loadUserData(session, { isLogin: true })
-      }
+      if (event === 'SIGNED_OUT') { loadUserData(null); return }
+      if (event === 'SIGNED_IN') { loadUserData(session, { isLogin: true }) }
     })
 
     init()
@@ -630,7 +535,7 @@ function App() {
     }
   }, [loadUserData, navigate])
 
-  // ── Browser navigation (back/forward) ────────────────────────────────────────
+  // ── Browser navigation (back/forward) ────────────────────────────────────
 
   useEffect(() => {
     function onNavigation() {
@@ -645,7 +550,7 @@ function App() {
     }
   }, [])
 
-  // ── Persist user data to Supabase (debounced) ─────────────────────────────────
+  // ── Persist user data (debounced) ─────────────────────────────────────────
 
   useEffect(() => {
     if (!user || !isAuthReady) return
@@ -654,51 +559,31 @@ function App() {
       const { error: saveError } = await supabase.from('user_programs').upsert({
         user_id: user.id,
         display_name: user.name,
-        app_state: {
-          profile,
-          messages,
-          selectedPlan,
-          selectedBilling,
-          programCreatedAt,
-          programEndsAt,
-        },
+        app_state: { profile, messages, programCreatedAt, programEndsAt },
       })
       if (saveError) setError(saveError.message)
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [user, isAuthReady, profile, messages, selectedPlan, selectedBilling, programCreatedAt, programEndsAt])
+  }, [user, isAuthReady, profile, messages, programCreatedAt, programEndsAt])
 
-  // ── User actions ──────────────────────────────────────────────────────────────
+  // ── User actions ──────────────────────────────────────────────────────────
 
   function openLogin() {
     setError('')
-    setAccountOrigin('landing')
-    postAuthDestRef.current = null
     if (!user) {
+      setAccountMode('login')
       navigate('account')
       return
     }
-    // Already logged in — go to dashboard or assessment, never membership
+    // Already logged in — go to their dashboard
     if (hasProgramMessage(messages)) { navigate('chat'); return }
-    if (membershipIsActive(membership) && profile) { generateProgramForProfile(profile); return }
+    if (profile) { generateProgramForProfile(profile); return }
     navigate('assessment')
   }
 
-  function openAccountForCheckout() {
-    setError('')
-    setAccountOrigin('membership')
-    postAuthDestRef.current = 'membership' // after auth, return to membership to complete checkout
-    if (profileDraft || profileRef.current) {
-      try { localStorage.setItem('elevate_draft', JSON.stringify(profileDraft || profileRef.current)) } catch {}
-    }
-    navigate('account')
-  }
-
   function onAccountAuthenticated() {
-    // Called when signInWithPassword returns a session immediately.
-    // The SIGNED_IN event will fire and loadUserData will handle routing.
-    // Nothing to do here — just let the auth listener take over.
+    // SIGNED_IN event fires and loadUserData handles routing — nothing to do here
   }
 
   function onPasswordReset() {
@@ -713,49 +598,10 @@ function App() {
     setProfile(completedProfile)
     profileRef.current = completedProfile
     setProfileDraft(completedProfile)
-    navigate('membership')
-  }
-
-  async function startCheckout() {
-    if (!user) {
-      openAccountForCheckout()
-      return
-    }
-
-    setError('')
-    setIsLoading(true)
-
-    try {
-      const { data, error: err } = await supabase.functions.invoke('create-checkout-session', {
-        body: { planId: selectedPlan, billing: selectedBilling },
-      })
-
-      if (err) throw new Error(err.message)
-      if (!data?.url) throw new Error('Stripe did not return a checkout URL.')
-
-      window.location.assign(data.url)
-    } catch (err) {
-      setError(err.message || 'Unable to start checkout.')
-      setIsLoading(false)
-    }
-  }
-
-  async function generateProgram() {
-    const targetProfile = profile || profileDraft
-
-    if (!user) { openAccountForCheckout(); return }
-    if (!targetProfile) { setError('Complete the questionnaire first.'); navigate('assessment'); return }
-    if (!membershipIsActive(membership)) { setError('Complete checkout before generating your plan.'); navigate('membership'); return }
-
-    generateProgramForProfile(targetProfile)
-  }
-
-  function retryGenerateProgram() {
-    const targetProfile = profileRef.current || profile
-    if (!targetProfile) return
-    setMessages([])
-    setError('')
-    generateProgramForProfile(targetProfile)
+    // Save to localStorage so it survives email-confirmation redirect
+    try { localStorage.setItem('elevate_draft', JSON.stringify(completedProfile)) } catch {}
+    setAccountMode('create')
+    navigate('account')
   }
 
   async function sendMessage(text, meta = {}) {
@@ -791,13 +637,21 @@ function App() {
     }
   }
 
+  function retryGenerateProgram() {
+    const targetProfile = profileRef.current || profile
+    if (!targetProfile) return
+    setMessages([])
+    setError('')
+    generateProgramForProfile(targetProfile)
+  }
+
   async function signOut() {
     if (!supabase) return
     await supabase.auth.signOut()
-    // SIGNED_OUT event will call loadUserData(null) which resets everything
+    // SIGNED_OUT event calls loadUserData(null) which resets everything
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   if (!isAuthReady) return <LoadingScreen />
 
@@ -822,21 +676,17 @@ function App() {
 
   if (stage === 'account') {
     if (!isSupabaseConfigured) {
-      return (
-        <MissingSupabaseGate
-          onBack={() => navigate(accountOrigin)}
-          onHome={goHome}
-        />
-      )
+      return <MissingSupabaseGate onHome={goHome} />
     }
     return (
       <AccountGate
-        onBack={() => navigate(accountOrigin)}
+        onBack={goHome}
         onHome={goHome}
         onAuthenticated={onAccountAuthenticated}
         onResetPassword={onPasswordReset}
         isPasswordReset={isPasswordReset}
-        backLabel={accountOrigin === 'landing' ? 'Back to home' : 'Back to membership'}
+        backLabel="Back to home"
+        initialMode={accountMode}
       />
     )
   }
@@ -849,28 +699,6 @@ function App() {
         onComplete={completeAssessment}
         onHome={goHome}
         isLoading={isLoading}
-        error={error}
-      />
-    )
-  }
-
-  if (stage === 'membership') {
-    return (
-      <MembershipGate
-        user={user}
-        profile={profile || profileDraft}
-        selectedPlan={selectedPlan}
-        selectedBilling={selectedBilling}
-        onSelectPlan={setSelectedPlan}
-        onSelectBilling={setSelectedBilling}
-        onCreateAccount={openAccountForCheckout}
-        onCheckout={startCheckout}
-        onGeneratePlan={generateProgram}
-        hasActiveMembership={membershipIsActive(membership)}
-        isLoading={isLoading}
-        isVerifyingPayment={isVerifyingPayment}
-        onBack={() => navigate('assessment')}
-        onHome={goHome}
         error={error}
       />
     )
