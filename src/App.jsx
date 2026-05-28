@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
@@ -317,6 +317,11 @@ function App() {
   const [error, setError] = useState('')
   const programService = useProgramService()
 
+  // Refs hold current values so loadUserProgram doesn't need them in its dep array,
+  // preventing the auth subscription from being torn down on every state change.
+  const profileDraftRef = useRef(null)
+  const returnToMembershipRef = useRef(false)
+
   const navigateStage = useCallback((nextStage) => {
     const normalizedStage = normalizeStage(nextStage)
     setStage(normalizedStage)
@@ -343,6 +348,7 @@ function App() {
     }
     setProfile(nextState.profile)
     setMessages(nextState.messages)
+    profileDraftRef.current = nextState.profileDraft ?? null
     setProfileDraft(nextState.profileDraft)
     setSelectedPlan(nextState.selectedPlan || 'transformation')
     setSelectedBilling(nextState.selectedBilling || 'monthly')
@@ -420,7 +426,28 @@ function App() {
       setMembership(membershipData)
     }
 
-    const draftProfile = profileDraft || loadedState.profileDraft || loadedState.profile
+    // Read current values from refs to avoid stale closures. This keeps the auth
+    // subscription stable (no teardown/resubscribe on every profileDraft change).
+    const currentProfileDraft = profileDraftRef.current
+    const currentReturnToMembership = returnToMembershipRef.current
+
+    // Recover a profile draft saved to localStorage before the email-confirmation
+    // redirect — the page reloads so React state is lost, but the draft survives.
+    let storedDraft = null
+    try {
+      const raw = localStorage.getItem('elevate_draft')
+      if (raw) {
+        storedDraft = JSON.parse(raw)
+        localStorage.removeItem('elevate_draft')
+      }
+    } catch {}
+
+    const draftProfile = currentProfileDraft || loadedState.profileDraft || loadedState.profile || storedDraft
+
+    if (storedDraft && !loadedState.profileDraft) {
+      loadedState = { ...loadedState, profileDraft: storedDraft, profile: storedDraft }
+    }
+
     const hasProgram = hasGeneratedProgram(loadedState.messages)
     const hasActiveAccess = membershipIsActive(membershipData)
     const requestedStage = stageFromHash()
@@ -434,13 +461,14 @@ function App() {
         profile: draftProfile || loadedState.profile,
         profileDraft: draftProfile || loadedState.profileDraft,
       }
-    } else if (returnToMembershipAfterAuth && profileDraft) {
+    } else if (currentReturnToMembership && currentProfileDraft) {
       loadedState = {
         ...loadedState,
         stage: 'membership',
-        profile: profileDraft,
-        profileDraft,
+        profile: currentProfileDraft,
+        profileDraft: currentProfileDraft,
       }
+      returnToMembershipRef.current = false
       setReturnToMembershipAfterAuth(false)
     } else if (hasProgram) {
       loadedState = { ...loadedState, stage: 'chat' }
@@ -459,6 +487,9 @@ function App() {
         profile: draftProfile,
         profileDraft: draftProfile,
       }
+    } else if (options.forceRoute) {
+      // Newly authenticated user with no saved data — start them at the assessment.
+      loadedState = { ...loadedState, stage: 'assessment' }
     }
 
     applyAppState(loadedState, { preferHash: shouldPreserveCurrentRoute, syncUrl: true })
@@ -469,7 +500,7 @@ function App() {
     if (autoGenerateProfile && !shouldPreserveCurrentRoute) {
       generateProgramForProfile(autoGenerateProfile)
     }
-  }, [applyAppState, generateProgramForProfile, profileDraft, returnToMembershipAfterAuth])
+  }, [applyAppState, generateProgramForProfile])
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -574,11 +605,13 @@ function App() {
   }, [currentUser, isProgramLoaded, stage, profile, messages, profileDraft, selectedPlan, selectedBilling, programCreatedAt, programEndsAt])
 
   const saveProfileDraft = useCallback((nextProfile) => {
+    profileDraftRef.current = nextProfile
     setProfileDraft(nextProfile)
   }, [])
 
   const prepareMembership = useCallback((nextProfile) => {
     setError('')
+    profileDraftRef.current = nextProfile
     setProfileDraft(nextProfile)
     setProfile(nextProfile)
     navigateStage('membership')
@@ -608,7 +641,7 @@ function App() {
       return
     }
 
-    navigateStage('chat')
+    navigateStage('assessment')
   }
 
   function startAccountCreation() {
@@ -617,12 +650,20 @@ function App() {
       navigateStage('account')
       return
     }
+    // Persist the draft to localStorage so it survives the email-confirmation redirect.
+    if (profileDraftRef.current) {
+      try { localStorage.setItem('elevate_draft', JSON.stringify(profileDraftRef.current)) } catch {}
+    }
+    returnToMembershipRef.current = true
     setReturnToMembershipAfterAuth(true)
     navigateStage('account')
   }
 
   function handleAuthenticated() {
-    if (profileDraft) {
+    // Provide immediate optimistic navigation; the SIGNED_IN event's loadUserProgram
+    // will confirm and finalize the destination once async data loads.
+    if (profileDraftRef.current) {
+      returnToMembershipRef.current = true
       setReturnToMembershipAfterAuth(true)
       navigateStage('membership')
     }
