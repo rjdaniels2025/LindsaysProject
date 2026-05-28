@@ -77,7 +77,6 @@ function resolveLoadRoute({ membership, profile, messages }) {
 function resolveLoginRoute({ membership, profile, messages }) {
   if (hasProgramMessage(messages)) return 'chat'
   if (membershipIsActive(membership) && profile) return 'chat' // will auto-generate
-  if (profile) return 'membership'
   return 'assessment'
 }
 
@@ -358,6 +357,7 @@ function App() {
   const isInitializedRef = useRef(false)  // blocks SIGNED_IN during initial auth load
   const profileRef = useRef(null)          // current profile, read synchronously in callbacks
   const pendingCheckoutRef = useRef(false) // set when returning from Stripe
+  const postAuthDestRef = useRef(null)    // explicit post-auth destination, set by openAccountForCheckout
 
   // ── Navigation ───────────────────────────────────────────────────────────────
 
@@ -503,8 +503,14 @@ function App() {
     if (hashStage && !isLogin) {
       // On a normal page load, respect the URL hash (user may have bookmarked or navigated directly)
       destination = hashStage
+    } else if (isLogin) {
+      // Use explicit destination if set (e.g. returning to membership after account creation),
+      // otherwise fall back to data-driven routing
+      const forcedDest = postAuthDestRef.current
+      postAuthDestRef.current = null
+      destination = forcedDest || resolveLoginRoute(routeData)
     } else {
-      destination = isLogin ? resolveLoginRoute(routeData) : resolveLoadRoute(routeData)
+      destination = resolveLoadRoute(routeData)
     }
 
     setIsAuthReady(true)
@@ -668,23 +674,21 @@ function App() {
   function openLogin() {
     setError('')
     setAccountOrigin('landing')
+    postAuthDestRef.current = null
     if (!user) {
       navigate('account')
       return
     }
-    // Already logged in — route to wherever they should be
-    const routeData = { membership, profile, messages }
-    const dest = resolveLoginRoute(routeData)
-    if (dest === 'chat' && membershipIsActive(membership) && profile && !hasProgramMessage(messages)) {
-      generateProgramForProfile(profile)
-    } else {
-      navigate(dest)
-    }
+    // Already logged in — go to dashboard or assessment, never membership
+    if (hasProgramMessage(messages)) { navigate('chat'); return }
+    if (membershipIsActive(membership) && profile) { generateProgramForProfile(profile); return }
+    navigate('assessment')
   }
 
   function openAccountForCheckout() {
     setError('')
     setAccountOrigin('membership')
+    postAuthDestRef.current = 'membership' // after auth, return to membership to complete checkout
     if (profileDraft || profileRef.current) {
       try { localStorage.setItem('elevate_draft', JSON.stringify(profileDraft || profileRef.current)) } catch {}
     }
