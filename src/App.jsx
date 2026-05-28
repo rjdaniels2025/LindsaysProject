@@ -636,11 +636,6 @@ function App() {
       return
     }
 
-    if (nextProfile) {
-      navigateStage('membership')
-      return
-    }
-
     navigateStage('assessment')
   }
 
