@@ -75,7 +75,7 @@ function authRedirectUrl() {
 
 function readAuthCallbackFromUrl() {
   if (typeof window === 'undefined') {
-    return { code: '', error: '', hasAuthParams: false }
+    return { code: '', error: '', hasAuthParams: false, checkoutSuccess: false, isRecovery: false }
   }
 
   const searchParams = new URLSearchParams(window.location.search)
@@ -93,8 +93,10 @@ function readAuthCallbackFromUrl() {
     hashParams.get('access_token') ||
     hashParams.get('refresh_token'),
   )
+  const checkoutSuccess = searchParams.get('checkout') === 'success'
+  const isRecovery = hashParams.get('type') === 'recovery'
 
-  return { code, error, hasAuthParams }
+  return { code, error, hasAuthParams, checkoutSuccess, isRecovery }
 }
 
 function clearAuthCallbackFromUrl() {
@@ -145,8 +147,8 @@ function MissingSupabaseGate({ onBack, onHome }) {
   )
 }
 
-function AccountGate({ onBack, onHome, onAuthenticated }) {
-  const [mode, setMode] = useState('login')
+function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPasswordReset, backLabel }) {
+  const [mode, setMode] = useState(isPasswordReset ? 'reset' : 'login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -154,11 +156,41 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isCreating = mode === 'create'
+  const isForgot = mode === 'forgot'
+  const isReset = mode === 'reset'
 
   async function submit(event) {
     event.preventDefault()
     setError('')
     setMessage('')
+
+    if (isForgot) {
+      if (!email.trim()) { setError('Enter your email address.'); return }
+      setIsSubmitting(true)
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: authRedirectUrl(),
+        })
+        if (resetError) setError(resetError.message)
+        else setMessage(`Reset link sent to ${email.trim()}. Check your inbox.`)
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+
+    if (isReset) {
+      if (!password || password.length < 6) { setError('Use at least 6 characters for your new password.'); return }
+      setIsSubmitting(true)
+      try {
+        const { error: updateError } = await supabase.auth.updateUser({ password })
+        if (updateError) setError(updateError.message)
+        else onResetPassword?.()
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
 
     if (!email.trim() || !password || (isCreating && !name.trim())) {
       setError('Complete every required field.')
@@ -180,15 +212,10 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
             password,
             options: {
               emailRedirectTo: authRedirectUrl(),
-              data: {
-                name: name.trim(),
-              },
+              data: { name: name.trim() },
             },
           })
-        : await supabase.auth.signInWithPassword({
-            email: trimmedEmail,
-            password,
-          })
+        : await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
 
       if (result.error) {
         setError(result.error.message.includes('Email not confirmed')
@@ -215,50 +242,61 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
     }
   }
 
+  const heading = isReset ? 'Set New Password' : isForgot ? 'Reset Password' : isCreating ? 'Create Account' : 'Member Login'
+  const submitLabel = isSubmitting ? 'Working' : isReset ? 'Set Password' : isForgot ? 'Send Reset Link' : isCreating ? 'Create Account' : 'Log In'
+
   return (
     <main className="grid min-h-screen place-items-center bg-bg px-4 py-5 text-body">
       <form onSubmit={submit} className="w-full max-w-md rounded-lg border border-line bg-card p-5 shadow-2xl shadow-black/50 sm:p-6">
         <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
         <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl">
-          {isCreating ? 'Create Account' : 'Member Login'}
+          {heading}
         </h1>
-        <p className="mt-3 text-sm leading-6 text-body">
-          Create your member account so your questionnaire, subscription, dashboard, and eight week plan can be saved securely.
-        </p>
+        {!isReset && !isForgot ? (
+          <p className="mt-3 text-sm leading-6 text-body">
+            Create your member account so your questionnaire, subscription, dashboard, and eight week plan can be saved securely.
+          </p>
+        ) : null}
         {isCreating ? (
           <label className="mt-6 block">
             <span className="mb-2 block font-heading text-lg uppercase text-white">Name</span>
             <input
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
               placeholder="Your name"
               autoComplete="name"
             />
           </label>
         ) : null}
-        <label className="mt-6 block">
-          <span className="mb-2 block font-heading text-lg uppercase text-white">Email</span>
-          <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
-            placeholder="you@example.com"
-            type="email"
-            autoComplete="email"
-          />
-        </label>
-        <label className="mt-4 block">
-          <span className="mb-2 block font-heading text-lg uppercase text-white">Password</span>
-          <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
-            placeholder="At least 6 characters"
-            type="password"
-            autoComplete={isCreating ? 'new-password' : 'current-password'}
-          />
-        </label>
+        {!isReset ? (
+          <label className="mt-6 block">
+            <span className="mb-2 block font-heading text-lg uppercase text-white">Email</span>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
+              placeholder="you@example.com"
+              type="email"
+              autoComplete="email"
+            />
+          </label>
+        ) : null}
+        {!isForgot ? (
+          <label className="mt-4 block">
+            <span className="mb-2 block font-heading text-lg uppercase text-white">
+              {isReset ? 'New Password' : 'Password'}
+            </span>
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
+              placeholder="At least 6 characters"
+              type="password"
+              autoComplete={isCreating || isReset ? 'new-password' : 'current-password'}
+            />
+          </label>
+        ) : null}
         {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
         {message ? <p className="mt-3 text-sm text-accent">{message}</p> : null}
         <button
@@ -266,26 +304,35 @@ function AccountGate({ onBack, onHome, onAuthenticated }) {
           disabled={isSubmitting}
           className="mt-5 min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Working' : isCreating ? 'Create Account' : 'Log In'}
+          {submitLabel}
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode(isCreating ? 'login' : 'create')
-            setError('')
-            setMessage('')
-          }}
-          className="mt-3 min-h-11 w-full rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
-        >
-          {isCreating ? 'I already have an account' : 'Create a new account'}
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="mt-3 min-h-11 w-full rounded-lg px-5 font-heading text-lg uppercase text-body transition hover:text-white"
-        >
-          Back to membership
-        </button>
+        {!isReset ? (
+          <button
+            type="button"
+            onClick={() => { setMode(isForgot ? 'login' : isCreating ? 'login' : 'create'); setError(''); setMessage('') }}
+            className="mt-3 min-h-11 w-full rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
+          >
+            {isForgot ? 'Back to login' : isCreating ? 'I already have an account' : 'Create a new account'}
+          </button>
+        ) : null}
+        {!isReset && !isForgot && !isCreating ? (
+          <button
+            type="button"
+            onClick={() => { setMode('forgot'); setError(''); setMessage('') }}
+            className="mt-3 w-full text-center text-sm text-body underline-offset-2 transition hover:text-white hover:underline"
+          >
+            Forgot your password?
+          </button>
+        ) : null}
+        {!isReset ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mt-3 min-h-11 w-full rounded-lg px-5 font-heading text-lg uppercase text-body transition hover:text-white"
+          >
+            {backLabel || 'Back'}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onHome}
@@ -321,6 +368,11 @@ function App() {
   // preventing the auth subscription from being torn down on every state change.
   const profileDraftRef = useRef(null)
   const returnToMembershipRef = useRef(false)
+  const pendingPaymentVerificationRef = useRef(false)
+
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
+  const [isPasswordReset, setIsPasswordReset] = useState(false)
+  const [accountReturnTo, setAccountReturnTo] = useState('membership')
 
   const navigateStage = useCallback((nextStage) => {
     const normalizedStage = normalizeStage(nextStage)
@@ -382,6 +434,26 @@ function App() {
       setIsLoading(false)
     }
   }, [navigateStage, programService])
+
+  const pollForActiveMembership = useCallback(async (userId, draftProfile) => {
+    setIsVerifyingPayment(true)
+    for (let attempt = 0; attempt < 24; attempt++) {
+      await new Promise((r) => setTimeout(r, 2500))
+      const { data } = await supabase
+        .from('user_memberships')
+        .select('plan_id, billing, status, current_period_end')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (membershipIsActive(data)) {
+        setMembership(data)
+        setIsVerifyingPayment(false)
+        if (draftProfile) generateProgramForProfile(draftProfile)
+        return
+      }
+    }
+    setIsVerifyingPayment(false)
+    setError('Payment is still processing — once your confirmation email arrives, click "Generate My Plan" to continue.')
+  }, [generateProgramForProfile])
 
   const loadUserProgram = useCallback(async (session, options = {}) => {
     const nextUser = userFromSession(session)
@@ -499,8 +571,11 @@ function App() {
 
     if (autoGenerateProfile && !shouldPreserveCurrentRoute) {
       generateProgramForProfile(autoGenerateProfile)
+    } else if (pendingPaymentVerificationRef.current && nextUser) {
+      pendingPaymentVerificationRef.current = false
+      pollForActiveMembership(nextUser.id, draftProfile)
     }
-  }, [applyAppState, generateProgramForProfile])
+  }, [applyAppState, generateProgramForProfile, pollForActiveMembership])
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -512,10 +587,28 @@ function App() {
     async function initializeAuth() {
       const callback = readAuthCallbackFromUrl()
 
+      if (callback.checkoutSuccess) {
+        pendingPaymentVerificationRef.current = true
+        // Strip the checkout param but keep the hash
+        const url = new URL(window.location.href)
+        url.searchParams.delete('checkout')
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+      }
+
       if (callback.error) {
         clearAuthCallbackFromUrl()
         if (!isMounted) return
         setError(callback.error)
+        setIsAuthLoading(false)
+        return
+      }
+
+      if (callback.isRecovery) {
+        clearAuthCallbackFromUrl()
+        if (!isMounted) return
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData.session) setCurrentUser(userFromSession(sessionData.session))
+        setIsPasswordReset(true)
         setIsAuthLoading(false)
         return
       }
@@ -549,6 +642,13 @@ function App() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordReset(true)
+        setCurrentUser(userFromSession(session))
+        navigateStage('account')
+        setIsAuthLoading(false)
+        return
+      }
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         loadUserProgram(session, { forceRoute: event === 'SIGNED_IN' })
       }
@@ -619,6 +719,7 @@ function App() {
 
   function goToLogin() {
     setError('')
+    setAccountReturnTo('landing')
     if (!currentUser) {
       navigateStage('account')
       return
@@ -641,6 +742,7 @@ function App() {
 
   function startAccountCreation() {
     setError('')
+    setAccountReturnTo('membership')
     if (!isSupabaseConfigured) {
       navigateStage('account')
       return
@@ -662,6 +764,21 @@ function App() {
       setReturnToMembershipAfterAuth(true)
       navigateStage('membership')
     }
+  }
+
+  function retryGenerateProgram() {
+    const nextProfile = profileDraftRef.current || profile
+    if (!nextProfile) return
+    setMessages([])
+    setError('')
+    generateProgramForProfile(nextProfile)
+  }
+
+  function handlePasswordReset() {
+    setIsPasswordReset(false)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) loadUserProgram(data.session, { forceRoute: true })
+    })
   }
 
   async function startCheckout() {
@@ -784,16 +901,26 @@ function App() {
         onAnalyzeMedia={analyzeMedia}
         onSignOut={signOut}
         onHome={goHome}
+        onRetry={retryGenerateProgram}
       />
     )
   }
 
   if (stage === 'account') {
     if (!isSupabaseConfigured) {
-      return <MissingSupabaseGate onBack={() => navigateStage('membership')} onHome={goHome} />
+      return <MissingSupabaseGate onBack={() => navigateStage(accountReturnTo)} onHome={goHome} />
     }
 
-    return <AccountGate onBack={() => navigateStage('membership')} onHome={goHome} onAuthenticated={handleAuthenticated} />
+    return (
+      <AccountGate
+        onBack={() => navigateStage(accountReturnTo)}
+        onHome={goHome}
+        onAuthenticated={handleAuthenticated}
+        onResetPassword={handlePasswordReset}
+        isPasswordReset={isPasswordReset}
+        backLabel={accountReturnTo === 'landing' ? 'Back to home' : 'Back to membership'}
+      />
+    )
   }
 
   if (stage === 'assessment') {
@@ -836,6 +963,7 @@ function App() {
         onGeneratePlan={generateProgram}
         hasActiveMembership={membershipIsActive(membership)}
         isLoading={isLoading}
+        isVerifyingPayment={isVerifyingPayment}
         onBack={() => navigateStage('assessment')}
         onHome={goHome}
         error={error}

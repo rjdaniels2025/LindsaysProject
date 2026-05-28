@@ -75,6 +75,7 @@ export default function MembershipGate({
   onGeneratePlan,
   hasActiveMembership,
   isLoading,
+  isVerifyingPayment,
   onBack,
   onHome,
   error,
@@ -95,7 +96,20 @@ export default function MembershipGate({
   const actionHandler = !user ? onCreateAccount : hasActiveMembership ? onGeneratePlan : onCheckout
 
   return (
-    <main className="min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
+    <main className="relative min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
+      {isVerifyingPayment ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-bg/90 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-lg border border-accent/30 bg-card p-8 text-center shadow-2xl">
+            <p className="font-heading text-3xl uppercase leading-none text-white">Verifying Payment</p>
+            <p className="mt-3 text-sm leading-6 text-body">Confirming your payment with Stripe. This usually takes a few seconds.</p>
+            <div className="mt-6 flex justify-center gap-2">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="h-3 w-3 animate-pulse rounded-full bg-accent" style={{ animationDelay: `${i * 150}ms` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">

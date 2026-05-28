@@ -93,6 +93,7 @@ export default function Chat({
   onAnalyzeMedia,
   onSignOut,
   onHome,
+  onRetry,
 }) {
   const [media, setMedia] = useState(null)
   const [mediaError, setMediaError] = useState('')
@@ -230,9 +231,24 @@ export default function Chat({
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
                   {statusCopy}
                 </p>
-                <div className="mt-6">
-                  <LoadingDots />
-                </div>
+                {error && !isLoading ? (
+                  <div className="mt-6 space-y-3">
+                    <p className="rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
+                    {onRetry ? (
+                      <button
+                        type="button"
+                        onClick={onRetry}
+                        className="min-h-11 rounded-lg bg-accent px-5 font-heading text-lg uppercase text-black transition hover:bg-white"
+                      >
+                        Try Again
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-6">
+                    <LoadingDots />
+                  </div>
+                )}
               </div>
             )}
           </div>

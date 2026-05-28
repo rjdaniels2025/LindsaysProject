@@ -53,7 +53,7 @@ Deno.serve(async (request) => {
     params.set('line_items[0][quantity]', '1')
     params.set('client_reference_id', user.id)
     params.set('customer_email', user.email || '')
-    params.set('success_url', `${siteUrl}/#membership`)
+    params.set('success_url', `${siteUrl}/?checkout=success#membership`)
     params.set('cancel_url', `${siteUrl}/#membership`)
     params.set('metadata[user_id]', user.id)
     params.set('metadata[plan_id]', planId)
