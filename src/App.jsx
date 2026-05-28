@@ -392,8 +392,8 @@ function App() {
       return
     }
 
-    setUser(nextUser)
-
+    // Fetch data BEFORE updating state — prevents the save effect from firing
+    // with empty profile/messages while the query is in flight
     const { data: programData, error: programError } = await supabase
       .from('user_programs')
       .select('display_name, app_state')
@@ -403,10 +403,6 @@ function App() {
     if (programError) setError(programError.message)
 
     const saved = programData?.app_state || {}
-    const displayName = programData?.display_name
-    if (displayName && displayName !== nextUser.name) {
-      setUser((prev) => ({ ...prev, name: displayName }))
-    }
 
     // Recover profile saved before navigating to account (survives email-confirmation redirect)
     let storedDraft = null
@@ -417,7 +413,10 @@ function App() {
 
     const loadedProfile = saved.profile || saved.profileDraft || storedDraft || null
     const loadedMessages = Array.isArray(saved.messages) ? saved.messages : []
+    const resolvedName = programData?.display_name || nextUser.name
 
+    // Set all state in one batch now that data is ready
+    setUser({ ...nextUser, name: resolvedName })
     setProfile(loadedProfile)
     profileRef.current = loadedProfile
     setMessages(loadedMessages)
@@ -556,13 +555,16 @@ function App() {
     if (!user || !isAuthReady) return
 
     const timer = setTimeout(async () => {
-      const { error: saveError } = await supabase.from('user_programs').upsert({
-        user_id: user.id,
-        display_name: user.name,
-        app_state: { profile, messages, programCreatedAt, programEndsAt },
-      })
+      const { error: saveError } = await supabase.from('user_programs').upsert(
+        {
+          user_id: user.id,
+          display_name: user.name,
+          app_state: { profile, messages, programCreatedAt, programEndsAt },
+        },
+        { onConflict: 'user_id' },
+      )
       if (saveError) setError(saveError.message)
-    }, 500)
+    }, 100)
 
     return () => clearTimeout(timer)
   }, [user, isAuthReady, profile, messages, programCreatedAt, programEndsAt])
