@@ -3,7 +3,6 @@ import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { checkoutMode, getPriceId, planNames, type Billing, type PlanId, stripeRequest } from '../_shared/stripe.ts'
 
 type CheckoutBody = {
-  planId?: PlanId
   billing?: Billing
 }
 
@@ -41,9 +40,9 @@ Deno.serve(async (request) => {
     }
 
     const body = await request.json() as CheckoutBody
-    const planId = body.planId || 'transformation'
-    const billing = body.billing || 'monthly'
-    const priceId = getPriceId(planId, billing)
+    const billing: Billing = body.billing || 'monthly'
+    const planId: PlanId = 'transformation'
+    const priceId = getPriceId(billing)
     const mode = checkoutMode(billing)
     const user = authData.user
     const params = new URLSearchParams()
@@ -53,8 +52,8 @@ Deno.serve(async (request) => {
     params.set('line_items[0][quantity]', '1')
     params.set('client_reference_id', user.id)
     params.set('customer_email', user.email || '')
-    params.set('success_url', `${siteUrl}/?checkout=success#membership`)
-    params.set('cancel_url', `${siteUrl}/#membership`)
+    params.set('success_url', `${siteUrl}/?checkout=success`)
+    params.set('cancel_url', `${siteUrl}/#pricing`)
     params.set('metadata[user_id]', user.id)
     params.set('metadata[plan_id]', planId)
     params.set('metadata[billing]', billing)
@@ -76,7 +75,7 @@ Deno.serve(async (request) => {
         plan_id: planId,
         billing,
         status: 'pending',
-      })
+      }, { onConflict: 'user_id' })
 
     if (upsertError) {
       throw new Error(upsertError.message)

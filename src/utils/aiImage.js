@@ -49,10 +49,17 @@ export async function generateAiImage(prompt) {
         }),
       })
       const data = await response.json()
+      if (!response.ok) {
+        console.error('[aiImage] DALL-E error', response.status, data?.error?.message || data)
+        cache.set(prompt, null)
+        return null
+      }
       const url = data?.data?.[0]?.url ?? null
+      if (!url) console.error('[aiImage] No URL in response:', data)
       cache.set(prompt, url)
       return url
-    } catch {
+    } catch (err) {
+      console.error('[aiImage] Fetch failed:', err)
       cache.set(prompt, null)
       return null
     } finally {

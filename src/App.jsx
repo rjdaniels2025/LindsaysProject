@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
 import Onboarding from './components/Onboarding.jsx'
+import PricingPage from './components/PricingPage.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
@@ -36,7 +37,7 @@ function authRedirectUrl() {
   return typeof window !== 'undefined' ? window.location.origin : undefined
 }
 
-const VALID_STAGES = ['landing', 'assessment', 'account', 'chat']
+const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat']
 
 function stageFromHash() {
   if (typeof window === 'undefined') return ''
@@ -329,6 +330,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isPasswordReset, setIsPasswordReset] = useState(false)
+  const [hasMembership, setHasMembership] = useState(false)
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
 
   const programService = useProgramService()
 
@@ -387,6 +390,7 @@ function App() {
       setMessages([])
       setProgramCreatedAt(null)
       setProgramEndsAt(null)
+      setHasMembership(false)
       setIsAuthReady(true)
       navigate('landing', { replace: true })
       return
@@ -394,13 +398,14 @@ function App() {
 
     // Fetch data BEFORE updating state — prevents the save effect from firing
     // with empty profile/messages while the query is in flight
-    const { data: programData, error: programError } = await supabase
-      .from('user_programs')
-      .select('display_name, app_state')
-      .eq('user_id', nextUser.id)
-      .maybeSingle()
+    const [programResult, membershipResult] = await Promise.all([
+      supabase.from('user_programs').select('display_name, app_state').eq('user_id', nextUser.id).maybeSingle(),
+      supabase.from('user_memberships').select('status').eq('user_id', nextUser.id).maybeSingle(),
+    ])
 
-    if (programError) setError(programError.message)
+    if (programResult.error) setError(programResult.error.message)
+    const programData = programResult.data
+    const membershipIsActive = membershipResult.data?.status === 'active'
 
     const saved = programData?.app_state || {}
 
@@ -422,26 +427,31 @@ function App() {
     setMessages(loadedMessages)
     setProgramCreatedAt(saved.programCreatedAt || null)
     setProgramEndsAt(saved.programEndsAt || null)
-
+    setHasMembership(membershipIsActive)
     setIsAuthReady(true)
 
-    // If they have a profile but no program, generate it now (handles post-signup and login)
-    if (loadedProfile && !hasProgramMessage(loadedMessages)) {
+    // Route based on membership + program state
+    if (hasProgramMessage(loadedMessages)) {
+      navigate('chat', { replace: true })
+      return
+    }
+
+    if (membershipIsActive && loadedProfile) {
       generateProgramForProfile(loadedProfile)
       return
     }
 
-    // Otherwise route based on what data they have
-    const hashStage = stageFromHash()
-    let destination
-    if (hashStage && !isLogin) {
-      destination = hashStage
-    } else {
-      destination = isLogin
-        ? resolveLoginRoute({ messages: loadedMessages })
-        : resolveLoadRoute({ messages: loadedMessages })
+    if (membershipIsActive) {
+      navigate('assessment', { replace: true })
+      return
     }
-    navigate(destination, { replace: true })
+
+    if (loadedProfile) {
+      navigate('pricing', { replace: true })
+      return
+    }
+
+    navigate(isLogin ? 'assessment' : 'landing', { replace: true })
   }, [navigate, generateProgramForProfile])
 
   // ── Auth setup (runs once) ────────────────────────────────────────────────
@@ -463,6 +473,40 @@ function App() {
         if (!mounted) return
         setError(authError)
         setIsAuthReady(true)
+        isInitializedRef.current = true
+        return
+      }
+
+      // Stripe checkout success return
+      if (searchParams.get('checkout') === 'success') {
+        clearUrl()
+        if (!mounted) return
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (!sessionData.session) {
+          setIsAuthReady(true)
+          isInitializedRef.current = true
+          navigate('landing', { replace: true })
+          return
+        }
+        setIsVerifyingPayment(true)
+        setIsAuthReady(true)
+        const userId = sessionData.session.user.id
+        let attempts = 0
+        let membershipActive = false
+        while (attempts < 6 && !membershipActive) {
+          if (attempts > 0) await new Promise((r) => setTimeout(r, 2000))
+          if (!mounted) break
+          const { data: membershipData } = await supabase
+            .from('user_memberships')
+            .select('status')
+            .eq('user_id', userId)
+            .maybeSingle()
+          if (membershipData?.status === 'active') membershipActive = true
+          attempts++
+        }
+        if (!mounted) return
+        setIsVerifyingPayment(false)
+        await loadUserData(sessionData.session, { isLogin: true })
         isInitializedRef.current = true
         return
       }
@@ -578,9 +622,10 @@ function App() {
       navigate('account')
       return
     }
-    // Already logged in — go to their dashboard
     if (hasProgramMessage(messages)) { navigate('chat'); return }
-    if (profile) { generateProgramForProfile(profile); return }
+    if (hasMembership && profile) { generateProgramForProfile(profile); return }
+    if (hasMembership) { navigate('assessment'); return }
+    if (profile) { navigate('pricing'); return }
     navigate('assessment')
   }
 
@@ -647,6 +692,24 @@ function App() {
     generateProgramForProfile(targetProfile)
   }
 
+  async function checkout(billing) {
+    setError('')
+    if (!supabase) { setError('Account system is not configured.'); return }
+    setIsLoading(true)
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('create-checkout-session', {
+        body: { billing },
+      })
+      if (fnError) { setError(fnError.message || 'Unable to start checkout.'); return }
+      if (fnData?.url) window.location.href = fnData.url
+      else setError('No checkout URL returned. Please try again.')
+    } catch (err) {
+      setError(err.message || 'Unable to start checkout.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   async function signOut() {
     if (!supabase) return
     await supabase.auth.signOut()
@@ -702,6 +765,18 @@ function App() {
         onHome={goHome}
         isLoading={isLoading}
         error={error}
+      />
+    )
+  }
+
+  if (stage === 'pricing') {
+    return (
+      <PricingPage
+        onCheckout={checkout}
+        isLoading={isLoading}
+        isVerifyingPayment={isVerifyingPayment}
+        error={error}
+        onHome={goHome}
       />
     )
   }

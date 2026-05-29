@@ -35,18 +35,6 @@ function periodEndFromNow(billing: Billing) {
   return date.toISOString()
 }
 
-async function periodEndFromSession(session: Record<string, unknown>, billing: Billing) {
-  if (billing === 'monthly' && typeof session.subscription === 'string') {
-    const subscription = await stripeRequest(`subscriptions/${session.subscription}`)
-
-    if (subscription.current_period_end) {
-      return new Date(subscription.current_period_end * 1000).toISOString()
-    }
-  }
-
-  return periodEndFromNow(billing)
-}
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -83,7 +71,7 @@ Deno.serve(async (request) => {
       const billing = session.metadata?.billing as Billing | undefined
 
       if (userId && planId && billing) {
-        const currentPeriodEnd = await periodEndFromSession(session, billing)
+        const currentPeriodEnd = periodEndFromNow(billing)
 
         const { error } = await supabase
           .from('user_memberships')
@@ -96,7 +84,7 @@ Deno.serve(async (request) => {
             billing,
             status: 'active',
             current_period_end: currentPeriodEnd,
-          })
+          }, { onConflict: 'user_id' })
 
         if (error) throw new Error(error.message)
       }

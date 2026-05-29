@@ -1,38 +1,31 @@
 const stripeApiVersion = '2024-06-20'
 
-export type Billing = 'monthly' | 'six-month'
-export type PlanId = 'starter' | 'transformation' | 'elite'
+export type Billing = 'pay-in-full' | 'monthly' | 'biweekly'
+export type PlanId = 'transformation'
 
 export const planNames: Record<PlanId, string> = {
-  starter: 'Starter',
-  transformation: 'Transformation',
-  elite: 'Elite Coaching',
+  transformation: '6-Month Transformation Program',
 }
 
 export function checkoutMode(billing: Billing) {
-  return billing === 'monthly' ? 'subscription' : 'payment'
+  return billing === 'pay-in-full' ? 'payment' : 'subscription'
 }
 
-export function accessMonths(billing: Billing) {
-  return billing === 'monthly' ? 1 : 6
+export function accessMonths(_billing: Billing) {
+  return 6
 }
 
-export function priceEnvName(planId: PlanId, billing: Billing) {
-  const planKey = planId.toUpperCase().replaceAll('-', '_')
-  const billingKey = billing === 'six-month' ? 'SIX_MONTH' : 'MONTHLY'
-  return `STRIPE_PRICE_${planKey}_${billingKey}`
+export function priceEnvName(billing: Billing) {
+  const billingKey = billing === 'pay-in-full' ? 'PAY_IN_FULL' : billing === 'monthly' ? 'MONTHLY' : 'BIWEEKLY'
+  return `STRIPE_PRICE_TRANSFORMATION_${billingKey}`
 }
 
-export function getPriceId(planId: string, billing: string) {
-  if (!['starter', 'transformation', 'elite'].includes(planId)) {
-    throw new Error('Invalid membership plan.')
-  }
-
-  if (!['monthly', 'six-month'].includes(billing)) {
+export function getPriceId(billing: string) {
+  if (!['pay-in-full', 'monthly', 'biweekly'].includes(billing)) {
     throw new Error('Invalid billing option.')
   }
 
-  const envName = priceEnvName(planId as PlanId, billing as Billing)
+  const envName = priceEnvName(billing as Billing)
   const priceId = Deno.env.get(envName)
 
   if (!priceId) {

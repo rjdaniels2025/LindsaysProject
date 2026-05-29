@@ -217,6 +217,7 @@ export default function Chat({
               <ProgramDashboard
                 message={programMessage}
                 profile={profile}
+                programCreatedAt={programCreatedAt}
                 onQuickAction={runAction}
                 pendingAction={pendingAction}
                 isLoading={isLoading}
