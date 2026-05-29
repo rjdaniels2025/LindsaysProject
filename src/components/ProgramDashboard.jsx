@@ -18,7 +18,7 @@ import {
   Utensils,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
-import { getExerciseMedia } from '../data/exerciseMedia.js'
+import { useAiImage } from '../hooks/useAiImage.js'
 
 const views = [
   { id: 'today', label: 'Today', icon: Sparkles },
@@ -256,29 +256,25 @@ function FocusCard({ icon: Icon, label, value }) {
   )
 }
 
-function ExerciseMedia({ exercise, priority = false, compact = false }) {
-  const [hasImageError, setHasImageError] = useState(false)
-  const [isFallbackImage, setIsFallbackImage] = useState(false)
-  const media = getExerciseMedia(exercise?.name)
-  const imageAlt = `${exercise?.name || media.label} exercise guide`
-  const imageSrc = isFallbackImage && media.fallbackImage ? media.fallbackImage : media.image
+function exercisePrompt(name) {
+  return `A professional fitness instructor demonstrating ${name} with perfect form. Modern upscale gym, polished concrete floors, premium equipment in the background, cinematic lighting. Educational fitness photography. Photorealistic.`
+}
+
+function ExerciseMedia({ exercise, compact = false }) {
+  const prompt = exercise?.name ? exercisePrompt(exercise.name) : null
+  const { src, isLoading } = useAiImage(prompt)
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-line bg-[#171717] ${compact ? 'aspect-[4/3] w-full sm:w-32' : 'aspect-[16/10] w-full'}`}>
-      {!hasImageError ? (
+      {isLoading ? (
+        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
+          <Dumbbell size={compact ? 28 : 42} className="animate-pulse text-accent" aria-hidden="true" />
+        </div>
+      ) : src ? (
         <img
-          src={imageSrc}
-          alt={imageAlt}
-          loading={priority ? 'eager' : 'lazy'}
-          decoding="async"
-          onError={() => {
-            if (media.fallbackImage && !isFallbackImage) {
-              setIsFallbackImage(true)
-              return
-            }
-            setHasImageError(true)
-          }}
-          className="h-full w-full object-cover"
+          src={src}
+          alt={`${exercise?.name} exercise demonstration`}
+          className="h-full w-full object-cover transition-opacity duration-500"
         />
       ) : (
         <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808] text-accent">
@@ -286,9 +282,7 @@ function ExerciseMedia({ exercise, priority = false, compact = false }) {
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2">
-        <p className={`font-heading uppercase text-white ${compact ? 'text-sm' : 'text-lg'}`}>
-          {isFallbackImage ? 'Exercise form reference' : media.label}
-        </p>
+        <p className={`font-heading uppercase text-white ${compact ? 'text-sm' : 'text-lg'}`}>{exercise?.name}</p>
       </div>
     </div>
   )
@@ -422,6 +416,34 @@ function ScienceBreakdown({ content }) {
   )
 }
 
+function mealPrompt(title, details) {
+  return `Professional food photography of ${title}: ${details.slice(0, 120)}. Clean plate on a marble surface, natural side lighting, restaurant quality presentation. Photorealistic, vibrant, appetizing.`
+}
+
+const MEAL_IMAGE_TITLES = /breakfast|lunch|dinner|snack|pre workout|post workout/i
+
+function MealItemImage({ item }) {
+  const prompt = MEAL_IMAGE_TITLES.test(item.title) ? mealPrompt(item.title, item.details) : null
+  const { src, isLoading } = useAiImage(prompt)
+  if (!prompt) return null
+
+  return (
+    <div className="mb-3 aspect-video overflow-hidden rounded-lg border border-line bg-[#171717]">
+      {isLoading ? (
+        <div className="grid h-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
+          <Utensils size={24} className="animate-pulse text-accent" aria-hidden="true" />
+        </div>
+      ) : src ? (
+        <img src={src} alt={item.title} className="h-full w-full object-cover transition-opacity duration-500" />
+      ) : (
+        <div className="grid h-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
+          <Utensils size={24} className="text-accent" aria-hidden="true" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = false }) {
   if (!items.length) return null
 
@@ -435,20 +457,23 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
           return (
             <label
               key={`${item.title}-${itemIndex}`}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
+              className={`flex cursor-pointer flex-col rounded-lg border p-3 transition ${
                 checked ? 'border-accent bg-accent/10' : 'border-line bg-card hover:border-accent/70'
               }`}
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => onToggleItem(itemIndex)}
-                className="mt-1 h-5 w-5 shrink-0 accent-[#e8ff47]"
-              />
-              <span className="min-w-0">
-                <span className="block break-words font-heading text-lg uppercase leading-none text-white">{item.title}</span>
-                <span className="mt-2 block text-sm leading-6 text-body">{item.details}</span>
-              </span>
+              <MealItemImage item={item} />
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggleItem(itemIndex)}
+                  className="mt-1 h-5 w-5 shrink-0 accent-[#e8ff47]"
+                />
+                <span className="min-w-0">
+                  <span className="block break-words font-heading text-lg uppercase leading-none text-white">{item.title}</span>
+                  <span className="mt-2 block text-sm leading-6 text-body">{item.details}</span>
+                </span>
+              </div>
             </label>
           )
         })}
@@ -672,7 +697,7 @@ function WorkoutTracker({ workouts }) {
             {exercises.map((exercise, index) => (
               <div key={exercise.id} className="rounded-lg border border-line bg-card p-3">
                 <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
-                  <ExerciseMedia exercise={exercise} compact />
+                  <ExerciseMedia exercise={exercise} compact={true} />
                   <div className="min-w-0">
                     <div className="flex items-start gap-3">
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-base text-black">
@@ -715,7 +740,7 @@ function WorkoutTracker({ workouts }) {
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_1.1fr]">
-            <ExerciseMedia key={currentExercise?.id} exercise={currentExercise} priority />
+            <ExerciseMedia key={currentExercise?.id} exercise={currentExercise} />
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-line bg-card p-3">
                 <Repeat className="mb-2 text-accent" size={18} />
