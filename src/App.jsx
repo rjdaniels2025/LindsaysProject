@@ -39,6 +39,20 @@ function authRedirectUrl() {
 
 const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat']
 
+async function functionErrorMessage(error, fallback = 'Unable to start checkout.') {
+  const response = error?.context
+  if (response && typeof response.json === 'function') {
+    try {
+      const body = await response.json()
+      return body?.error || body?.message || error?.message || fallback
+    } catch {
+      return error?.message || fallback
+    }
+  }
+
+  return error?.message || fallback
+}
+
 function stageFromHash() {
   if (typeof window === 'undefined') return ''
   const h = window.location.hash.replace(/^#\/?/, '')
@@ -700,7 +714,7 @@ function App() {
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-checkout-session', {
         body: { billing },
       })
-      if (fnError) { setError(fnError.message || 'Unable to start checkout.'); return }
+      if (fnError) { setError(await functionErrorMessage(fnError)); return }
       if (fnData?.url) window.location.href = fnData.url
       else setError('No checkout URL returned. Please try again.')
     } catch (err) {
