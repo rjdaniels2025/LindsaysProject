@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BookOpenText,
   CalendarDays,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 import { useAiImage } from '../hooks/useAiImage.js'
+import { prefetchImages } from '../utils/aiImage.js'
 
 const views = [
   { id: 'today', label: 'Today', icon: Sparkles },
@@ -257,7 +258,7 @@ function FocusCard({ icon: Icon, label, value }) {
 }
 
 function exercisePrompt(name) {
-  return `A professional fitness instructor demonstrating ${name} with perfect form. Modern upscale gym, polished concrete floors, premium equipment in the background, cinematic lighting. Educational fitness photography. Photorealistic.`
+  return `Photorealistic fitness photograph of a skilled personal trainer performing ${name} with correct form. The full movement is clearly visible from a flattering camera angle. Modern luxury gym with commercial equipment, bright professional studio lighting, clean white walls. High-end editorial fitness photography.`
 }
 
 function ExerciseMedia({ exercise, compact = false }) {
@@ -417,7 +418,7 @@ function ScienceBreakdown({ content }) {
 }
 
 function mealPrompt(title, details) {
-  return `Professional food photography of ${title}: ${details.slice(0, 120)}. Clean plate on a marble surface, natural side lighting, restaurant quality presentation. Photorealistic, vibrant, appetizing.`
+  return `Professional food photography: ${title} — ${details.slice(0, 100)}. Beautifully plated on premium tableware, marble or light wood surface, soft natural window light from the side. Restaurant quality, sharp focus, vibrant and appetizing. Photorealistic.`
 }
 
 const MEAL_IMAGE_TITLES = /breakfast|lunch|dinner|snack|pre workout|post workout/i
@@ -906,6 +907,19 @@ export default function ProgramDashboard({ message, profile, onQuickAction, pend
     : ['Open the Science tab for the full plan, or use the simplify button for a clearer version.']
   const workouts = useMemo(() => parseWorkouts(message.content, sections.today), [message.content, sections.today])
   const mealPlan = useMemo(() => parseMealPlan(message.content), [message.content])
+
+  // Pre-generate all exercise and meal images in the background as soon as the
+  // dashboard mounts, so they are cached by the time the user navigates to those tabs.
+  useEffect(() => {
+    const exerciseNames = [...new Set(workouts.flatMap((w) => parseExercises(w.details).map((ex) => ex.name)))]
+    const mealItems = [...mealPlan.breakfast, ...mealPlan.lunch, ...mealPlan.dinner, ...mealPlan.workout].filter(
+      (item) => MEAL_IMAGE_TITLES.test(item.title),
+    )
+    prefetchImages([
+      ...exerciseNames.map(exercisePrompt),
+      ...mealItems.map((item) => mealPrompt(item.title, item.details)),
+    ])
+  }, [workouts, mealPlan])
 
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'today'
   const topAction = {

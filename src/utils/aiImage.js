@@ -11,6 +11,15 @@ export function getCached(prompt) {
   return cache.get(prompt) ?? null
 }
 
+export async function prefetchImages(prompts) {
+  const needed = [...new Set(prompts)].filter((p) => p && !cache.has(p) && !inflight.has(p))
+  const BATCH = 3
+  for (let i = 0; i < needed.length; i += BATCH) {
+    await Promise.allSettled(needed.slice(i, i + BATCH).map(generateAiImage))
+    if (i + BATCH < needed.length) await new Promise((r) => setTimeout(r, 1000))
+  }
+}
+
 export async function generateAiImage(prompt) {
   if (!prompt) return null
 
