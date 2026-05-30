@@ -19,7 +19,7 @@ const coachingPrinciples = [
   },
 ]
 
-export default function Landing({ user, hasProgram, onStart, onPricing, onDashboard, onLogin, onSignOut }) {
+export default function Landing({ user, hasProgram, onStart, onPricing, onDashboard, onLogin, onSignOut, onAdmin }) {
   return (
     <main className="min-h-screen bg-bg text-body">
       <CinematicLandingHero
@@ -117,6 +117,16 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
           </div>
         </div>
       </section>
+
+      <footer className="border-t border-line bg-[#0b0b0b] px-4 py-4 text-center">
+        <button
+          type="button"
+          onClick={onAdmin}
+          className="text-xs text-body/30 transition hover:text-body/60"
+        >
+          Admin
+        </button>
+      </footer>
     </main>
   )
 }

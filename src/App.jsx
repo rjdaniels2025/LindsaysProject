@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import AdminDashboard from './components/AdminDashboard.jsx'
+import AdminPasscode from './components/AdminPasscode.jsx'
 import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
 import Onboarding from './components/Onboarding.jsx'
@@ -37,7 +39,7 @@ function authRedirectUrl() {
   return typeof window !== 'undefined' ? window.location.origin : undefined
 }
 
-const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat']
+const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin']
 const VALID_BILLING_OPTIONS = ['pay-in-full', 'monthly', 'biweekly']
 
 function storedBillingOption() {
@@ -347,6 +349,7 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
 function App() {
   // ── Core data ──
   const [user, setUser] = useState(null)
+  const [adminUnlocked, setAdminUnlocked] = useState(false)
   const [profile, setProfile] = useState(null)
   const [messages, setMessages] = useState([])
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
@@ -836,6 +839,25 @@ function App() {
     )
   }
 
+  if (stage === 'admin') {
+    if (!adminUnlocked) {
+      return (
+        <AdminPasscode
+          onUnlock={() => setAdminUnlocked(true)}
+          onBack={goHome}
+        />
+      )
+    }
+    return (
+      <AdminDashboard
+        onBack={() => {
+          setAdminUnlocked(false)
+          goHome()
+        }}
+      />
+    )
+  }
+
   // landing (default)
   return (
     <Landing
@@ -846,6 +868,7 @@ function App() {
       onDashboard={() => navigate('chat')}
       onLogin={openLogin}
       onSignOut={signOut}
+      onAdmin={() => navigate('admin')}
     />
   )
 }
