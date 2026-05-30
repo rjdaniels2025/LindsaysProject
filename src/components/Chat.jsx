@@ -186,7 +186,7 @@ export default function Chat({
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
         <div className="mx-auto grid max-w-6xl gap-3 sm:flex sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-balance font-heading text-2xl uppercase leading-none text-white min-[420px]:text-3xl sm:text-5xl">Elevate Health and Wellness</h1>
+            <h1 className="text-balance font-heading text-2xl uppercase leading-none text-white min-[420px]:text-3xl sm:text-5xl">Elevate Health and Fitness</h1>
             <p className="mt-1 truncate text-xs uppercase tracking-[0.12em] text-body sm:text-sm sm:tracking-[0.16em]">{subtitle}</p>
             {planDates ? <p className="mt-1 text-xs uppercase tracking-[0.12em] text-accent">{planDates}</p> : null}
           </div>

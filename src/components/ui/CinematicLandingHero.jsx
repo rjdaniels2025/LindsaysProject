@@ -330,13 +330,13 @@ function StageHeader({ activeStage, onSelect, onStart, onSignOut }) {
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <img
               src="/ehw-logo.jpeg"
-              alt="Elevate Health and Wellness"
+              alt="Elevate Health and Fitness"
               className="h-9 w-9 shrink-0 rounded-lg border border-line object-cover sm:h-11 sm:w-11"
             />
             <div className="min-w-0">
               <p className="font-heading text-xl uppercase leading-none text-white sm:text-2xl">Elevate</p>
               <p className="truncate text-[10px] uppercase tracking-[0.2em] text-body sm:text-xs">
-                Health and Wellness
+                Health and Fitness
               </p>
             </div>
           </div>

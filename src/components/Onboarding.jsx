@@ -182,7 +182,7 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
       <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-6xl flex-col justify-center">
         <div className="mb-6 grid gap-4 sm:mb-8 sm:flex sm:items-end sm:justify-between sm:gap-6">
           <div className="min-w-0">
-            <p className="font-heading text-lg uppercase text-accent">Elevate Health and Wellness</p>
+            <p className="font-heading text-lg uppercase text-accent">Elevate Health and Fitness</p>
             <h1 className="mt-2 text-balance font-heading text-4xl uppercase leading-none text-white min-[380px]:text-5xl sm:text-7xl">
               Build Your Program
             </h1>

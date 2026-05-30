@@ -1,4 +1,4 @@
-# Elevate Health and Wellness
+# Elevate Health and Fitness
 
 Science-based personal training, personalized coaching, and member progress tracking.
 
