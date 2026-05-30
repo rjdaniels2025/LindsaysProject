@@ -24,16 +24,10 @@ Deno.serve(async (request) => {
       throw new Error('Missing Supabase function environment.')
     }
 
-    const authorization = request.headers.get('Authorization') || ''
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      global: {
-        headers: {
-          Authorization: authorization,
-        },
-      },
-    })
+    const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-    const { data: authData, error: authError } = await supabase.auth.getUser()
+    const { data: authData, error: authError } = await supabase.auth.getUser(token)
 
     if (authError || !authData.user) {
       return jsonResponse({ error: 'Sign in before checkout.' }, 401)
