@@ -38,6 +38,22 @@ function authRedirectUrl() {
 }
 
 const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat']
+const VALID_BILLING_OPTIONS = ['pay-in-full', 'monthly', 'biweekly']
+
+function storedBillingOption() {
+  if (typeof window === 'undefined') return 'monthly'
+  try {
+    const stored = localStorage.getItem('elevate_selected_billing')
+    return VALID_BILLING_OPTIONS.includes(stored) ? stored : 'monthly'
+  } catch {
+    return 'monthly'
+  }
+}
+
+function saveBillingOption(billing) {
+  if (!VALID_BILLING_OPTIONS.includes(billing)) return
+  try { localStorage.setItem('elevate_selected_billing', billing) } catch {}
+}
 
 async function functionErrorMessage(error, fallback = 'Unable to start checkout.') {
   const response = error?.context
@@ -340,6 +356,7 @@ function App() {
   const [stage, setStage] = useState(() => stageFromHash() || 'landing')
   const [profileDraft, setProfileDraft] = useState(null)
   const [accountMode, setAccountMode] = useState('login') // 'login' | 'create'
+  const [selectedBilling, setSelectedBilling] = useState(storedBillingOption)
   const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -643,6 +660,20 @@ function App() {
     navigate('assessment')
   }
 
+  function openPricing() {
+    setError('')
+    navigate('pricing')
+  }
+
+  function selectPricingAndStartAssessment(billing) {
+    if (VALID_BILLING_OPTIONS.includes(billing)) {
+      setSelectedBilling(billing)
+      saveBillingOption(billing)
+    }
+    setError('')
+    navigate('assessment')
+  }
+
   function onAccountAuthenticated() {
     // SIGNED_IN event fires and loadUserData handles routing — nothing to do here
   }
@@ -708,6 +739,10 @@ function App() {
 
   async function checkout(billing) {
     setError('')
+    if (VALID_BILLING_OPTIONS.includes(billing)) {
+      setSelectedBilling(billing)
+      saveBillingOption(billing)
+    }
     if (!supabase) { setError('Account system is not configured.'); return }
     setIsLoading(true)
     try {
@@ -787,6 +822,9 @@ function App() {
     return (
       <PricingPage
         onCheckout={checkout}
+        onStartAssessment={selectPricingAndStartAssessment}
+        initialBilling={selectedBilling}
+        requiresAssessment={!profile}
         isLoading={isLoading}
         isVerifyingPayment={isVerifyingPayment}
         error={error}
@@ -801,6 +839,7 @@ function App() {
       user={user}
       hasProgram={hasProgramMessage(messages)}
       onStart={() => navigate('assessment')}
+      onPricing={openPricing}
       onDashboard={() => navigate('chat')}
       onLogin={openLogin}
       onSignOut={signOut}

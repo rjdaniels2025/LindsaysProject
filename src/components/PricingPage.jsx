@@ -47,9 +47,19 @@ const whyItWorks = [
   'Lifestyle transformation outlasts any short challenge',
 ]
 
-export default function PricingPage({ onCheckout, isLoading, isVerifyingPayment, error, onHome }) {
-  const [billing, setBilling] = useState('monthly')
+export default function PricingPage({
+  onCheckout,
+  onStartAssessment,
+  initialBilling = 'monthly',
+  requiresAssessment = false,
+  isLoading,
+  isVerifyingPayment,
+  error,
+  onHome,
+}) {
+  const [billing, setBilling] = useState(initialBilling)
   const selected = billingOptions.find((o) => o.id === billing)
+  const actionLabel = requiresAssessment ? 'Start Assessment' : 'Continue to Checkout'
 
   return (
     <main className="relative min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
@@ -82,6 +92,7 @@ export default function PricingPage({ onCheckout, isLoading, isVerifyingPayment,
             </h1>
             <p className="mt-3 max-w-xl text-base leading-7 text-body">
               We believe healthy living should feel achievable and affordable. Choose the payment option that works best for you.
+              {requiresAssessment ? ' Your assessment comes next so the program can be built around you.' : ''}
             </p>
           </div>
           <button
@@ -140,16 +151,21 @@ export default function PricingPage({ onCheckout, isLoading, isVerifyingPayment,
                 </span>
               </p>
               <p className="mt-1 text-sm text-body">
-                Stripe handles payment securely. Your program generates immediately after confirmation.
+                {requiresAssessment
+                  ? 'Select your option now. After the assessment and account step, you will return here to complete secure checkout.'
+                  : 'Stripe handles payment securely. Your program generates immediately after confirmation.'}
               </p>
             </div>
             <button
               type="button"
-              onClick={() => onCheckout(billing)}
+              onClick={() => {
+                if (requiresAssessment) onStartAssessment?.(billing)
+                else onCheckout?.(billing)
+              }}
               disabled={isLoading}
               className="min-h-13 w-full shrink-0 rounded-lg bg-accent px-8 font-heading text-xl uppercase text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {isLoading ? 'Working' : 'Continue to Checkout'}
+              {isLoading ? 'Working' : actionLabel}
             </button>
           </div>
         </section>

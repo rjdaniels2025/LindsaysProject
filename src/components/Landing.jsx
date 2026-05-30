@@ -1,5 +1,5 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, HeartPulse, LogIn, ShieldCheck, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, HeartPulse, LogIn, ShieldCheck, Target, Users } from 'lucide-react'
 
 const coachingPrinciples = [
   {
@@ -19,13 +19,14 @@ const coachingPrinciples = [
   },
 ]
 
-export default function Landing({ user, hasProgram, onStart, onDashboard, onLogin, onSignOut }) {
+export default function Landing({ user, hasProgram, onStart, onPricing, onDashboard, onLogin, onSignOut }) {
   return (
     <main className="min-h-screen bg-bg text-body">
       <CinematicLandingHero
         user={user}
         hasProgram={hasProgram}
         onStart={onStart}
+        onPricing={onPricing}
         onDashboard={onDashboard}
         onLogin={onLogin}
         onSignOut={onSignOut}
@@ -87,7 +88,7 @@ export default function Landing({ user, hasProgram, onStart, onDashboard, onLogi
               })}
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={hasProgram ? onDashboard : onStart}
@@ -95,6 +96,14 @@ export default function Landing({ user, hasProgram, onStart, onDashboard, onLogi
               >
                 {hasProgram ? 'Open Dashboard' : 'Start Your Assessment'}
                 <ArrowRight size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={onPricing}
+                className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-accent/70 bg-black/35 px-6 font-heading text-xl uppercase text-white transition hover:border-accent hover:bg-accent/10 sm:w-auto"
+              >
+                Pricing
+                <BadgeDollarSign size={20} />
               </button>
               <button
                 type="button"

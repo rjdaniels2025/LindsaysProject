@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Activity,
   ArrowRight,
+  BadgeDollarSign,
   CalendarCheck,
   CheckCircle2,
   ClipboardList,
@@ -583,6 +584,7 @@ export default function CinematicLandingHero({
   user,
   hasProgram,
   onStart,
+  onPricing,
   onDashboard,
   onLogin,
   onSignOut,
@@ -819,7 +821,7 @@ export default function CinematicLandingHero({
             <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
               Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={runPrimaryAction}
@@ -827,6 +829,14 @@ export default function CinematicLandingHero({
               >
                 {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
                 <ArrowRight size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={onPricing}
+                className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+              >
+                Pricing
+                <BadgeDollarSign size={20} />
               </button>
               <button
                 type="button"
