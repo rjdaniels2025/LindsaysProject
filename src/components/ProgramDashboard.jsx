@@ -89,7 +89,7 @@ function headingText(line) {
 }
 
 function isPlanHeading(line) {
-  return /^(today first|weekly map|workouts|meal plan|eight week progression|recovery|track progress|why this works)$/i.test(headingText(line))
+  return /^(today first|weekly map|workouts|meal plan|six month progression|recovery|track progress|why this works)$/i.test(headingText(line))
 }
 
 function sectionLines(content, heading, stopHeadings = []) {
@@ -219,7 +219,7 @@ function getTrainingDays(daysPerWeek) {
 }
 
 function parseMealPlan(content) {
-  const mealLines = sectionLines(content, 'Meal Plan', ['Eight Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const mealLines = sectionLines(content, 'Meal Plan', ['Six Month Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const source = mealLines.length
     ? mealLines
     : sectionLines(content, 'Recovery', ['Track Progress', 'Why This Works']).filter((line) =>
@@ -275,7 +275,7 @@ function parseMealPlan(content) {
 }
 
 function parseWorkouts(content, fallbackItems) {
-  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Meal Plan', 'Eight Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Meal Plan', 'Six Month Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const lines = explicitWorkoutLines.length ? explicitWorkoutLines : compactLines(extractSection(content, ['workouts', 'session', 'day'], 3000), 80)
   const fallbackWorkoutItems = fallbackItems.length
     ? fallbackItems

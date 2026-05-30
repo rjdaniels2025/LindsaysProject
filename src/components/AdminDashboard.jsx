@@ -15,16 +15,17 @@ function hasProgram(appState) {
     appState.messages.some((m) => m?.meta?.type === 'program')
 }
 
-function weekProgress(programCreatedAt, programEndsAt) {
+function monthProgress(programCreatedAt, programEndsAt) {
   if (!programCreatedAt || !programEndsAt) return null
   const start = new Date(programCreatedAt).getTime()
   const end = new Date(programEndsAt).getTime()
   const now = Date.now()
-  const totalWeeks = Math.round((end - start) / (7 * 24 * 60 * 60 * 1000))
+  const totalMonths = 6
   const elapsed = Math.max(0, now - start)
-  const weeksIn = Math.min(totalWeeks, Math.floor(elapsed / (7 * 24 * 60 * 60 * 1000)))
-  const pct = Math.min(100, Math.round((elapsed / (end - start)) * 100))
-  return { weeksIn, totalWeeks, pct, done: now >= end }
+  const totalMs = end - start
+  const monthsIn = Math.min(totalMonths, Math.floor((elapsed / totalMs) * totalMonths))
+  const pct = Math.min(100, Math.round((elapsed / totalMs) * 100))
+  return { monthsIn, totalMonths, pct, done: now >= end }
 }
 
 function formatDate(iso) {
@@ -78,7 +79,7 @@ function ProgressBar({ pct }) {
 
 function ClientCard({ client }) {
   const [expanded, setExpanded] = useState(false)
-  const progress = weekProgress(
+  const progress = monthProgress(
     client.app_state?.programCreatedAt,
     client.app_state?.programEndsAt,
   )
@@ -115,7 +116,7 @@ function ClientCard({ client }) {
         {progress && (
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs text-body">
-              <span>Week {progress.weeksIn} of {progress.totalWeeks}</span>
+              <span>Month {progress.monthsIn} of {progress.totalMonths}</span>
               <span>{progress.done ? 'Complete' : `${progress.pct}%`}</span>
             </div>
             <ProgressBar pct={progress.pct} />

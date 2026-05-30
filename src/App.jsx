@@ -11,9 +11,9 @@ import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
-function addWeeks(date, weeks) {
+function addMonths(date, months) {
   const d = new Date(date)
-  d.setDate(d.getDate() + weeks * 7)
+  d.setMonth(d.getMonth() + months)
   return d.toISOString()
 }
 
@@ -251,7 +251,7 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
         {!isReset && !isForgot ? (
           <p className="mt-3 text-sm leading-6 text-body">
             {isCreating
-              ? 'Create your account to generate your personalized 8-week training plan and dashboard.'
+              ? 'Create your account to generate your personalized 6-month transformation plan and dashboard.'
               : 'Log in to access your personalized training dashboard.'}
           </p>
         ) : null}
@@ -392,12 +392,12 @@ function App() {
     setProfile(targetProfile)
     profileRef.current = targetProfile
     setProgramCreatedAt(createdAt)
-    setProgramEndsAt(addWeeks(createdAt, 8))
+    setProgramEndsAt(addMonths(createdAt, 6))
     navigate('chat')
     setMessages([
       makeMessage(
         'assistant',
-        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Elevate is generating your complete 8-week plan now.`,
+        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Elevate is generating your complete 6-month transformation now.`,
         { type: 'status' },
       ),
     ])

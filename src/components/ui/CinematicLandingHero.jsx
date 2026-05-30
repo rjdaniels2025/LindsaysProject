@@ -446,7 +446,7 @@ function PersonalPlanVisual() {
       <div className="absolute -inset-4 hidden rounded-[2.5rem] border border-accent/10 bg-[radial-gradient(circle_at_50%_0%,rgba(232,255,71,0.18),transparent_58%)] sm:block" aria-hidden="true" />
       <div className="relative rounded-[2rem] border border-white/10 bg-black/48 p-4 shadow-2xl shadow-black/60 backdrop-blur-md sm:p-5">
         <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4">
-          <p className="font-heading text-sm uppercase tracking-[0.24em] text-accent">8 Week Blueprint</p>
+          <p className="font-heading text-sm uppercase tracking-[0.24em] text-accent">6 Month Transformation</p>
           <p className="mt-2 font-heading text-3xl uppercase leading-none text-white">Personal Plan</p>
           <p className="mt-2 text-sm leading-6 text-body">A practical path built from the assessment.</p>
         </div>

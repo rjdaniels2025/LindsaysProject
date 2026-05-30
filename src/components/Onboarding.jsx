@@ -62,7 +62,7 @@ function GeneratingOverlay() {
             />
           ))}
         </div>
-        <p className="mt-5 text-body">Elevate is building your eight week plan from the assessment.</p>
+        <p className="mt-5 text-body">Elevate is building your 6-month transformation from the assessment.</p>
       </div>
     </div>
   )

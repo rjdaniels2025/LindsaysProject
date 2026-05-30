@@ -119,7 +119,7 @@ Client profile:
 
 Include:
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
-- Use clear plain headings exactly named: Today First, Weekly Map, Workouts, Meal Plan, Eight Week Progression, Recovery, Track Progress, Why This Works
+- Use clear plain headings exactly named: Today First, Weekly Map, Workouts, Meal Plan, Six Month Progression, Recovery, Track Progress, Why This Works
 - Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
 - Weekly training split with every session detailed
 - In the Workouts section, write every exercise on its own line using this exact pattern: Exercise name: Sets: number, Reps: number or time, Weight: exact beginner safe weight range in pounds or bodyweight, Rest: seconds or minutes, Tempo: numbers separated by commas, Cue: one simple coaching cue
@@ -131,7 +131,7 @@ Include:
 - In the Meal Plan section, use these exact line labels in this order: Grocery List, Protein Target, Calorie Target, Water Target, Carb Target, Fat Target, Breakfast Option 1, Breakfast Option 2, Breakfast Option 3, Breakfast Option 4, Lunch Option 1, Lunch Option 2, Lunch Option 3, Lunch Option 4, Dinner Option 1, Dinner Option 2, Dinner Option 3, Dinner Option 4, Snack, Pre Workout, Post Workout, Training Day Intake, Rest Day Intake, Prep Steps
 - For breakfast, lunch, and dinner, give 4 simple options each with portion sizes and a busy day substitution
 - Still include workout specific meals, hydration, protein, carb, fat, calorie intake targets, and the goal behind each target
-- Eight week progressive overload plan
+- Six month progressive overload plan
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
 - Key performance indicators and how to measure them
 - Scientific rationale for every major recommendation
