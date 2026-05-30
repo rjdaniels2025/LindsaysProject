@@ -630,10 +630,13 @@ function App() {
     if (!user || !isAuthReady) return
 
     const timer = setTimeout(async () => {
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData.user) return
+
       const { error: saveError } = await supabase.from('user_programs').upsert(
         {
-          user_id: user.id,
-          display_name: user.name,
+          user_id: authData.user.id,
+          display_name: user.name || authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'Member',
           app_state: { profile, messages, programCreatedAt, programEndsAt },
         },
         { onConflict: 'user_id' },
