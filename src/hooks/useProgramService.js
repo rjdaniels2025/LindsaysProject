@@ -109,13 +109,15 @@ Client profile:
 - Name: ${profile.name}
 - Age: ${profile.age}
 - Gender: ${profile.gender}
-- Weight: ${profile.weightLbs} lbs
+- Current weight: ${profile.weightLbs} lbs
+- Desired weight: ${profile.desiredWeightLbs ? `${profile.desiredWeightLbs} lbs` : 'Not specified'}
 - Height: ${profile.height}
 - Primary goals: ${formatGoals(profile.primaryGoal)}
 - Training experience: ${profile.experience}
 - Training days per week: ${profile.daysPerWeek}
 - Equipment access: ${profile.equipment}
 - Injuries or limitations: ${profile.limitations || 'None reported'}
+${profile.desiredWeightLbs ? `- Weight goal: Reach ${profile.desiredWeightLbs} lbs from current ${profile.weightLbs} lbs (${Number(profile.weightLbs) > Number(profile.desiredWeightLbs) ? `lose ${Number(profile.weightLbs) - Number(profile.desiredWeightLbs)} lbs` : `gain ${Number(profile.desiredWeightLbs) - Number(profile.weightLbs)} lbs`})` : ''}
 
 Include:
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language

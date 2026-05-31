@@ -30,6 +30,7 @@ const defaultProfile = {
   age: '',
   gender: '',
   weightLbs: '',
+  desiredWeightLbs: '',
   height: '',
   primaryGoal: [],
   experience: '',
@@ -251,6 +252,17 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                   value={profile.weightLbs}
                   onChange={(event) => setValue('weightLbs', event.target.value)}
                   placeholder="165"
+                />
+              </Field>
+              <Field label="Desired Weight (lbs)">
+                <input
+                  className={inputClass(false)}
+                  type="number"
+                  min="50"
+                  max="700"
+                  value={profile.desiredWeightLbs}
+                  onChange={(event) => setValue('desiredWeightLbs', event.target.value)}
+                  placeholder="Optional — e.g. 145"
                 />
               </Field>
               <Field label="Height" error={touched.height && errors.height}>
