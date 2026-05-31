@@ -3,8 +3,10 @@
 const cache = new Map()
 const inflight = new Map()
 
-function getApiKey() {
-  return import.meta.env.VITE_PROGRAM_API_KEY || import.meta.env[`VITE_${'OP'}${'EN'}${'A'}${'I'}_API_KEY`]
+function getEdgeFunctionUrl() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  if (!supabaseUrl) return null
+  return `${supabaseUrl}/functions/v1/generate-image`
 }
 
 export function getCached(prompt) {
@@ -29,32 +31,26 @@ export async function generateAiImage(prompt) {
   // Return the existing in-flight promise so concurrent callers share one request
   if (inflight.has(prompt)) return inflight.get(prompt)
 
-  const apiKey = getApiKey()
-  if (!apiKey) return null
+  const edgeFunctionUrl = getEdgeFunctionUrl()
+  if (!edgeFunctionUrl) return null
 
   const promise = (async () => {
     try {
-      const response = await fetch('https://api.openai.com/v1/images/generations', {
+      const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
         },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt,
-          n: 1,
-          size: '1024x1024',
-          quality: 'standard',
-        }),
+        body: JSON.stringify({ prompt }),
       })
       const data = await response.json()
       if (!response.ok) {
-        console.error('[aiImage] DALL-E error', response.status, data?.error?.message || data)
+        console.error('[aiImage] Edge function error', response.status, data?.error)
         cache.set(prompt, null)
         return null
       }
-      const url = data?.data?.[0]?.url ?? null
+      const url = data?.url ?? null
       if (!url) console.error('[aiImage] No URL in response:', data)
       cache.set(prompt, url)
       return url
