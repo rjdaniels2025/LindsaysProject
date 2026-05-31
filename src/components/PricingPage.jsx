@@ -1,5 +1,6 @@
-import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ShieldCheck, Tag, X } from 'lucide-react'
 import { useState } from 'react'
+import { supabase } from '../lib/supabase.js'
 
 const billingOptions = [
   {
@@ -59,7 +60,44 @@ export default function PricingPage({
 }) {
   const [billing, setBilling] = useState(initialBilling)
   const selected = billingOptions.find((o) => o.id === billing)
-  const actionLabel = requiresAssessment ? 'Start Assessment' : 'Continue to Checkout'
+
+  const [couponInput, setCouponInput] = useState('')
+  const [couponStatus, setCouponStatus] = useState('idle') // 'idle' | 'checking' | 'valid' | 'invalid'
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    try {
+      const stored = localStorage.getItem('elevate_coupon')
+      if (stored) { localStorage.removeItem('elevate_coupon'); return JSON.parse(stored) }
+    } catch {}
+    return null
+  })
+
+  const isFree = appliedCoupon?.discount_percent === 100
+  const actionLabel = requiresAssessment
+    ? 'Start Assessment'
+    : isFree
+    ? 'Claim Free Access'
+    : 'Continue to Checkout'
+
+  async function applyCoupon() {
+    const code = couponInput.trim().toUpperCase()
+    if (!code) return
+    setCouponStatus('checking')
+    const { data } = await supabase
+      .from('discount_codes')
+      .select('code, plan_id, billing, discount_percent')
+      .eq('code', code)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!data) { setCouponStatus('invalid'); return }
+    setAppliedCoupon(data)
+    setCouponStatus('valid')
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponStatus('idle')
+  }
 
   return (
     <main className="relative min-h-screen bg-bg px-4 py-5 text-body sm:px-6 sm:py-6 lg:px-8">
@@ -145,28 +183,79 @@ export default function PricingPage({
             <div>
               <p className="font-heading text-2xl uppercase text-white">
                 {selected.label}:{' '}
-                <span className="text-accent">
-                  {selected.price}
-                  <span className="font-body text-base normal-case text-body"> {selected.cadence}</span>
-                </span>
+                {isFree ? (
+                  <>
+                    <span className="text-accent">FREE</span>
+                    <span className="ml-2 font-body text-base normal-case line-through text-body/50">{selected.price}</span>
+                  </>
+                ) : (
+                  <span className="text-accent">
+                    {selected.price}
+                    <span className="font-body text-base normal-case text-body"> {selected.cadence}</span>
+                  </span>
+                )}
               </p>
               <p className="mt-1 text-sm text-body">
                 {requiresAssessment
                   ? 'Select your option now. After the assessment and account step, you will return here to complete secure checkout.'
+                  : isFree
+                  ? 'Your coupon covers the full cost. No payment info required.'
                   : 'Stripe handles payment securely. Your program generates immediately after confirmation.'}
               </p>
             </div>
             <button
               type="button"
               onClick={() => {
-                if (requiresAssessment) onStartAssessment?.(billing)
-                else onCheckout?.(billing)
+                if (requiresAssessment) {
+                  if (appliedCoupon) {
+                    try { localStorage.setItem('elevate_coupon', JSON.stringify(appliedCoupon)) } catch {}
+                  }
+                  onStartAssessment?.(billing)
+                } else {
+                  onCheckout?.(billing, appliedCoupon)
+                }
               }}
               disabled={isLoading}
               className="min-h-13 w-full shrink-0 rounded-lg bg-accent px-8 font-heading text-xl uppercase text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {isLoading ? 'Working' : actionLabel}
             </button>
+          </div>
+
+          <div className="mt-4 border-t border-line pt-4">
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-4 py-2.5">
+                <div className="flex items-center gap-2 text-sm">
+                  <Tag size={15} className="text-accent" />
+                  <span className="font-heading uppercase text-accent">{appliedCoupon.code}</span>
+                  <span className="text-body">— {appliedCoupon.discount_percent}% off applied</span>
+                </div>
+                <button type="button" onClick={removeCoupon} className="text-body transition hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={couponInput}
+                  onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponStatus('idle') }}
+                  onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                  placeholder="Coupon code"
+                  className="flex-1 rounded-lg border border-line bg-[#111] px-4 py-2.5 font-heading text-sm uppercase text-white outline-none transition placeholder:normal-case placeholder:text-[#666] focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={applyCoupon}
+                  disabled={!couponInput.trim() || couponStatus === 'checking'}
+                  className="rounded-lg border border-line bg-[#111] px-4 font-heading text-sm uppercase text-white transition hover:border-accent disabled:opacity-50"
+                >
+                  {couponStatus === 'checking' ? '...' : 'Apply'}
+                </button>
+              </div>
+            )}
+            {couponStatus === 'invalid' ? (
+              <p className="mt-1.5 text-xs text-red-300">Invalid or expired coupon code.</p>
+            ) : null}
           </div>
         </section>
 

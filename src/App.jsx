@@ -743,7 +743,7 @@ function App() {
     generateProgramForProfile(targetProfile)
   }
 
-  async function checkout(billing) {
+  async function checkout(billing, coupon = null) {
     setError('')
     if (VALID_BILLING_OPTIONS.includes(billing)) {
       setSelectedBilling(billing)
@@ -752,6 +752,17 @@ function App() {
     if (!supabase) { setError('Account system is not configured.'); return }
     setIsLoading(true)
     try {
+      if (coupon?.discount_percent === 100) {
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('redeem-coupon', {
+          body: { code: coupon.code },
+        })
+        if (fnError) { setError(await functionErrorMessage(fnError, 'Unable to redeem coupon.')); return }
+        if (!fnData?.success) { setError('Unable to redeem coupon. Please try again.'); return }
+        const { data: sessionData } = await supabase.auth.getSession()
+        await loadUserData(sessionData.session, { isLogin: true })
+        return
+      }
+
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-checkout-session', {
         body: { billing },
       })
