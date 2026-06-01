@@ -325,28 +325,16 @@ function FocusCard({ icon: Icon, label, value }) {
 function ExerciseMedia({ exercise, compact = false }) {
   const prompt = exercise?.name ? exercisePrompt(exercise.name) : null
   const { src, isLoading } = useAiImage(prompt)
-  const [imgReady, setImgReady] = useState(false)
-  const [imgError, setImgError] = useState(false)
-
-  const showSpinner = !imgError && (isLoading || (src && !imgReady))
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-line bg-[#171717] ${compact ? 'aspect-[4/3] w-full sm:w-32' : 'aspect-[16/10] w-full'}`}>
-      {showSpinner && (
-        <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
+      {isLoading ? (
+        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
           <Dumbbell size={compact ? 28 : 42} className="animate-pulse text-accent" aria-hidden="true" />
         </div>
-      )}
-      {src && !imgError && (
-        <img
-          src={src}
-          alt={`${exercise?.name} exercise demonstration`}
-          className={`h-full w-full object-cover transition-opacity duration-500 ${imgReady ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setImgReady(true)}
-          onError={() => { setImgReady(false); setImgError(true) }}
-        />
-      )}
-      {((!src && !isLoading) || imgError) && (
+      ) : src ? (
+        <img src={src} alt={`${exercise?.name} exercise demonstration`} className="h-full w-full object-cover transition-opacity duration-500" />
+      ) : (
         <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808] text-accent">
           <Dumbbell size={compact ? 28 : 42} aria-hidden="true" />
         </div>
@@ -664,29 +652,17 @@ const MEAL_IMAGE_TITLES = /breakfast|lunch|dinner|snack|pre workout|post workout
 function MealItemImage({ item }) {
   const prompt = MEAL_IMAGE_TITLES.test(item.title) ? mealPrompt(item.title, item.details) : null
   const { src, isLoading } = useAiImage(prompt)
-  const [imgReady, setImgReady] = useState(false)
-  const [imgError, setImgError] = useState(false)
   if (!prompt) return null
 
-  const showSpinner = !imgError && (isLoading || (src && !imgReady))
-
   return (
-    <div className="relative mb-3 aspect-video overflow-hidden rounded-lg border border-line bg-[#171717]">
-      {showSpinner && (
-        <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
+    <div className="mb-3 aspect-video overflow-hidden rounded-lg border border-line bg-[#171717]">
+      {isLoading ? (
+        <div className="grid h-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
           <Utensils size={24} className="animate-pulse text-accent" aria-hidden="true" />
         </div>
-      )}
-      {src && !imgError && (
-        <img
-          src={src}
-          alt={item.title}
-          className={`h-full w-full object-cover transition-opacity duration-500 ${imgReady ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setImgReady(true)}
-          onError={() => { setImgReady(false); setImgError(true) }}
-        />
-      )}
-      {((!src && !isLoading) || imgError) && (
+      ) : src ? (
+        <img src={src} alt={item.title} className="h-full w-full object-cover transition-opacity duration-500" />
+      ) : (
         <div className="grid h-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
           <Utensils size={24} className="text-accent" aria-hidden="true" />
         </div>
