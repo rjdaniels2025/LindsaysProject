@@ -3,7 +3,7 @@ const SYSTEM_PROMPT =
 
 const API_URL = import.meta.env.VITE_PROGRAM_API_URL || `https://api.${'open'}${'ai'}.com/v1/responses`
 const MODEL = import.meta.env.VITE_PROGRAM_MODEL || 'gpt-5.5'
-const MAX_OUTPUT_TOKENS = 8096
+const MAX_OUTPUT_TOKENS = 16000
 
 function getApiKey() {
   return import.meta.env.VITE_PROGRAM_API_KEY || import.meta.env[`VITE_${'OP'}${'EN'}${'A'}${'I'}_API_KEY`]
@@ -132,9 +132,10 @@ Include:
 - In the Meal Plan section, start with Grocery List before any meal options
 - In the Meal Plan section, use these exact line labels in this order: Grocery List, Protein Target, Calorie Target, Water Target, Carb Target, Fat Target, Breakfast Option 1, Breakfast Option 2, Breakfast Option 3, Breakfast Option 4, Lunch Option 1, Lunch Option 2, Lunch Option 3, Lunch Option 4, Dinner Option 1, Dinner Option 2, Dinner Option 3, Dinner Option 4, Snack, Pre Workout, Post Workout, Training Day Intake, Rest Day Intake
 - CRITICAL FORMAT RULE: Write each label and all of its content on a single line. Put the label, then a colon, then the items separated by commas, all on the same one line. Never put items or ingredients on their own separate lines. Never start a line with a comma. Never use bullet points or dashes inside a meal item.
-- Build the Grocery List directly from the exact foods used in the meals below it, tailored to the client's goal, calorie needs, and limitations. List every food as a comma separated list on the single Grocery List line.
-- Every ingredient named in any Breakfast, Lunch, Dinner, Snack, Pre Workout, or Post Workout option must be a food that appears in the Grocery List. Do not introduce foods in meals that are not in the Grocery List.
-- For breakfast, lunch, and dinner, give 4 simple options each with portion sizes and a busy day substitution, all on one line per option
+- You MUST provide exactly four options for Breakfast, four for Lunch, and four for Dinner. Use every one of these labels and never skip any: Breakfast Option 1, Breakfast Option 2, Breakfast Option 3, Breakfast Option 4, Lunch Option 1, Lunch Option 2, Lunch Option 3, Lunch Option 4, Dinner Option 1, Dinner Option 2, Dinner Option 3, Dinner Option 4. Twelve meal options total, this is required.
+- Each meal option must list its exact ingredients with portion sizes (for example: 4 ounces grilled chicken, 1 cup brown rice, 1 cup steamed broccoli, 1 tablespoon olive oil), followed by a busy day substitution, all on one single line.
+- Build the Grocery List first, tailored to the client's goal, calorie target, equipment, and limitations. It must be a comprehensive comma separated list of every food used across all twelve meal options plus the snack and workout meals, with rough weekly quantities where helpful. List it all on the single Grocery List line.
+- Accuracy rule: every ingredient named in any meal option, snack, pre workout, or post workout must be a food that appears in the Grocery List, and every food in the Grocery List must be used in at least one meal. Do not introduce foods in meals that are not in the Grocery List, and do not list foods in the Grocery List that no meal uses.
 - Still include workout specific meals, hydration, protein, carb, fat, calorie intake targets, and the goal behind each target
 - Six month progressive overload plan
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
