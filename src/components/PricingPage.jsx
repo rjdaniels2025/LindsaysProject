@@ -7,10 +7,10 @@ const baseBillingOptions = [
   {
     id: 'pay-in-full',
     label: 'Pay in Full',
-    price: '$1,500',
+    price: '$1,499',
     cadence: 'CAD upfront',
     badge: 'Best Value',
-    highlight: 'Save $150 compared to monthly',
+    highlight: 'Save $151 compared to monthly',
     description: 'One payment. Full 6-month access. No ongoing charges.',
   },
   {
@@ -44,7 +44,7 @@ function getBillingOptions(foundingActive) {
           price: FOUNDING_PAY_IN_FULL_PRICE,
           originalPrice: option.price,
           badge: 'Founding Offer',
-          highlight: 'Save $501 — ends June 30',
+          highlight: 'Save $500 — ends June 30',
           description: 'Founding-client launch price. One payment, full 6-month access.',
         }
       : option,

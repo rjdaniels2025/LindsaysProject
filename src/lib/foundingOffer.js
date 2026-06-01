@@ -1,4 +1,4 @@
-// Founding-client launch offer: $999 for the 6-Month Transformation (regularly $1,500),
+// Founding-client launch offer: $999 for the 6-Month Transformation (regularly $1,499),
 // applied to the one-time pay-in-full option only. The offer auto-expires at the end of
 // June 30, 2026 (midnight Eastern), after which regular pricing resumes everywhere.
 //
