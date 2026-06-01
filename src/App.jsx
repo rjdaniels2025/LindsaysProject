@@ -405,22 +405,7 @@ function App() {
 
     try {
       const text = await programService.generateProgram(targetProfile)
-      setMessages([
-        makeMessage(
-          'assistant',
-          `## Almost ready!\n\nYour plan is built. Generating images now, this takes about 30 seconds.`,
-          { type: 'status' },
-        ),
-      ])
-      await waitForProgramImages(text, (done, total) => {
-        setMessages([
-          makeMessage(
-            'assistant',
-            `## Almost ready!\n\nGenerating images: ${done} of ${total} complete.`,
-            { type: 'status' },
-          ),
-        ])
-      })
+      await waitForProgramImages(text)
       setMessages([makeMessage('assistant', text, { type: 'program' })])
     } catch (err) {
       setError(err.message || 'Unable to generate the program.')
