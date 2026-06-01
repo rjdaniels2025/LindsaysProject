@@ -89,6 +89,8 @@ export default function Chat({
   programEndsAt,
   workoutLog,
   onWorkoutLogChange,
+  workoutDays,
+  onWorkoutDaysChange,
   isLoading,
   error,
   onSendMessage,
@@ -222,6 +224,8 @@ export default function Chat({
                 programCreatedAt={programCreatedAt}
                 workoutLog={workoutLog}
                 onWorkoutLogChange={onWorkoutLogChange}
+                workoutDays={workoutDays}
+                onWorkoutDaysChange={onWorkoutDaysChange}
                 onQuickAction={runAction}
                 pendingAction={pendingAction}
                 isLoading={isLoading}

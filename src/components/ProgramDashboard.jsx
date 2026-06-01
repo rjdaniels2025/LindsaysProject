@@ -439,12 +439,12 @@ function RestTimer({ restString, onDone }) {
 
 // ─── Today view ───────────────────────────────────────────────────────────────
 
-function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, onViewChange }) {
+function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, onViewChange, trainingDayIndices }) {
   const weekNum = currentWeekNumber(programCreatedAt)
   const daysPerWeek = parseDaysPerWeek(profile?.daysPerWeek)
-  const trainingDayIndices = getTrainingDays(daysPerWeek)
+  const trainingDays = trainingDayIndices && trainingDayIndices.length ? trainingDayIndices : getTrainingDays(daysPerWeek)
   const todayDayIndex = (new Date().getDay() + 6) % 7
-  const trainingSlot = trainingDayIndices.indexOf(todayDayIndex)
+  const trainingSlot = trainingDays.indexOf(todayDayIndex)
   const todayWorkout = trainingSlot >= 0 ? workouts[trainingSlot % workouts.length] : null
   const firstMeal = mealPlan.breakfast[0] || mealPlan.all[0]
 
@@ -559,15 +559,15 @@ function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, on
 
 // ─── Weekly schedule ─────────────────────────────────────────────────────────
 
-function WeeklySchedule({ workouts, daysPerWeek, programCreatedAt }) {
+function WeeklySchedule({ workouts, daysPerWeek, programCreatedAt, trainingDayIndices, onEditDays }) {
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const parsed = parseDaysPerWeek(daysPerWeek)
-  const trainingDayIndices = getTrainingDays(parsed)
+  const trainingDays = trainingDayIndices && trainingDayIndices.length ? trainingDayIndices : getTrainingDays(parsed)
   const weekNum = currentWeekNumber(programCreatedAt)
   const todayIndex = (new Date().getDay() + 6) % 7
 
   const schedule = dayNames.map((name, index) => {
-    const trainingSlot = trainingDayIndices.indexOf(index)
+    const trainingSlot = trainingDays.indexOf(index)
     const workout = trainingSlot >= 0 ? workouts[trainingSlot % workouts.length] : null
     return { name, index, workout, isToday: index === todayIndex, isTraining: trainingSlot >= 0 }
   })
@@ -575,12 +575,24 @@ function WeeklySchedule({ workouts, daysPerWeek, programCreatedAt }) {
   return (
     <div className="grid gap-4 sm:gap-5">
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
-        <p className="font-heading text-sm uppercase text-accent">
-          {weekNum ? `Week ${weekNum} of 8` : 'Your training schedule'}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="font-heading text-sm uppercase text-accent">
+            {weekNum ? `Week ${weekNum} of 8` : 'Your training schedule'}
+          </p>
+          {onEditDays ? (
+            <button
+              type="button"
+              onClick={onEditDays}
+              className="shrink-0 rounded-lg border border-accent/40 px-3 py-1 font-heading text-xs uppercase text-accent transition hover:bg-accent hover:text-black"
+            >
+              Edit days
+            </button>
+          ) : null}
+        </div>
         <h4 className="mt-1 font-heading text-3xl uppercase leading-none text-white">Weekly overview.</h4>
         <p className="mt-2 text-sm leading-6 text-body">
-          {parsed} training day{parsed !== 1 ? 's' : ''} per week. Rest days are part of the program, not missed workouts.
+          {trainingDays.length} training day{trainingDays.length !== 1 ? 's' : ''} per week:{' '}
+          {trainingDays.map((d) => dayNames[d]).join(', ')}. Rest days are part of the program, not missed workouts.
         </p>
       </div>
 
@@ -609,7 +621,7 @@ function WeeklySchedule({ workouts, daysPerWeek, programCreatedAt }) {
       <div className="grid gap-2">
         <p className="font-heading text-xl uppercase text-white">Workout details</p>
         {workouts.map((workout, index) => {
-          const daySlot = trainingDayIndices[index % trainingDayIndices.length]
+          const daySlot = trainingDays[index % trainingDays.length]
           const dayName = daySlot !== undefined ? dayNames[daySlot] : 'Flexible'
           const exerciseCount = parseExercises(workout.details).length
           return (
@@ -812,9 +824,19 @@ function MealPlan({ items }) {
 
 // ─── Workout tracker ──────────────────────────────────────────────────────────
 
+// The active workout is the first one not yet completed, so a saved cursor survives reloads
+// instead of snapping back to the first session.
+function firstIncompleteWorkout(done, total) {
+  if (!total) return 0
+  let i = 0
+  while (i < total && done.includes(i)) i++
+  return Math.min(i, total - 1)
+}
+
 function WorkoutTracker({ workouts, log = {}, onLogChange }) {
-  const [currentWorkout, setCurrentWorkout] = useState(0)
-  const [completedWorkouts, setCompletedWorkouts] = useState(() => log.completedWorkouts || [])
+  const initialCompleted = Array.isArray(log.completedWorkouts) ? log.completedWorkouts : []
+  const [currentWorkout, setCurrentWorkout] = useState(() => firstIncompleteWorkout(initialCompleted, workouts.length))
+  const [completedWorkouts, setCompletedWorkouts] = useState(initialCompleted)
   const [checks, setChecks] = useState({})
   const [isStarted, setIsStarted] = useState(false)
   const [activeExercise, setActiveExercise] = useState(0)
@@ -1238,8 +1260,79 @@ function ProgressHistory({ history }) {
   )
 }
 
-export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, onQuickAction, pendingAction, isLoading }) {
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+// Lets the client choose which weekdays they train. Selection is weekday indices (0 = Mon).
+function WorkoutDayPicker({ initial, suggestedCount, onSave, onCancel }) {
+  const [selected, setSelected] = useState(() => new Set(Array.isArray(initial) ? initial : []))
+
+  function toggle(index) {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
+
+  const days = [...selected].sort((a, b) => a - b)
+
+  return (
+    <div className="border-b border-accent/40 bg-accent/10 p-4 sm:p-5">
+      <div className="flex items-center gap-2 text-accent">
+        <CalendarDays size={18} />
+        <p className="font-heading text-base uppercase">Pick your workout days</p>
+      </div>
+      <p className="mt-1 text-sm leading-6 text-body">
+        Choose the days you will train and your schedule will be built around them.
+        {suggestedCount ? ` Your plan is designed for ${suggestedCount} day${suggestedCount !== 1 ? 's' : ''} a week.` : ''}
+      </p>
+      <div className="mt-3 grid grid-cols-4 gap-2 min-[480px]:grid-cols-7">
+        {WEEKDAY_LABELS.map((label, index) => {
+          const on = selected.has(index)
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => toggle(index)}
+              className={`min-h-12 rounded-lg border px-2 font-heading text-sm uppercase transition ${
+                on ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={!days.length}
+          onClick={() => onSave(days)}
+          className="min-h-12 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save my days
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-12 rounded-lg border border-line px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
+          >
+            Cancel
+          </button>
+        ) : null}
+        {days.length ? (
+          <span className="text-sm text-body">{days.map((d) => WEEKDAY_LABELS[d]).join(', ')}</span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, workoutDays, onWorkoutDaysChange, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
+  const [editingDays, setEditingDays] = useState(false)
   const weekNum = currentWeekNumber(programCreatedAt)
 
   const sections = useMemo(
@@ -1287,8 +1380,25 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
 
   const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
 
+  const suggestedDays = parseDaysPerWeek(profile?.daysPerWeek)
+  const daysChosen = Array.isArray(workoutDays) && workoutDays.length > 0
+  const effectiveTrainingDays = daysChosen ? [...workoutDays].sort((a, b) => a - b) : getTrainingDays(suggestedDays)
+  const canEditDays = Boolean(onWorkoutDaysChange)
+  const showDayPicker = canEditDays && (!daysChosen || editingDays)
+
   return (
     <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
+      {showDayPicker ? (
+        <WorkoutDayPicker
+          initial={daysChosen ? workoutDays : effectiveTrainingDays}
+          suggestedCount={suggestedDays}
+          onSave={(days) => {
+            onWorkoutDaysChange(days)
+            setEditingDays(false)
+          }}
+          onCancel={daysChosen ? () => setEditingDays(false) : undefined}
+        />
+      ) : null}
       {safetyFlags.length ? (
         <div className="border-b border-amber-400/40 bg-amber-500/10 p-3 sm:p-4">
           <div className="flex items-start gap-3">
@@ -1386,6 +1496,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               profile={profile}
               programCreatedAt={programCreatedAt}
               onViewChange={setActiveView}
+              trainingDayIndices={effectiveTrainingDays}
             />
           ) : null}
           {activeView === 'workouts' ? (
@@ -1398,7 +1509,13 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           ) : null}
           {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
           {activeView === 'week' ? (
-            <WeeklySchedule workouts={workouts} daysPerWeek={profile?.daysPerWeek} programCreatedAt={programCreatedAt} />
+            <WeeklySchedule
+              workouts={workouts}
+              daysPerWeek={profile?.daysPerWeek}
+              programCreatedAt={programCreatedAt}
+              trainingDayIndices={effectiveTrainingDays}
+              onEditDays={canEditDays ? () => setEditingDays(true) : undefined}
+            />
           ) : null}
           {activeView === 'recover' ? <SimpleSection label="Recovery" title="How to stay ready." items={activeItems} /> : null}
           {activeView === 'track' ? (

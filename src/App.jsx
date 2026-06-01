@@ -357,6 +357,7 @@ function App() {
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
   const [programEndsAt, setProgramEndsAt] = useState(null)
   const [workoutLog, setWorkoutLog] = useState({})
+  const [workoutDays, setWorkoutDays] = useState([])
 
   // ── UI state ──
   const [stage, setStage] = useState(() => stageFromHash() || 'landing')
@@ -397,6 +398,7 @@ function App() {
     setProgramCreatedAt(createdAt)
     setProgramEndsAt(addMonths(createdAt, 6))
     setWorkoutLog({}) // fresh program — old exercise tracking no longer applies
+    setWorkoutDays([]) // prompt the user to pick training days for the new plan
     navigate('chat')
     setMessages([
       makeMessage(
@@ -431,6 +433,7 @@ function App() {
       setProgramCreatedAt(null)
       setProgramEndsAt(null)
       setWorkoutLog({})
+      setWorkoutDays([])
       setHasMembership(false)
       setIsAuthReady(true)
       navigate('landing', { replace: true })
@@ -469,6 +472,7 @@ function App() {
     setProgramCreatedAt(saved.programCreatedAt || null)
     setProgramEndsAt(saved.programEndsAt || null)
     setWorkoutLog(saved.workoutLog && typeof saved.workoutLog === 'object' ? saved.workoutLog : {})
+    setWorkoutDays(Array.isArray(saved.workoutDays) ? saved.workoutDays : [])
     setHasMembership(membershipIsActive)
     setIsAuthReady(true)
 
@@ -648,7 +652,7 @@ function App() {
         {
           user_id: authData.user.id,
           display_name: user.name || authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'Member',
-          app_state: { profile, messages, programCreatedAt, programEndsAt, workoutLog },
+          app_state: { profile, messages, programCreatedAt, programEndsAt, workoutLog, workoutDays },
         },
         { onConflict: 'user_id' },
       )
@@ -656,7 +660,7 @@ function App() {
     }, 100)
 
     return () => clearTimeout(timer)
-  }, [user, isAuthReady, profile, messages, programCreatedAt, programEndsAt, workoutLog])
+  }, [user, isAuthReady, profile, messages, programCreatedAt, programEndsAt, workoutLog, workoutDays])
 
   // ── User actions ──────────────────────────────────────────────────────────
 
@@ -804,6 +808,8 @@ function App() {
         programEndsAt={programEndsAt}
         workoutLog={workoutLog}
         onWorkoutLogChange={setWorkoutLog}
+        workoutDays={workoutDays}
+        onWorkoutDaysChange={setWorkoutDays}
         isLoading={isLoading}
         error={error}
         onSendMessage={sendMessage}
