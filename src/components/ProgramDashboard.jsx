@@ -723,7 +723,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const initialCompleted = Array.isArray(log.completedWorkouts) ? log.completedWorkouts : []
   const [currentWorkout, setCurrentWorkout] = useState(() => firstIncompleteWorkout(initialCompleted, workouts.length))
   const [completedWorkouts, setCompletedWorkouts] = useState(initialCompleted)
-  const [checks, setChecks] = useState({})
   const [isStarted, setIsStarted] = useState(false)
   const [activeExercise, setActiveExercise] = useState(0)
   const [completedSets, setCompletedSets] = useState(() => log.completedSets || {})
@@ -760,18 +759,12 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const exerciseIsDone = currentExercise ? finishedSets.length >= exerciseSets : false
   const finishedExerciseCount = exercises.filter((exercise) => (completedSets[exercise.id] || []).length >= setCount(exercise)).length
   const allExercisesDone = exercises.length > 0 && finishedExerciseCount === exercises.length
-  const checkedCount = completionItems.filter((_, index) => checks[index]).length
-  const canComplete = allExercisesDone && checkedCount === completionItems.length
-
-  function toggleCheck(index) {
-    setChecks((current) => ({ ...current, [index]: !current[index] }))
-  }
+  const canComplete = allExercisesDone
 
   function resetSession() {
     setIsStarted(false)
     setActiveExercise(0)
     setCompletedSets({})
-    setChecks({})
     setRestTimer({ showing: false, key: 0 })
   }
 
@@ -990,21 +983,12 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
       )}
 
       <div className="rounded-lg border border-line bg-[#111] p-4">
-        <p className="font-heading text-2xl uppercase text-white">Finish checklist</p>
-        <p className="mt-1 text-sm text-body">Complete every exercise and confirm these four items to unlock the next workout.</p>
-        <div className="mt-4 grid gap-2">
-          {completionItems.map((item, index) => (
-            <label key={item} className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-card p-3">
-              <input
-                type="checkbox"
-                checked={Boolean(checks[index])}
-                onChange={() => toggleCheck(index)}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-[#e8ff47]"
-              />
-              <span className="text-sm leading-6 text-body sm:text-base">{item}</span>
-            </label>
-          ))}
-        </div>
+        <p className="font-heading text-2xl uppercase text-white">Finish workout</p>
+        <p className="mt-1 text-sm text-body">
+          {canComplete
+            ? 'Every exercise is done. Lock it in to open your next workout.'
+            : `Complete every exercise to finish. ${finishedExerciseCount} of ${exercises.length} done.`}
+        </p>
         <button
           type="button"
           disabled={!canComplete}
