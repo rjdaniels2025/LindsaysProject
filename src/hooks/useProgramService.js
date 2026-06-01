@@ -116,8 +116,8 @@ async function callProgramService(messages) {
   return sanitizeCopy(text)
 }
 
-function programPrompt(profile) {
-  return `Generate a fully personalized science-based training program for this client.
+function programPrompt(profile, { blockNumber = 1, progress = '' } = {}) {
+  return `Generate a personalized science-based 4-week training block for this client. This is block ${blockNumber}. It covers 4 weeks and should get progressively more challenging week by week across those 4 weeks.${progress ? `\n\nProgress logged in the previous block (apply sensible progressive overload: increase load or difficulty where the client clearly handled it, hold or adjust where they did not): ${progress}` : ''}
 
 Client profile:
 - Name: ${profile.name}
@@ -136,9 +136,9 @@ ${profile.desiredWeightLbs ? `- Weight goal: Reach ${profile.desiredWeightLbs} l
 Include:
 ${injuryRules(profile.limitations)}
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
-- Use clear plain headings exactly named: Today First, Weekly Map, Workouts, Meal Plan, Six Month Progression, Recovery, Track Progress, Why This Works
+- Use clear plain headings exactly named: Today First, Workouts, Meal Plan, Four Week Progression, Recovery, Track Progress, Why This Works
 - Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
-- Weekly training split with every session detailed
+- Provide one distinct workout session for each of the client's ${profile.daysPerWeek} training days per week, with every session fully detailed. Do not assign specific weekdays or name days of the week, the client chooses when to do each session.
 - In the Workouts section, write every exercise on its own line using this exact pattern: Exercise name: Sets: number, Reps: number or time, Weight: exact beginner safe weight range in pounds or bodyweight, Rest: seconds or minutes, Tempo: numbers separated by commas, Cue: one simple coaching cue
 - For any weighted exercise, give a realistic starting weight range based on the client's body weight, experience, equipment, and limitations. Use simple ranges like 10 to 20 lbs, 20 to 35 lbs, or 45 to 65 lbs. For bodyweight exercises, write Weight: Bodyweight.
 - Include weight guidance that is safe and practical. Tell the user to choose a load that leaves 2 to 3 reps in reserve and to reduce weight if form breaks.
@@ -152,7 +152,7 @@ ${injuryRules(profile.limitations)}
 - Build the Grocery List first, tailored to the client's goal, calorie target, equipment, and limitations. It must be a comprehensive comma separated list of every food used across all twelve meal options plus the snack and workout meals, with rough weekly quantities where helpful. List it all on the single Grocery List line.
 - Accuracy rule: every ingredient named in any meal option, snack, pre workout, or post workout must be a food that appears in the Grocery List, and every food in the Grocery List must be used in at least one meal. Do not introduce foods in meals that are not in the Grocery List, and do not list foods in the Grocery List that no meal uses.
 - Still include workout specific meals, hydration, protein, carb, fat, calorie intake targets, and the goal behind each target
-- Six month progressive overload plan
+- Four week progressive overload plan that makes each of the 4 weeks a little more challenging than the one before
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
 - Key performance indicators and how to measure them
 - Scientific rationale for every major recommendation
@@ -162,11 +162,11 @@ ${injuryRules(profile.limitations)}
 - Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks`
 }
 
-async function generateProgram(profile) {
+async function generateProgram(profile, options = {}) {
   return callProgramService([
     {
       role: 'user',
-      content: programPrompt(profile),
+      content: programPrompt(profile, options),
     },
   ])
 }

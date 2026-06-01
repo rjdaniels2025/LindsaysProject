@@ -13,10 +13,30 @@ import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
-function addMonths(date, months) {
+const BLOCK_WEEKS = 4
+
+function addDays(date, days) {
   const d = new Date(date)
-  d.setMonth(d.getMonth() + months)
+  d.setDate(d.getDate() + days)
   return d.toISOString()
+}
+
+function isBlockEnded(programEndsAt) {
+  return Boolean(programEndsAt) && Date.now() >= new Date(programEndsAt).getTime()
+}
+
+// A short, plain-text summary of last block's logged loads, fed into the next block so the
+// program progresses from real performance instead of starting over.
+function summarizeProgress(workoutLog) {
+  const history = Array.isArray(workoutLog?.history) ? workoutLog.history : []
+  if (!history.length) return ''
+  const latest = new Map()
+  for (const entry of history) {
+    if (entry?.name && entry?.weight) latest.set(entry.name, entry.weight)
+  }
+  const lines = [...latest.entries()].map(([name, weight]) => `${name}: last used ${weight}`)
+  if (!lines.length) return ''
+  return lines.join('; ')
 }
 
 function makeMessage(role, content, meta = {}) {
@@ -357,7 +377,7 @@ function App() {
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
   const [programEndsAt, setProgramEndsAt] = useState(null)
   const [workoutLog, setWorkoutLog] = useState({})
-  const [workoutDays, setWorkoutDays] = useState([])
+  const [blockNumber, setBlockNumber] = useState(1)
 
   // ── UI state ──
   const [stage, setStage] = useState(() => stageFromHash() || 'landing')
@@ -396,20 +416,20 @@ function App() {
     setProfile(targetProfile)
     profileRef.current = targetProfile
     setProgramCreatedAt(createdAt)
-    setProgramEndsAt(addMonths(createdAt, 6))
+    setProgramEndsAt(addDays(createdAt, BLOCK_WEEKS * 7))
     setWorkoutLog({}) // fresh program — old exercise tracking no longer applies
-    setWorkoutDays([]) // prompt the user to pick training days for the new plan
+    setBlockNumber(1) // first 4-week block
     navigate('chat')
     setMessages([
       makeMessage(
         'assistant',
-        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Lindsay is generating your complete 6-month transformation now.`,
+        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Lindsay is generating your first 4-week block now.`,
         { type: 'status' },
       ),
     ])
 
     try {
-      const text = await programService.generateProgram(targetProfile)
+      const text = await programService.generateProgram(targetProfile, { blockNumber: 1 })
       const safetyFlags = auditProgram(text, targetProfile.limitations)
       await waitForProgramImages(text)
       setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])
@@ -419,6 +439,43 @@ function App() {
       setIsLoading(false)
     }
   }, [navigate, programService])
+
+  // Regenerate the next 4-week block from the client's logged progress. Triggered by the
+  // client confirming the end-of-block prompt; only meaningful while their membership is active.
+  const generateNextBlock = useCallback(async () => {
+    const targetProfile = profileRef.current || profile
+    if (!targetProfile || isLoading) return
+
+    const nextBlock = blockNumber + 1
+    const progress = summarizeProgress(workoutLog)
+    const preservedHistory = Array.isArray(workoutLog?.history) ? workoutLog.history : []
+    const createdAt = new Date().toISOString()
+
+    setError('')
+    setIsLoading(true)
+    setProgramCreatedAt(createdAt)
+    setProgramEndsAt(addDays(createdAt, BLOCK_WEEKS * 7))
+    setBlockNumber(nextBlock)
+    setWorkoutLog({ history: preservedHistory }) // new block exercises; keep cross-block history
+    setMessages([
+      makeMessage(
+        'assistant',
+        `## Building ${targetProfile.name}'s block ${nextBlock}\n\nLindsay is using your logged progress to build your next 4 weeks.`,
+        { type: 'status' },
+      ),
+    ])
+
+    try {
+      const text = await programService.generateProgram(targetProfile, { blockNumber: nextBlock, progress })
+      const safetyFlags = auditProgram(text, targetProfile.limitations)
+      await waitForProgramImages(text)
+      setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])
+    } catch (err) {
+      setError(err.message || 'Unable to generate the next block.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [profile, isLoading, blockNumber, workoutLog, programService])
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -433,7 +490,7 @@ function App() {
       setProgramCreatedAt(null)
       setProgramEndsAt(null)
       setWorkoutLog({})
-      setWorkoutDays([])
+      setBlockNumber(1)
       setHasMembership(false)
       setIsAuthReady(true)
       navigate('landing', { replace: true })
@@ -472,7 +529,7 @@ function App() {
     setProgramCreatedAt(saved.programCreatedAt || null)
     setProgramEndsAt(saved.programEndsAt || null)
     setWorkoutLog(saved.workoutLog && typeof saved.workoutLog === 'object' ? saved.workoutLog : {})
-    setWorkoutDays(Array.isArray(saved.workoutDays) ? saved.workoutDays : [])
+    setBlockNumber(typeof saved.blockNumber === 'number' && saved.blockNumber > 0 ? saved.blockNumber : 1)
     setHasMembership(membershipIsActive)
     setIsAuthReady(true)
 
@@ -652,7 +709,7 @@ function App() {
         {
           user_id: authData.user.id,
           display_name: user.name || authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'Member',
-          app_state: { profile, messages, programCreatedAt, programEndsAt, workoutLog, workoutDays },
+          app_state: { profile, messages, programCreatedAt, programEndsAt, workoutLog, blockNumber },
         },
         { onConflict: 'user_id' },
       )
@@ -660,7 +717,7 @@ function App() {
     }, 100)
 
     return () => clearTimeout(timer)
-  }, [user, isAuthReady, profile, messages, programCreatedAt, programEndsAt, workoutLog, workoutDays])
+  }, [user, isAuthReady, profile, messages, programCreatedAt, programEndsAt, workoutLog, blockNumber])
 
   // ── User actions ──────────────────────────────────────────────────────────
 
@@ -799,6 +856,7 @@ function App() {
   if (!isAuthReady) return <LoadingScreen />
 
   if (stage === 'chat') {
+    const canStartNextBlock = isBlockEnded(programEndsAt) && hasMembership && hasProgramMessage(messages)
     return (
       <Chat
         user={user}
@@ -808,8 +866,9 @@ function App() {
         programEndsAt={programEndsAt}
         workoutLog={workoutLog}
         onWorkoutLogChange={setWorkoutLog}
-        workoutDays={workoutDays}
-        onWorkoutDaysChange={setWorkoutDays}
+        blockNumber={blockNumber}
+        canStartNextBlock={canStartNextBlock}
+        onStartNextBlock={generateNextBlock}
         isLoading={isLoading}
         error={error}
         onSendMessage={sendMessage}

@@ -26,7 +26,6 @@ const views = [
   { id: 'today', label: 'Today', icon: Sparkles },
   { id: 'workouts', label: 'Workouts', icon: CheckCircle2 },
   { id: 'meal', label: 'Meal Plan', icon: Utensils },
-  { id: 'week', label: 'Schedule', icon: CalendarDays },
   { id: 'recover', label: 'Recover', icon: HeartPulse },
   { id: 'track', label: 'Track', icon: LineChart },
   { id: 'science', label: 'Science', icon: BookOpenText },
@@ -39,15 +38,6 @@ const completionItems = [
   'I checked how my body feels after the workout.',
 ]
 
-const TRAINING_DAY_PATTERNS = {
-  1: [0],
-  2: [0, 3],
-  3: [0, 2, 4],
-  4: [0, 1, 3, 4],
-  5: [0, 1, 2, 3, 4],
-  6: [0, 1, 2, 3, 4, 5],
-  7: [0, 1, 2, 3, 4, 5, 6],
-}
 
 // ─── Parsers and helpers ──────────────────────────────────────────────────────
 
@@ -90,7 +80,7 @@ function headingText(line) {
 }
 
 function isPlanHeading(line) {
-  return /^(today first|weekly map|workouts|meal plan|six month progression|recovery|track progress|why this works)$/i.test(headingText(line))
+  return /^(today first|workouts|meal plan|four week progression|recovery|track progress|why this works)$/i.test(headingText(line))
 }
 
 function sectionLines(content, heading, stopHeadings = []) {
@@ -198,29 +188,14 @@ function parseRestSeconds(restString) {
   return single ? Math.min(300, parseInt(single[0])) : 60
 }
 
-function parseDaysPerWeek(value) {
-  if (!value) return 3
-  const words = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 }
-  const s = String(value).toLowerCase()
-  for (const [word, num] of Object.entries(words)) {
-    if (s.includes(word)) return num
-  }
-  const n = parseInt(s.match(/\d+/)?.[0] || '3')
-  return Math.min(7, Math.max(1, n))
-}
-
 function currentWeekNumber(programCreatedAt) {
   if (!programCreatedAt) return null
   const msPerWeek = 7 * 24 * 60 * 60 * 1000
-  return Math.min(8, Math.max(1, Math.floor((Date.now() - new Date(programCreatedAt).getTime()) / msPerWeek) + 1))
-}
-
-function getTrainingDays(daysPerWeek) {
-  return TRAINING_DAY_PATTERNS[Math.min(7, Math.max(1, daysPerWeek))] || TRAINING_DAY_PATTERNS[3]
+  return Math.min(4, Math.max(1, Math.floor((Date.now() - new Date(programCreatedAt).getTime()) / msPerWeek) + 1))
 }
 
 function parseMealPlan(content) {
-  const mealLines = sectionLines(content, 'Meal Plan', ['Six Month Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const mealLines = sectionLines(content, 'Meal Plan', ['Four Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const source = mealLines.length
     ? mealLines
     : sectionLines(content, 'Recovery', ['Track Progress', 'Why This Works']).filter((line) =>
@@ -300,7 +275,7 @@ function parseMealPlan(content) {
 }
 
 function parseWorkouts(content, fallbackItems) {
-  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Meal Plan', 'Six Month Progression', 'Recovery', 'Track Progress', 'Why This Works'])
+  const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Meal Plan', 'Four Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const lines = explicitWorkoutLines.length ? explicitWorkoutLines : compactLines(extractSection(content, ['workouts', 'session', 'day'], 3000), 80)
   const fallbackWorkoutItems = fallbackItems.length
     ? fallbackItems
@@ -439,13 +414,9 @@ function RestTimer({ restString, onDone }) {
 
 // ─── Today view ───────────────────────────────────────────────────────────────
 
-function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, onViewChange, trainingDayIndices }) {
+function TodayView({ sections, mealPlan, nextWorkout, programCreatedAt, onViewChange }) {
   const weekNum = currentWeekNumber(programCreatedAt)
-  const daysPerWeek = parseDaysPerWeek(profile?.daysPerWeek)
-  const trainingDays = trainingDayIndices && trainingDayIndices.length ? trainingDayIndices : getTrainingDays(daysPerWeek)
-  const todayDayIndex = (new Date().getDay() + 6) % 7
-  const trainingSlot = trainingDays.indexOf(todayDayIndex)
-  const todayWorkout = trainingSlot >= 0 ? workouts[trainingSlot % workouts.length] : null
+  const todayWorkout = nextWorkout
   const firstMeal = mealPlan.breakfast[0] || mealPlan.all[0]
 
   return (
@@ -454,13 +425,13 @@ function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, on
         <div className="rounded-lg border border-line bg-[#111] p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-heading text-sm uppercase text-accent">Program progress</p>
-              <p className="font-heading text-2xl uppercase text-white">Week {weekNum} of 8</p>
+              <p className="font-heading text-sm uppercase text-accent">Block progress</p>
+              <p className="font-heading text-2xl uppercase text-white">Week {weekNum} of 4</p>
             </div>
-            <p className="font-heading text-3xl uppercase text-white">{Math.round((weekNum / 8) * 100)}%</p>
+            <p className="font-heading text-3xl uppercase text-white">{Math.round((weekNum / 4) * 100)}%</p>
           </div>
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-line">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${(weekNum / 8) * 100}%` }} />
+            <div className="h-full rounded-full bg-accent" style={{ width: `${(weekNum / 4) * 100}%` }} />
           </div>
         </div>
       ) : (
@@ -474,7 +445,7 @@ function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, on
       )}
 
       <div className="rounded-lg border border-line bg-[#111] p-4">
-        <p className="font-heading text-sm uppercase text-accent">{todayWorkout ? "Today's workout" : 'Today'}</p>
+        <p className="font-heading text-sm uppercase text-accent">{todayWorkout ? 'Your next workout' : 'Today'}</p>
         {todayWorkout ? (
           <>
             <h3 className="mt-1 break-words font-heading text-3xl uppercase leading-none text-white">{todayWorkout.title}</h3>
@@ -508,9 +479,9 @@ function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, on
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <OverviewCard icon={Dumbbell} label="Next workout" title={workouts[0]?.title || 'Workout one'}>
+        <OverviewCard icon={Dumbbell} label="Next workout" title={nextWorkout?.title || 'Workout one'}>
           <p className="text-sm leading-6 text-body">
-            {parseExercises(workouts[0]?.details || []).length} exercises ready in guided mode.
+            {parseExercises(nextWorkout?.details || []).length} exercises ready in guided mode.
           </p>
           <button
             type="button"
@@ -557,91 +528,6 @@ function TodayView({ sections, mealPlan, workouts, profile, programCreatedAt, on
   )
 }
 
-// ─── Weekly schedule ─────────────────────────────────────────────────────────
-
-function WeeklySchedule({ workouts, daysPerWeek, programCreatedAt, trainingDayIndices, onEditDays }) {
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const parsed = parseDaysPerWeek(daysPerWeek)
-  const trainingDays = trainingDayIndices && trainingDayIndices.length ? trainingDayIndices : getTrainingDays(parsed)
-  const weekNum = currentWeekNumber(programCreatedAt)
-  const todayIndex = (new Date().getDay() + 6) % 7
-
-  const schedule = dayNames.map((name, index) => {
-    const trainingSlot = trainingDays.indexOf(index)
-    const workout = trainingSlot >= 0 ? workouts[trainingSlot % workouts.length] : null
-    return { name, index, workout, isToday: index === todayIndex, isTraining: trainingSlot >= 0 }
-  })
-
-  return (
-    <div className="grid gap-4 sm:gap-5">
-      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="font-heading text-sm uppercase text-accent">
-            {weekNum ? `Week ${weekNum} of 8` : 'Your training schedule'}
-          </p>
-          {onEditDays ? (
-            <button
-              type="button"
-              onClick={onEditDays}
-              className="shrink-0 rounded-lg border border-accent/40 px-3 py-1 font-heading text-xs uppercase text-accent transition hover:bg-accent hover:text-black"
-            >
-              Edit days
-            </button>
-          ) : null}
-        </div>
-        <h4 className="mt-1 font-heading text-3xl uppercase leading-none text-white">Weekly overview.</h4>
-        <p className="mt-2 text-sm leading-6 text-body">
-          {trainingDays.length} training day{trainingDays.length !== 1 ? 's' : ''} per week:{' '}
-          {trainingDays.map((d) => dayNames[d]).join(', ')}. Rest days are part of the program, not missed workouts.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
-        {schedule.map(({ name, workout, isToday, isTraining }) => (
-          <div
-            key={name}
-            className={`flex flex-col rounded-lg border p-2 text-center sm:p-3 ${
-              isToday ? 'border-accent bg-accent/10' : isTraining ? 'border-line bg-[#111]' : 'border-line/40 bg-[#0a0a0a]'
-            }`}
-          >
-            <p className={`font-heading text-xs uppercase sm:text-sm ${isToday ? 'text-accent' : 'text-body'}`}>
-              {name}{isToday ? ' *' : ''}
-            </p>
-            {workout ? (
-              <p className="mt-1 break-words font-heading text-[10px] uppercase leading-tight text-white sm:text-xs">
-                {workout.title}
-              </p>
-            ) : (
-              <p className="mt-1 font-heading text-[10px] uppercase text-body/50 sm:text-xs">Rest</p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-2">
-        <p className="font-heading text-xl uppercase text-white">Workout details</p>
-        {workouts.map((workout, index) => {
-          const daySlot = trainingDays[index % trainingDays.length]
-          const dayName = daySlot !== undefined ? dayNames[daySlot] : 'Flexible'
-          const exerciseCount = parseExercises(workout.details).length
-          return (
-            <div key={`${workout.title}-${index}`} className="rounded-lg border border-line bg-[#111] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="break-words font-heading text-xl uppercase text-white">{workout.title}</p>
-                  <p className="mt-1 text-sm text-body">{exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''}</p>
-                </div>
-                <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-heading text-xs uppercase text-accent">
-                  {dayName}
-                </span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 // ─── Simple section (recover, track, week text) ───────────────────────────────
 
@@ -1260,85 +1146,13 @@ function ProgressHistory({ history }) {
   )
 }
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-// Lets the client choose which weekdays they train. Selection is weekday indices (0 = Mon).
-function WorkoutDayPicker({ initial, suggestedCount, onSave, onCancel }) {
-  const [selected, setSelected] = useState(() => new Set(Array.isArray(initial) ? initial : []))
-
-  function toggle(index) {
-    setSelected((current) => {
-      const next = new Set(current)
-      if (next.has(index)) next.delete(index)
-      else next.add(index)
-      return next
-    })
-  }
-
-  const days = [...selected].sort((a, b) => a - b)
-
-  return (
-    <div className="border-b border-accent/40 bg-accent/10 p-4 sm:p-5">
-      <div className="flex items-center gap-2 text-accent">
-        <CalendarDays size={18} />
-        <p className="font-heading text-base uppercase">Pick your workout days</p>
-      </div>
-      <p className="mt-1 text-sm leading-6 text-body">
-        Choose the days you will train and your schedule will be built around them.
-        {suggestedCount ? ` Your plan is designed for ${suggestedCount} day${suggestedCount !== 1 ? 's' : ''} a week.` : ''}
-      </p>
-      <div className="mt-3 grid grid-cols-4 gap-2 min-[480px]:grid-cols-7">
-        {WEEKDAY_LABELS.map((label, index) => {
-          const on = selected.has(index)
-          return (
-            <button
-              key={label}
-              type="button"
-              onClick={() => toggle(index)}
-              className={`min-h-12 rounded-lg border px-2 font-heading text-sm uppercase transition ${
-                on ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'
-              }`}
-            >
-              {label}
-            </button>
-          )
-        })}
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={!days.length}
-          onClick={() => onSave(days)}
-          className="min-h-12 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Save my days
-        </button>
-        {onCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-12 rounded-lg border border-line px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
-          >
-            Cancel
-          </button>
-        ) : null}
-        {days.length ? (
-          <span className="text-sm text-body">{days.map((d) => WEEKDAY_LABELS[d]).join(', ')}</span>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, workoutDays, onWorkoutDaysChange, onQuickAction, pendingAction, isLoading }) {
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, canStartNextBlock, onStartNextBlock, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
-  const [editingDays, setEditingDays] = useState(false)
   const weekNum = currentWeekNumber(programCreatedAt)
 
   const sections = useMemo(
     () => ({
       today: compactLines(extractSection(message.content, ['session', 'day 1', 'workout a', 'upper', 'lower']), 6),
-      week: compactLines(extractSection(message.content, ['weekly', 'split', 'week 1']), 7),
       workouts: compactLines(extractSection(message.content, ['workouts', 'session', 'day 1']), 8),
       meal: compactLines(sectionLines(message.content, 'Meal Plan').join('\n') || extractSection(message.content, ['meal', 'nutrition', 'protein']), 8),
       recover: compactLines(extractSection(message.content, ['recovery', 'sleep', 'nutrition', 'deload']), 6),
@@ -1349,6 +1163,9 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
 
   const workouts = useMemo(() => parseWorkouts(message.content, sections.today), [message.content, sections.today])
   const mealPlan = useMemo(() => parseMealPlan(message.content), [message.content])
+
+  const completedWorkouts = Array.isArray(workoutLog?.completedWorkouts) ? workoutLog.completedWorkouts : []
+  const nextWorkout = workouts[firstIncompleteWorkout(completedWorkouts, workouts.length)] || null
 
   useEffect(() => {
     const exerciseNames = [...new Set(workouts.flatMap((w) => parseExercises(w.details).map((ex) => ex.name)))]
@@ -1380,24 +1197,31 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
 
   const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
 
-  const suggestedDays = parseDaysPerWeek(profile?.daysPerWeek)
-  const daysChosen = Array.isArray(workoutDays) && workoutDays.length > 0
-  const effectiveTrainingDays = daysChosen ? [...workoutDays].sort((a, b) => a - b) : getTrainingDays(suggestedDays)
-  const canEditDays = Boolean(onWorkoutDaysChange)
-  const showDayPicker = canEditDays && (!daysChosen || editingDays)
-
   return (
     <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
-      {showDayPicker ? (
-        <WorkoutDayPicker
-          initial={daysChosen ? workoutDays : effectiveTrainingDays}
-          suggestedCount={suggestedDays}
-          onSave={(days) => {
-            onWorkoutDaysChange(days)
-            setEditingDays(false)
-          }}
-          onCancel={daysChosen ? () => setEditingDays(false) : undefined}
-        />
+      {canStartNextBlock ? (
+        <div className="border-b border-accent/50 bg-accent/10 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-heading text-base uppercase text-accent">
+                Block {blockNumber || 1} complete
+              </p>
+              <p className="mt-1 text-sm leading-6 text-body">
+                You finished your 4 weeks. Ready for your next block? Lindsay will use your logged
+                progress to build the next 4 weeks.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={onStartNextBlock}
+              className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RotateCcw size={18} />
+              Start my next 4 weeks
+            </button>
+          </div>
+        </div>
       ) : null}
       {safetyFlags.length ? (
         <div className="border-b border-amber-400/40 bg-amber-500/10 p-3 sm:p-4">
@@ -1433,11 +1257,11 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
             </h2>
             {weekNum ? (
               <div className="mt-3 flex items-center gap-3">
-                <p className="font-heading text-sm uppercase text-accent">Week {weekNum} of 8</p>
+                <p className="font-heading text-sm uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(weekNum / 8) * 100}%` }} />
+                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(weekNum / 4) * 100}%` }} />
                 </div>
-                <p className="font-heading text-sm uppercase text-body">{Math.round((weekNum / 8) * 100)}%</p>
+                <p className="font-heading text-sm uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
               </div>
             ) : (
               <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
@@ -1447,7 +1271,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           </div>
           <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
             <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
-            <FocusCard icon={CalendarDays} label="Schedule" value={`${profile?.daysPerWeek || '-'} days`} />
+            <FocusCard icon={CalendarDays} label="Training" value={`${profile?.daysPerWeek || '-'} days`} />
             <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
           </div>
         </div>
@@ -1492,11 +1316,9 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
             <TodayView
               sections={sections}
               mealPlan={mealPlan}
-              workouts={workouts}
-              profile={profile}
+              nextWorkout={nextWorkout}
               programCreatedAt={programCreatedAt}
               onViewChange={setActiveView}
-              trainingDayIndices={effectiveTrainingDays}
             />
           ) : null}
           {activeView === 'workouts' ? (
@@ -1508,15 +1330,6 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
             />
           ) : null}
           {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
-          {activeView === 'week' ? (
-            <WeeklySchedule
-              workouts={workouts}
-              daysPerWeek={profile?.daysPerWeek}
-              programCreatedAt={programCreatedAt}
-              trainingDayIndices={effectiveTrainingDays}
-              onEditDays={canEditDays ? () => setEditingDays(true) : undefined}
-            />
-          ) : null}
           {activeView === 'recover' ? <SimpleSection label="Recovery" title="How to stay ready." items={activeItems} /> : null}
           {activeView === 'track' ? (
             <div className="grid gap-4">
