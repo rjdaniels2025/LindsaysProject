@@ -119,6 +119,7 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
       </section>
 
       <footer className="border-t border-line bg-[#0b0b0b] px-4 py-4 text-center">
+        <p className="mb-2 text-xs text-body/50">Powered by AI based on Coach Lindsay&apos;s personal transformation methods</p>
         <button
           type="button"
           onClick={onAdmin}
