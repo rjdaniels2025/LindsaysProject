@@ -90,7 +90,7 @@ export default function Chat({
   workoutLog,
   onWorkoutLogChange,
   blockNumber,
-  canStartNextBlock,
+  membershipActive,
   onStartNextBlock,
   isLoading,
   error,
@@ -226,7 +226,7 @@ export default function Chat({
                 workoutLog={workoutLog}
                 onWorkoutLogChange={onWorkoutLogChange}
                 blockNumber={blockNumber}
-                canStartNextBlock={canStartNextBlock}
+                membershipActive={membershipActive}
                 onStartNextBlock={onStartNextBlock}
                 onQuickAction={runAction}
                 pendingAction={pendingAction}

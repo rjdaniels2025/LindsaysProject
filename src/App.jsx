@@ -21,10 +21,6 @@ function addDays(date, days) {
   return d.toISOString()
 }
 
-function isBlockEnded(programEndsAt) {
-  return Boolean(programEndsAt) && Date.now() >= new Date(programEndsAt).getTime()
-}
-
 // A short, plain-text summary of last block's logged loads, fed into the next block so the
 // program progresses from real performance instead of starting over.
 function summarizeProgress(workoutLog) {
@@ -856,7 +852,6 @@ function App() {
   if (!isAuthReady) return <LoadingScreen />
 
   if (stage === 'chat') {
-    const canStartNextBlock = isBlockEnded(programEndsAt) && hasMembership && hasProgramMessage(messages)
     return (
       <Chat
         user={user}
@@ -867,7 +862,7 @@ function App() {
         workoutLog={workoutLog}
         onWorkoutLogChange={setWorkoutLog}
         blockNumber={blockNumber}
-        canStartNextBlock={canStartNextBlock}
+        membershipActive={hasMembership}
         onStartNextBlock={generateNextBlock}
         isLoading={isLoading}
         error={error}

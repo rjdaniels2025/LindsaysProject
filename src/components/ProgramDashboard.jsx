@@ -188,12 +188,6 @@ function parseRestSeconds(restString) {
   return single ? Math.min(300, parseInt(single[0])) : 60
 }
 
-function currentWeekNumber(programCreatedAt) {
-  if (!programCreatedAt) return null
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000
-  return Math.min(4, Math.max(1, Math.floor((Date.now() - new Date(programCreatedAt).getTime()) / msPerWeek) + 1))
-}
-
 function parseMealPlan(content) {
   const mealLines = sectionLines(content, 'Meal Plan', ['Four Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const source = mealLines.length
@@ -414,8 +408,8 @@ function RestTimer({ restString, onDone }) {
 
 // ─── Today view ───────────────────────────────────────────────────────────────
 
-function TodayView({ sections, mealPlan, nextWorkout, programCreatedAt, onViewChange }) {
-  const weekNum = currentWeekNumber(programCreatedAt)
+function TodayView({ sections, mealPlan, nextWorkout, week, onViewChange }) {
+  const weekNum = week
   const todayWorkout = nextWorkout
   const firstMeal = mealPlan.breakfast[0] || mealPlan.all[0]
 
@@ -710,6 +704,8 @@ function MealPlan({ items }) {
 
 // ─── Workout tracker ──────────────────────────────────────────────────────────
 
+const BLOCK_WEEKS = 4
+
 // The active workout is the first one not yet completed, so a saved cursor survives reloads
 // instead of snapping back to the first session.
 function firstIncompleteWorkout(done, total) {
@@ -717,6 +713,16 @@ function firstIncompleteWorkout(done, total) {
   let i = 0
   while (i < total && done.includes(i)) i++
   return Math.min(i, total - 1)
+}
+
+function clampWeek(value) {
+  const n = Number.parseInt(value, 10)
+  return Number.isFinite(n) ? Math.min(BLOCK_WEEKS, Math.max(1, n)) : 1
+}
+
+// Every session in the current week has been completed.
+function allSessionsDone(completedWorkouts, total) {
+  return total > 0 && Array.from({ length: total }, (_, i) => i).every((i) => completedWorkouts.includes(i))
 }
 
 function WorkoutTracker({ workouts, log = {}, onLogChange }) {
@@ -729,18 +735,19 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [restTimer, setRestTimer] = useState({ showing: false, key: 0 })
   const [exerciseWeights, setExerciseWeights] = useState(() => log.exerciseWeights || {})
   const [history, setHistory] = useState(() => (Array.isArray(log.history) ? log.history : []))
+  const [week, setWeek] = useState(() => clampWeek(log.week))
 
   // Push tracking up to the parent, which debounce-saves it to app_state so logged weights,
-  // completed sets/workouts, and weight history survive refreshes. Skip the initial mount so
-  // loading a saved log doesn't trigger a redundant write.
+  // completed sets/workouts, weight history, and the current week survive refreshes. Skip the
+  // initial mount so loading a saved log doesn't trigger a redundant write.
   const didMountLog = useRef(false)
   useEffect(() => {
     if (!didMountLog.current) {
       didMountLog.current = true
       return
     }
-    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history })
-  }, [completedWorkouts, completedSets, exerciseWeights, history, onLogChange])
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week })
+  }, [completedWorkouts, completedSets, exerciseWeights, history, week, onLogChange])
 
   const activeWorkout = workouts[currentWorkout] || workouts[0]
   const exercises = useMemo(() => parseExercises(activeWorkout.details), [activeWorkout.details])
@@ -760,6 +767,8 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const finishedExerciseCount = exercises.filter((exercise) => (completedSets[exercise.id] || []).length >= setCount(exercise)).length
   const allExercisesDone = exercises.length > 0 && finishedExerciseCount === exercises.length
   const canComplete = allExercisesDone
+  const weekComplete = allSessionsDone(completedWorkouts, workouts.length)
+  const canAdvanceWeek = weekComplete && week < BLOCK_WEEKS
 
   function resetSession() {
     setIsStarted(false)
@@ -808,16 +817,44 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     setCurrentWorkout((current) => Math.min(current + 1, workouts.length - 1))
   }
 
+  // Move to the next week of the block: repeat the same sessions with heavier load. Keep the
+  // logged weights (so they pre-fill as a starting point) and the cross-week history.
+  function advanceWeek() {
+    if (!canAdvanceWeek) return
+    setWeek((w) => clampWeek(w + 1))
+    setCompletedWorkouts([])
+    setCurrentWorkout(0)
+    resetSession()
+  }
+
   function updateWeight(exerciseId, value) {
     setExerciseWeights((prev) => ({ ...prev, [exerciseId]: value }))
   }
 
   return (
     <div className="grid gap-4 sm:gap-5">
+      {canAdvanceWeek ? (
+        <div className="rounded-lg border border-accent/50 bg-accent/10 p-4 sm:p-5">
+          <p className="font-heading text-base uppercase text-accent">Week {week} complete</p>
+          <p className="mt-1 text-sm leading-6 text-body">
+            Great work, you finished every session this week. Start week {week + 1} and push the same
+            movements a little harder, adding load or reps where you can.
+          </p>
+          <button
+            type="button"
+            onClick={advanceWeek}
+            className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95"
+          >
+            <Play size={18} />
+            Start Week {week + 1}
+          </button>
+        </div>
+      ) : null}
+
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="font-heading text-sm uppercase text-accent">Current workout</p>
+            <p className="font-heading text-sm uppercase text-accent">Week {week} of {BLOCK_WEEKS} · Current workout</p>
             <h4 className="mt-1 break-words font-heading text-2xl uppercase leading-none text-white sm:text-3xl">{activeWorkout.title}</h4>
             <p className="mt-2 text-sm leading-6 text-body">
               Start when you are ready. Lindsay walks you through one exercise and one set at a time.
@@ -1130,9 +1167,9 @@ function ProgressHistory({ history }) {
   )
 }
 
-export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, canStartNextBlock, onStartNextBlock, onQuickAction, pendingAction, isLoading }) {
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
-  const weekNum = currentWeekNumber(programCreatedAt)
+  const weekNum = clampWeek(workoutLog?.week)
 
   const sections = useMemo(
     () => ({
@@ -1150,6 +1187,8 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
 
   const completedWorkouts = Array.isArray(workoutLog?.completedWorkouts) ? workoutLog.completedWorkouts : []
   const nextWorkout = workouts[firstIncompleteWorkout(completedWorkouts, workouts.length)] || null
+  // The 4-week block is finished once week 4's sessions are all done.
+  const blockComplete = weekNum >= BLOCK_WEEKS && allSessionsDone(completedWorkouts, workouts.length)
 
   useEffect(() => {
     const exerciseNames = [...new Set(workouts.flatMap((w) => parseExercises(w.details).map((ex) => ex.name)))]
@@ -1183,7 +1222,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
 
   return (
     <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
-      {canStartNextBlock ? (
+      {blockComplete && membershipActive ? (
         <div className="border-b border-accent/50 bg-accent/10 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1191,8 +1230,8 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
                 Block {blockNumber || 1} complete
               </p>
               <p className="mt-1 text-sm leading-6 text-body">
-                You finished your 4 weeks. Ready for your next block? Lindsay will use your logged
-                progress to build the next 4 weeks.
+                You finished all 4 weeks. Ready for your next block? Lindsay will use your logged
+                progress to build the next 4 weeks, a step harder.
               </p>
             </div>
             <button
@@ -1301,7 +1340,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               sections={sections}
               mealPlan={mealPlan}
               nextWorkout={nextWorkout}
-              programCreatedAt={programCreatedAt}
+              week={weekNum}
               onViewChange={setActiveView}
             />
           ) : null}
