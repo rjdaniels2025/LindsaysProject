@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BookOpenText,
   CalendarDays,
@@ -811,15 +811,27 @@ function MealPlan({ items }) {
 
 // ─── Workout tracker ──────────────────────────────────────────────────────────
 
-function WorkoutTracker({ workouts }) {
+function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [currentWorkout, setCurrentWorkout] = useState(0)
-  const [completedWorkouts, setCompletedWorkouts] = useState([])
+  const [completedWorkouts, setCompletedWorkouts] = useState(() => log.completedWorkouts || [])
   const [checks, setChecks] = useState({})
   const [isStarted, setIsStarted] = useState(false)
   const [activeExercise, setActiveExercise] = useState(0)
-  const [completedSets, setCompletedSets] = useState({})
+  const [completedSets, setCompletedSets] = useState(() => log.completedSets || {})
   const [restTimer, setRestTimer] = useState({ showing: false, key: 0 })
-  const [exerciseWeights, setExerciseWeights] = useState({})
+  const [exerciseWeights, setExerciseWeights] = useState(() => log.exerciseWeights || {})
+
+  // Push tracking up to the parent, which debounce-saves it to app_state so logged weights
+  // and completed sets/workouts survive refreshes. Skip the initial mount so loading a saved
+  // log doesn't trigger a redundant write.
+  const didMountLog = useRef(false)
+  useEffect(() => {
+    if (!didMountLog.current) {
+      didMountLog.current = true
+      return
+    }
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights })
+  }, [completedWorkouts, completedSets, exerciseWeights, onLogChange])
 
   const activeWorkout = workouts[currentWorkout] || workouts[0]
   const exercises = useMemo(() => parseExercises(activeWorkout.details), [activeWorkout.details])
@@ -1127,7 +1139,7 @@ function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
-export default function ProgramDashboard({ message, profile, programCreatedAt, onQuickAction, pendingAction, isLoading }) {
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
   const weekNum = currentWeekNumber(programCreatedAt)
 
@@ -1253,7 +1265,14 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, o
               onViewChange={setActiveView}
             />
           ) : null}
-          {activeView === 'workouts' ? <WorkoutTracker workouts={workouts} /> : null}
+          {activeView === 'workouts' ? (
+            <WorkoutTracker
+              key={programCreatedAt || 'program'}
+              workouts={workouts}
+              log={workoutLog}
+              onLogChange={onWorkoutLogChange}
+            />
+          ) : null}
           {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
           {activeView === 'week' ? (
             <WeeklySchedule workouts={workouts} daysPerWeek={profile?.daysPerWeek} programCreatedAt={programCreatedAt} />
