@@ -8,6 +8,7 @@ import Onboarding from './components/Onboarding.jsx'
 import PricingPage from './components/PricingPage.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
 import { waitForProgramImages } from './utils/aiImage.js'
+import { auditProgram } from './utils/programSafety.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -407,8 +408,9 @@ function App() {
 
     try {
       const text = await programService.generateProgram(targetProfile)
+      const safetyFlags = auditProgram(text, targetProfile.limitations)
       await waitForProgramImages(text)
-      setMessages([makeMessage('assistant', text, { type: 'program' })])
+      setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])
     } catch (err) {
       setError(err.message || 'Unable to generate the program.')
     } finally {

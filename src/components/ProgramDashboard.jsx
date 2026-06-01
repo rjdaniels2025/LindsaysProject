@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   BookOpenText,
   CalendarDays,
   CheckCircle2,
@@ -1284,8 +1285,32 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
     { label: 'Meal prep', prompt: 'Turn my meal plan into a simple prep list for the next two days.' },
   ]
 
+  const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
+
   return (
     <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
+      {safetyFlags.length ? (
+        <div className="border-b border-amber-400/40 bg-amber-500/10 p-3 sm:p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-300" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="font-heading text-base uppercase text-amber-200">Check these with care</p>
+              <p className="mt-1 text-sm leading-6 text-body">
+                Based on the limitations you shared, double-check these moves with a qualified professional
+                before loading them, and substitute if anything hurts:
+              </p>
+              <ul className="mt-2 grid gap-1.5">
+                {safetyFlags.map((flag, index) => (
+                  <li key={index} className="text-sm leading-6 text-white">
+                    <span className="font-bold">{flag.exercise}</span>{' '}
+                    <span className="text-body">({flag.limitation}) — {flag.suggestion}.</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="border-b border-line bg-[#0b0b0b] p-3 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>

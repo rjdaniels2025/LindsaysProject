@@ -66,6 +66,20 @@ function formatGoals(primaryGoal) {
   return Array.isArray(primaryGoal) ? primaryGoal.join(', ') : primaryGoal
 }
 
+function hasRealLimitations(limitations) {
+  const lim = String(limitations || '').trim()
+  return Boolean(lim) && !/^(none|n\/?a|no|nope)\b/i.test(lim)
+}
+
+function injuryRules(limitations) {
+  if (!hasRealLimitations(limitations)) {
+    return '- If the client reports no injuries, still choose joint-friendly movements and remind them to reduce load if anything hurts.'
+  }
+  return `- SAFETY IS THE TOP PRIORITY. The client reports these injuries or limitations: ${limitations}. You must NOT program any exercise that is contraindicated or risky for these limitations. Replace every risky movement with a safe alternative that trains the same muscles through a pain-free range.
+- Use this judgment as a guide. For lower back pain, avoid conventional deadlifts, barbell back squats, good mornings, bent over barbell rows, sit-ups, and Russian twists, and prefer hip thrusts, goblet box squats, chest-supported rows, glute bridges, and bird dogs. For knee pain, avoid deep squats, lunges, and any jumping, and prefer box squats to a comfortable depth and leg press in a pain-free range. For shoulder issues, avoid overhead pressing, upright rows, and dips, and prefer neutral grip dumbbell presses, landmine presses, and cable work. Apply the same careful reasoning to any other limitation the client listed.
+- Do not include any exercise that stresses the injured area. When you choose a safer substitute, add a short note in that exercise's Cue explaining it is a joint-friendly choice for the client's limitation.`
+}
+
 async function callProgramService(messages) {
   const apiKey = getApiKey()
 
@@ -120,6 +134,7 @@ Client profile:
 ${profile.desiredWeightLbs ? `- Weight goal: Reach ${profile.desiredWeightLbs} lbs from current ${profile.weightLbs} lbs (${Number(profile.weightLbs) > Number(profile.desiredWeightLbs) ? `lose ${Number(profile.weightLbs) - Number(profile.desiredWeightLbs)} lbs` : `gain ${Number(profile.desiredWeightLbs) - Number(profile.weightLbs)} lbs`})` : ''}
 
 Include:
+${injuryRules(profile.limitations)}
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
 - Use clear plain headings exactly named: Today First, Weekly Map, Workouts, Meal Plan, Six Month Progression, Recovery, Track Progress, Why This Works
 - Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
