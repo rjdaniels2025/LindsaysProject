@@ -7,7 +7,7 @@ import Landing from './components/Landing.jsx'
 import Onboarding from './components/Onboarding.jsx'
 import PricingPage from './components/PricingPage.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
-import { preloadFromProgramText } from './utils/aiImage.js'
+import { waitForProgramImages } from './utils/aiImage.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -405,7 +405,22 @@ function App() {
 
     try {
       const text = await programService.generateProgram(targetProfile)
-      preloadFromProgramText(text)
+      setMessages([
+        makeMessage(
+          'assistant',
+          `## Almost ready!\n\nYour plan is built. Generating images now, this takes about 30 seconds.`,
+          { type: 'status' },
+        ),
+      ])
+      await waitForProgramImages(text, (done, total) => {
+        setMessages([
+          makeMessage(
+            'assistant',
+            `## Almost ready!\n\nGenerating images: ${done} of ${total} complete.`,
+            { type: 'status' },
+          ),
+        ])
+      })
       setMessages([makeMessage('assistant', text, { type: 'program' })])
     } catch (err) {
       setError(err.message || 'Unable to generate the program.')

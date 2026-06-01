@@ -33,9 +33,9 @@ export async function generateAiImage(prompt) {
 
 const EXERCISE_LINE = /^([A-Za-z][\w\s()/-]{2,40}?)\s*:\s*Sets\s*:/i
 const MEAL_LINE = /^((?:Breakfast|Lunch|Dinner|Snack|Pre Workout|Post Workout)[^:]{0,30})\s*:\s*(.+)/i
+const IMAGE_TIMEOUT_MS = 45000
 
-export function preloadFromProgramText(text) {
-  if (!text) return
+function parsePromptsFromText(text) {
   const prompts = []
   for (const line of text.split('\n')) {
     const ex = line.match(EXERCISE_LINE)
@@ -43,11 +43,45 @@ export function preloadFromProgramText(text) {
     const meal = line.match(MEAL_LINE)
     if (meal) prompts.push(mealPrompt(meal[1].trim(), meal[2].trim()))
   }
-  ;[...new Set(prompts)].forEach((prompt) => {
+  return [...new Set(prompts)]
+}
+
+function loadImageWithTimeout(url) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, IMAGE_TIMEOUT_MS)
+    const img = new Image()
+    img.onload = () => { clearTimeout(timer); resolve() }
+    img.onerror = () => { clearTimeout(timer); resolve() }
+    img.src = url
+  })
+}
+
+export function preloadFromProgramText(text) {
+  if (!text) return
+  parsePromptsFromText(text).forEach((prompt) => {
     if (cache.has(prompt)) return
     const url = buildUrl(prompt)
     cache.set(prompt, url)
-    const img = new Image()
-    img.src = url
+    loadImageWithTimeout(url)
   })
+}
+
+export async function waitForProgramImages(text, onProgress) {
+  if (!text) return
+  const prompts = parsePromptsFromText(text)
+  if (!prompts.length) return
+
+  let done = 0
+  onProgress?.(0, prompts.length)
+
+  await Promise.all(
+    prompts.map((prompt) => {
+      const url = buildUrl(prompt)
+      cache.set(prompt, url)
+      return loadImageWithTimeout(url).then(() => {
+        done++
+        onProgress?.(done, prompts.length)
+      })
+    })
+  )
 }
