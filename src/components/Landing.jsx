@@ -1,5 +1,13 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, BadgeDollarSign, HeartPulse, LogIn, ShieldCheck, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, LogIn, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+
+const foundingOfferPerks = [
+  'Personalized Accountability',
+  'Meal Guidance',
+  'Simple Workout Plans',
+  'Lifestyle Coaching',
+  'Ongoing Support',
+]
 
 const coachingPrinciples = [
   {
@@ -31,6 +39,53 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
         onLogin={onLogin}
         onSignOut={onSignOut}
       />
+
+      <section className="relative overflow-hidden border-y border-accent/30 bg-gradient-to-br from-[#14160a] via-[#0b0b0b] to-[#14160a] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(232,255,71,0.16),transparent_22rem),radial-gradient(circle_at_88%_90%,rgba(232,255,71,0.1),transparent_22rem)]" />
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[1.35fr_1fr]">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-accent">
+              <Sparkles size={15} />
+              <span className="font-heading text-sm uppercase">Founding Client Launch Offer</span>
+            </div>
+            <h2 className="mt-4 font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+              6 months of coaching for{' '}
+              <span className="text-accent">just $999</span>
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-body sm:text-lg">
+              Be one of the first clients at Elevate Health &amp; Fitness and lock in founding-client
+              pricing before spots fill.
+            </p>
+            <ul className="mt-6 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+              {foundingOfferPerks.map((perk) => (
+                <li key={perk} className="flex items-center gap-2 text-sm text-white sm:text-base">
+                  <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
+                  {perk}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="flex flex-col items-start gap-4 rounded-2xl border border-white/10 bg-black/50 p-6 backdrop-blur-sm lg:items-center lg:text-center">
+            <div className="flex items-center gap-2 text-accent">
+              <Clock size={18} aria-hidden="true" />
+              <span className="font-heading text-sm uppercase">Limited Time</span>
+            </div>
+            <p className="text-sm leading-6 text-body">
+              Offer ends <span className="font-semibold text-white">June 30, 2026</span> — or when all
+              founding spots are filled.
+            </p>
+            <button
+              type="button"
+              onClick={onPricing}
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-heading text-base uppercase text-black transition hover:brightness-110"
+            >
+              Claim Your Founding Spot
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="relative overflow-hidden border-t border-white/10 bg-[#0b0b0b] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.1),transparent_24rem),radial-gradient(circle_at_84%_0%,rgba(255,255,255,0.06),transparent_28rem)]" />
