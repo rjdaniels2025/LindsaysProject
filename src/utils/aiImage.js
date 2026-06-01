@@ -7,12 +7,29 @@ function getEdgeFunctionUrl() {
   return `${supabaseUrl}/functions/v1/generate-image`
 }
 
+// Prompts are encoded as "type::query" so the edge function can route to the
+// right image source (exercise demo database vs food image search).
 export function exercisePrompt(name) {
-  return `${name} exercise`
+  return `exercise::${String(name || '').trim()}`
 }
 
-export function mealPrompt(title) {
-  return `${title} food`
+// Build a clean food search query from a meal's ingredient details, dropping
+// quantities, units, and the busy-day substitution so the search matches the
+// actual dish (e.g. "scrambled eggs spinach") instead of the label.
+export function mealQuery(details) {
+  let s = String(details || '')
+  s = s.split(/busy day/i)[0]
+  s = s.split('.')[0]
+  s = s.replace(/\([^)]*\)/g, ' ')
+  s = s.replace(/\b\d+(\.\d+)?\b/g, ' ')
+  s = s.replace(/\b(cups?|tbsp|tsp|tablespoons?|teaspoons?|ounces?|oz|slices?|scoops?|grams?|g|lbs?|pounds?|handfuls?|pieces?|cans?|servings?|cloves?)\b/gi, ' ')
+  s = s.replace(/\bwith\b|\band\b|\bof\b/gi, ' ')
+  s = s.replace(/[^a-zA-Z\s]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s.split(' ').slice(0, 4).join(' ')
+}
+
+export function mealPrompt(title, details) {
+  return `meal::${mealQuery(details)}`
 }
 
 export function getCached(prompt) {
@@ -36,6 +53,10 @@ export async function generateAiImage(prompt) {
   const edgeFunctionUrl = getEdgeFunctionUrl()
   if (!edgeFunctionUrl) return null
 
+  const sep = prompt.indexOf('::')
+  const type = sep > -1 ? prompt.slice(0, sep) : 'meal'
+  const query = sep > -1 ? prompt.slice(sep + 2) : prompt
+
   const promise = (async () => {
     try {
       const response = await fetch(edgeFunctionUrl, {
@@ -44,7 +65,7 @@ export async function generateAiImage(prompt) {
           'Content-Type': 'application/json',
           apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
         },
-        body: JSON.stringify({ query: prompt }),
+        body: JSON.stringify({ type, query }),
       })
       const data = await response.json()
       if (!response.ok) {
@@ -69,7 +90,7 @@ export async function generateAiImage(prompt) {
 }
 
 const EXERCISE_LINE = /^([A-Za-z][\w\s()/-]{2,40}?)\s*:\s*Sets\s*:/i
-const MEAL_LINE = /^((?:Breakfast|Lunch|Dinner|Snack|Pre Workout|Post Workout)[^:]{0,30})\s*:/i
+const MEAL_LINE = /^,?\s*((?:Breakfast|Lunch|Dinner|Snack|Pre Workout|Post Workout)[^:]{0,30}?)\s*:?\s*(.*)$/i
 
 export async function waitForProgramImages(text) {
   if (!text) return
@@ -78,7 +99,7 @@ export async function waitForProgramImages(text) {
     const ex = line.match(EXERCISE_LINE)
     if (ex) prompts.push(exercisePrompt(ex[1].trim()))
     const meal = line.match(MEAL_LINE)
-    if (meal) prompts.push(mealPrompt(meal[1].trim()))
+    if (meal && meal[2].trim()) prompts.push(mealPrompt(meal[1].trim(), meal[2].trim()))
   }
   await Promise.all([...new Set(prompts)].map((p) => generateAiImage(p)))
 }
