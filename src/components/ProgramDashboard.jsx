@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 import { useAiImage } from '../hooks/useAiImage.js'
-import { prefetchImages } from '../utils/aiImage.js'
+import { prefetchImages, exercisePrompt, mealPrompt } from '../utils/aiImage.js'
 
 const views = [
   { id: 'today', label: 'Today', icon: Sparkles },
@@ -321,9 +321,6 @@ function FocusCard({ icon: Icon, label, value }) {
   )
 }
 
-function exercisePrompt(name) {
-  return `Photorealistic fitness photograph of a skilled personal trainer performing ${name} with correct form. The full movement is clearly visible from a flattering camera angle. Modern luxury gym with commercial equipment, bright professional studio lighting, clean white walls. High-end editorial fitness photography.`
-}
 
 function ExerciseMedia({ exercise, compact = false }) {
   const prompt = exercise?.name ? exercisePrompt(exercise.name) : null
@@ -660,9 +657,6 @@ function ScienceBreakdown({ content }) {
 
 // ─── Meal plan ────────────────────────────────────────────────────────────────
 
-function mealPrompt(title, details) {
-  return `Professional food photography: ${title} — ${details.slice(0, 100)}. Beautifully plated on premium tableware, marble or light wood surface, soft natural window light from the side. Restaurant quality, sharp focus, vibrant and appetizing. Photorealistic.`
-}
 
 const MEAL_IMAGE_TITLES = /breakfast|lunch|dinner|snack|pre workout|post workout/i
 
