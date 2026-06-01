@@ -873,7 +873,7 @@ function WorkoutTracker({ workouts }) {
             <p className="font-heading text-sm uppercase text-accent">Current workout</p>
             <h4 className="mt-1 break-words font-heading text-2xl uppercase leading-none text-white sm:text-3xl">{activeWorkout.title}</h4>
             <p className="mt-2 text-sm leading-6 text-body">
-              Start when you are ready. Elevate walks you through one exercise and one set at a time.
+              Start when you are ready. Lindsay walks you through one exercise and one set at a time.
             </p>
           </div>
           <div className="grid gap-2 min-[420px]:grid-cols-3 sm:min-w-72">
@@ -1180,7 +1180,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, o
               </div>
             ) : (
               <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
-                Elevate built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
+                Lindsay built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
               </p>
             )}
           </div>

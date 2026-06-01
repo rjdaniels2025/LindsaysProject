@@ -228,7 +228,7 @@ export default function Chat({
                   <Sparkles size={15} />
                   <span className="font-heading text-sm uppercase">Building Your Plan</span>
                 </div>
-                <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Elevate is making your plan</h2>
+                <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">Lindsay is making your plan</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
                   {statusCopy}
                 </p>
@@ -348,7 +348,7 @@ export default function Chat({
                 {latestResult?.meta?.label ? <p className="mb-3 text-sm text-body">{latestResult.meta.label}</p> : null}
                 {isLoading ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-line bg-[#111] p-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
-                    <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Elevate is working on it...'}</span>
+                    <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Lindsay is working on it...'}</span>
                     <LoadingDots />
                   </div>
                 ) : null}

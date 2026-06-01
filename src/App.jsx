@@ -397,7 +397,7 @@ function App() {
     setMessages([
       makeMessage(
         'assistant',
-        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Elevate is generating your complete 6-month transformation now.`,
+        `## Building ${targetProfile.name}'s program\n\nYour assessment is saved to your account. Lindsay is generating your complete 6-month transformation now.`,
         { type: 'status' },
       ),
     ])
