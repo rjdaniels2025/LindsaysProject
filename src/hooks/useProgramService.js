@@ -128,10 +128,13 @@ Include:
 - For any weighted exercise, give a realistic starting weight range based on the client's body weight, experience, equipment, and limitations. Use simple ranges like 10 to 20 lbs, 20 to 35 lbs, or 45 to 65 lbs. For bodyweight exercises, write Weight: Bodyweight.
 - Include weight guidance that is safe and practical. Tell the user to choose a load that leaves 2 to 3 reps in reserve and to reduce weight if form breaks.
 - Put warmup and cooldown notes on their own short lines before or after the exercise lines
-- In the Meal Plan section, create a detailed daily meal plan that is easy to follow and matched to the user's goal, body size, schedule, and training days
+- In the Meal Plan section, create a detailed daily meal plan that is easy to follow and matched to the user's goal, body size, schedule, training days, equipment, and any limitations
 - In the Meal Plan section, start with Grocery List before any meal options
-- In the Meal Plan section, use these exact line labels in this order: Grocery List, Protein Target, Calorie Target, Water Target, Carb Target, Fat Target, Breakfast Option 1, Breakfast Option 2, Breakfast Option 3, Breakfast Option 4, Lunch Option 1, Lunch Option 2, Lunch Option 3, Lunch Option 4, Dinner Option 1, Dinner Option 2, Dinner Option 3, Dinner Option 4, Snack, Pre Workout, Post Workout, Training Day Intake, Rest Day Intake, Prep Steps
-- For breakfast, lunch, and dinner, give 4 simple options each with portion sizes and a busy day substitution
+- In the Meal Plan section, use these exact line labels in this order: Grocery List, Protein Target, Calorie Target, Water Target, Carb Target, Fat Target, Breakfast Option 1, Breakfast Option 2, Breakfast Option 3, Breakfast Option 4, Lunch Option 1, Lunch Option 2, Lunch Option 3, Lunch Option 4, Dinner Option 1, Dinner Option 2, Dinner Option 3, Dinner Option 4, Snack, Pre Workout, Post Workout, Training Day Intake, Rest Day Intake
+- CRITICAL FORMAT RULE: Write each label and all of its content on a single line. Put the label, then a colon, then the items separated by commas, all on the same one line. Never put items or ingredients on their own separate lines. Never start a line with a comma. Never use bullet points or dashes inside a meal item.
+- Build the Grocery List directly from the exact foods used in the meals below it, tailored to the client's goal, calorie needs, and limitations. List every food as a comma separated list on the single Grocery List line.
+- Every ingredient named in any Breakfast, Lunch, Dinner, Snack, Pre Workout, or Post Workout option must be a food that appears in the Grocery List. Do not introduce foods in meals that are not in the Grocery List.
+- For breakfast, lunch, and dinner, give 4 simple options each with portion sizes and a busy day substitution, all on one line per option
 - Still include workout specific meals, hydration, protein, carb, fat, calorie intake targets, and the goal behind each target
 - Six month progressive overload plan
 - Recovery protocol covering sleep, nutrition timing, and deload strategy

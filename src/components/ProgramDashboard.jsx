@@ -248,12 +248,33 @@ function parseMealPlan(content) {
   ]
   const lines = source.length ? source : fallback
 
-  const parsed = lines.map((line, index) => {
-    const [rawTitle, ...rest] = line.split(':')
-    const title = rest.length && rawTitle.length < 34 ? rawTitle.trim() : `Meal step ${index + 1}`
-    const details = rest.length ? rest.join(':').trim() : line
-    return { title, details }
-  })
+  // Known meal-plan labels. The model sometimes puts the label on its own line
+  // and the ingredients on following lines, so we detect labels and merge any
+  // continuation lines into the most recent labeled item.
+  const MEAL_LABEL = /^(grocery list|protein target|calorie target|water target|carb target|fat target|breakfast option \d+|lunch option \d+|dinner option \d+|snack|pre workout|post workout|training day intake|rest day intake|prep steps)\b/i
+
+  function appendDetail(item, piece) {
+    const clean = piece.replace(/^[,\s]+/, '').replace(/\s+/g, ' ').trim()
+    if (!clean) return
+    item.details = item.details ? `${item.details}, ${clean}` : clean
+    item.details = item.details.replace(/,\s*,+/g, ',').replace(/,\s*$/, '')
+  }
+
+  const parsed = []
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const colonIdx = line.indexOf(':')
+    const labelCandidate = (colonIdx > -1 ? line.slice(0, colonIdx) : line).trim()
+
+    if (MEAL_LABEL.test(labelCandidate)) {
+      const item = { title: labelCandidate, details: '' }
+      if (colonIdx > -1) appendDetail(item, line.slice(colonIdx + 1))
+      parsed.push(item)
+    } else if (parsed.length) {
+      appendDetail(parsed[parsed.length - 1], line)
+    }
+  }
 
   function byTitle(pattern) {
     return parsed.filter((item) => pattern.test(item.title))
@@ -714,7 +735,7 @@ function MealPlan({ items }) {
   const [checkedItems, setCheckedItems] = useState({})
   const orderedItems = [
     ...items.grocery, ...items.targets, ...items.breakfast,
-    ...items.lunch, ...items.dinner, ...items.workout, ...items.prep, ...items.other,
+    ...items.lunch, ...items.dinner, ...items.workout,
   ]
 
   function toggleItem(index) {
@@ -729,8 +750,6 @@ function MealPlan({ items }) {
     { title: 'Lunch options', list: items.lunch },
     { title: 'Dinner options', list: items.dinner },
     { title: 'Workout meals and timing', list: items.workout },
-    { title: 'Prep steps', list: items.prep, compact: true },
-    { title: 'Meal steps', list: items.other },
   ].reduce((result, group) => {
     const offset = result.offset
     result.items.push({ ...group, offset })
