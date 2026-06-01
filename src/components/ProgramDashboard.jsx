@@ -262,7 +262,10 @@ function parseMealPlan(content) {
 
   const parsed = []
   for (const rawLine of lines) {
-    const line = rawLine.trim()
+    // Strip leading commas/spaces. The model often prefixes labels and items
+    // with ", " (from bullet points converted to commas), which would otherwise
+    // hide the label from detection.
+    const line = rawLine.replace(/^[,\s]+/, '').trim()
     if (!line) continue
     const colonIdx = line.indexOf(':')
     const labelCandidate = (colonIdx > -1 ? line.slice(0, colonIdx) : line).trim()
