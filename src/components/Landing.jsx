@@ -1,5 +1,6 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
 import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, LogIn, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 
 const foundingOfferPerks = [
   'Personalized Accountability',
@@ -40,6 +41,7 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
         onSignOut={onSignOut}
       />
 
+      {isFoundingOfferActive() ? (
       <section className="relative overflow-hidden border-y border-accent/30 bg-gradient-to-br from-[#14160a] via-[#0b0b0b] to-[#14160a] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_20%,rgba(232,255,71,0.16),transparent_22rem),radial-gradient(circle_at_88%_90%,rgba(232,255,71,0.1),transparent_22rem)]" />
         <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[1.35fr_1fr]">
@@ -86,6 +88,7 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
           </div>
         </div>
       </section>
+      ) : null}
 
       <section className="relative overflow-hidden border-t border-white/10 bg-[#0b0b0b] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(232,255,71,0.1),transparent_24rem),radial-gradient(circle_at_84%_0%,rgba(255,255,255,0.06),transparent_28rem)]" />

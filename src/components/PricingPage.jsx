@@ -1,8 +1,9 @@
 import { ArrowLeft, CheckCircle2, ShieldCheck, Tag, X } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { isFoundingOfferActive, FOUNDING_PAY_IN_FULL_PRICE } from '../lib/foundingOffer.js'
 
-const billingOptions = [
+const baseBillingOptions = [
   {
     id: 'pay-in-full',
     label: 'Pay in Full',
@@ -32,6 +33,24 @@ const billingOptions = [
   },
 ]
 
+// While the founding offer is live, the one-time pay-in-full price drops to $999.
+// After June 30 2026 this returns the regular options unchanged.
+function getBillingOptions(foundingActive) {
+  if (!foundingActive) return baseBillingOptions
+  return baseBillingOptions.map((option) =>
+    option.id === 'pay-in-full'
+      ? {
+          ...option,
+          price: FOUNDING_PAY_IN_FULL_PRICE,
+          originalPrice: option.price,
+          badge: 'Founding Offer',
+          highlight: 'Save $501 — ends June 30',
+          description: 'Founding-client launch price. One payment, full 6-month access.',
+        }
+      : option,
+  )
+}
+
 const features = [
   'Personalized workout guidance',
   'Meal guidance',
@@ -59,6 +78,7 @@ export default function PricingPage({
   onHome,
 }) {
   const [billing, setBilling] = useState(initialBilling)
+  const billingOptions = getBillingOptions(isFoundingOfferActive())
   const selected = billingOptions.find((o) => o.id === billing)
 
   const [couponInput, setCouponInput] = useState('')
@@ -164,6 +184,11 @@ export default function PricingPage({
                 )}
                 <p className="font-heading text-xl uppercase text-white">{option.label}</p>
                 <p className="mt-2 font-heading text-4xl uppercase leading-none text-white">
+                  {option.originalPrice ? (
+                    <span className="mr-2 align-middle font-body text-lg normal-case text-body/50 line-through">
+                      {option.originalPrice}
+                    </span>
+                  ) : null}
                   {option.price}
                   <span className="ml-1 align-middle font-body text-sm normal-case text-body">{option.cadence}</span>
                 </p>
@@ -192,6 +217,11 @@ export default function PricingPage({
                   <span className="text-accent">
                     {selected.price}
                     <span className="font-body text-base normal-case text-body"> {selected.cadence}</span>
+                    {selected.originalPrice ? (
+                      <span className="ml-2 font-body text-base normal-case text-body/50 line-through">
+                        {selected.originalPrice}
+                      </span>
+                    ) : null}
                   </span>
                 )}
               </p>

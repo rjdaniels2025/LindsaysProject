@@ -20,9 +20,30 @@ export function priceEnvName(billing: Billing) {
   return `STRIPE_PRICE_TRANSFORMATION_${billingKey}`
 }
 
-export function getPriceId(billing: string) {
+// Founding-client launch offer: discounted one-time pay-in-full price, ends at the end of
+// June 30, 2026 (midnight Eastern). Enforced here so the promo can't be claimed past the
+// deadline regardless of what the client sends. Keep this cutoff in sync with
+// src/lib/foundingOffer.js on the frontend.
+export const FOUNDING_OFFER_ENDS_AT = Date.parse('2026-07-01T04:00:00Z')
+
+export function isFoundingOfferActive(now: number = Date.now()) {
+  return now < FOUNDING_OFFER_ENDS_AT
+}
+
+export function getPriceId(billing: string, opts: { foundingActive?: boolean } = {}) {
   if (!['pay-in-full', 'monthly', 'biweekly'].includes(billing)) {
     throw new Error('Invalid billing option.')
+  }
+
+  // The founding offer only applies to the one-time pay-in-full purchase. While active we
+  // require the founding price to be configured rather than silently charging the regular
+  // price, so a customer is never billed more than the advertised founding amount.
+  if (billing === 'pay-in-full' && opts.foundingActive) {
+    const foundingId = Deno.env.get('STRIPE_PRICE_TRANSFORMATION_FOUNDING')
+    if (!foundingId) {
+      throw new Error('Founding offer is active but STRIPE_PRICE_TRANSFORMATION_FOUNDING is not set.')
+    }
+    return foundingId
   }
 
   const envName = priceEnvName(billing as Billing)

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
-import { checkoutMode, getPriceId, planNames, type Billing, type PlanId, stripeRequest } from '../_shared/stripe.ts'
+import { checkoutMode, getPriceId, isFoundingOfferActive, planNames, type Billing, type PlanId, stripeRequest } from '../_shared/stripe.ts'
 
 type CheckoutBody = {
   billing?: Billing
@@ -36,7 +36,8 @@ Deno.serve(async (request) => {
     const body = await request.json() as CheckoutBody
     const billing: Billing = body.billing || 'monthly'
     const planId: PlanId = 'transformation'
-    const priceId = getPriceId(billing)
+    const foundingActive = isFoundingOfferActive()
+    const priceId = getPriceId(billing, { foundingActive })
     const mode = checkoutMode(billing)
     const user = authData.user
     const params = new URLSearchParams()
@@ -52,6 +53,7 @@ Deno.serve(async (request) => {
     params.set('metadata[plan_id]', planId)
     params.set('metadata[billing]', billing)
     params.set('metadata[plan_name]', planNames[planId])
+    params.set('metadata[founding_offer]', billing === 'pay-in-full' && foundingActive ? 'true' : 'false')
 
     const session = await stripeRequest('checkout/sessions', {
       method: 'POST',
