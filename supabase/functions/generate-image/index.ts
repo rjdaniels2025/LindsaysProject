@@ -16,37 +16,8 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'prompt is required.' }, 400)
     }
 
-    const apiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!apiKey) {
-      return jsonResponse({ error: 'Image generation is not configured.' }, 503)
-    }
-
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'standard',
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      console.error('[generate-image] DALL-E error', response.status, data?.error?.message)
-      return jsonResponse({ error: data?.error?.message || 'Image generation failed.' }, response.status)
-    }
-
-    const url = data?.data?.[0]?.url ?? null
-    if (!url) {
-      return jsonResponse({ error: 'No image URL returned.' }, 500)
-    }
+    const encoded = encodeURIComponent(prompt)
+    const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&enhance=true`
 
     return jsonResponse({ url })
   } catch (err) {
