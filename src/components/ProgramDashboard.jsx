@@ -820,22 +820,32 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [completedSets, setCompletedSets] = useState(() => log.completedSets || {})
   const [restTimer, setRestTimer] = useState({ showing: false, key: 0 })
   const [exerciseWeights, setExerciseWeights] = useState(() => log.exerciseWeights || {})
+  const [history, setHistory] = useState(() => (Array.isArray(log.history) ? log.history : []))
 
-  // Push tracking up to the parent, which debounce-saves it to app_state so logged weights
-  // and completed sets/workouts survive refreshes. Skip the initial mount so loading a saved
-  // log doesn't trigger a redundant write.
+  // Push tracking up to the parent, which debounce-saves it to app_state so logged weights,
+  // completed sets/workouts, and weight history survive refreshes. Skip the initial mount so
+  // loading a saved log doesn't trigger a redundant write.
   const didMountLog = useRef(false)
   useEffect(() => {
     if (!didMountLog.current) {
       didMountLog.current = true
       return
     }
-    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights })
-  }, [completedWorkouts, completedSets, exerciseWeights, onLogChange])
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history })
+  }, [completedWorkouts, completedSets, exerciseWeights, history, onLogChange])
 
   const activeWorkout = workouts[currentWorkout] || workouts[0]
   const exercises = useMemo(() => parseExercises(activeWorkout.details), [activeWorkout.details])
   const currentExercise = exercises[activeExercise] || exercises[0]
+
+  // Most recent logged weight for the current exercise from a prior completed session.
+  const lastLogged = useMemo(() => {
+    if (!currentExercise) return null
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].id === currentExercise.id) return history[i]
+    }
+    return null
+  }, [history, currentExercise])
   const exerciseSets = currentExercise ? setCount(currentExercise) : 0
   const finishedSets = completedSets[currentExercise?.id] || []
   const exerciseIsDone = currentExercise ? finishedSets.length >= exerciseSets : false
@@ -884,6 +894,13 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
 
   function completeWorkout() {
     if (!canComplete) return
+    // Snapshot the weights logged this session into dated history for progress tracking.
+    const stamp = new Date().toISOString()
+    const entries = exercises
+      .map((ex) => ({ ex, weight: (exerciseWeights[ex.id] || '').toString().trim() }))
+      .filter(({ weight }) => weight)
+      .map(({ ex, weight }) => ({ id: ex.id, name: ex.name, weight, workout: activeWorkout.title, date: stamp }))
+    if (entries.length) setHistory((current) => [...current, ...entries])
     setCompletedWorkouts((current) => [...new Set([...current, currentWorkout])])
     resetSession()
     setCurrentWorkout((current) => Math.min(current + 1, workouts.length - 1))
@@ -1017,6 +1034,11 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
                 className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-white outline-none transition placeholder:text-[#555] focus:border-accent"
               />
             </label>
+            {lastLogged ? (
+              <p className="mt-2 text-sm text-body">
+                Last time: <span className="font-bold text-accent">{lastLogged.weight}</span>
+              </p>
+            ) : null}
           </div>
 
           <div className="mt-4">
@@ -1138,6 +1160,82 @@ function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
 }
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
+
+// Pull a representative number from a weight string ("65 to 85 lbs" -> 85) for trend deltas.
+function weightNumber(w) {
+  const nums = String(w).match(/\d+(\.\d+)?/g)
+  if (!nums) return null
+  return Math.max(...nums.map(Number))
+}
+
+function ProgressHistory({ history }) {
+  const exercises = useMemo(() => {
+    const map = new Map()
+    for (const entry of history) {
+      const key = entry.id || entry.name
+      if (!map.has(key)) map.set(key, { name: entry.name, entries: [] })
+      map.get(key).entries.push(entry)
+    }
+    return [...map.values()]
+      .map((ex) => {
+        const entries = [...ex.entries].sort((a, b) => new Date(a.date) - new Date(b.date))
+        const first = weightNumber(entries[0].weight)
+        const latest = weightNumber(entries[entries.length - 1].weight)
+        const delta = first != null && latest != null ? latest - first : null
+        return { name: ex.name, entries, latest: entries[entries.length - 1], delta, sessions: entries.length }
+      })
+      .sort((a, b) => new Date(b.latest.date) - new Date(a.latest.date))
+  }, [history])
+
+  if (!exercises.length) return null
+
+  return (
+    <section className="rounded-lg border border-line bg-[#111] p-4">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="grid h-9 w-9 place-items-center rounded bg-accent text-black">
+          <LineChart size={18} />
+        </div>
+        <div>
+          <p className="font-heading text-xl uppercase text-white">Your logged progress</p>
+          <p className="text-sm text-body">Weights you recorded across completed workouts.</p>
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {exercises.map((ex) => (
+          <div key={ex.name} className="rounded-lg border border-line bg-card p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-heading text-base uppercase text-white">{ex.name}</p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-body">
+                  {ex.sessions} session{ex.sessions === 1 ? '' : 's'}
+                </span>
+                {ex.delta != null && ex.delta !== 0 ? (
+                  <span
+                    className={`inline-flex items-center gap-1 font-heading text-sm uppercase ${
+                      ex.delta > 0 ? 'text-accent' : 'text-orange-300'
+                    }`}
+                  >
+                    {ex.delta > 0 ? '▲' : '▼'} {Math.abs(ex.delta)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-2 text-sm text-body">
+              Latest: <span className="font-bold text-white">{ex.latest.weight}</span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {ex.entries.slice(-6).map((entry, index) => (
+                <span key={index} className="rounded border border-line bg-[#0d0d0d] px-2 py-0.5 text-xs text-body">
+                  {entry.weight}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, onQuickAction, pendingAction, isLoading }) {
   const [activeView, setActiveView] = useState('today')
@@ -1278,7 +1376,12 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
             <WeeklySchedule workouts={workouts} daysPerWeek={profile?.daysPerWeek} programCreatedAt={programCreatedAt} />
           ) : null}
           {activeView === 'recover' ? <SimpleSection label="Recovery" title="How to stay ready." items={activeItems} /> : null}
-          {activeView === 'track' ? <SimpleSection label="Progress" title="What to measure." items={activeItems} /> : null}
+          {activeView === 'track' ? (
+            <div className="grid gap-4">
+              <ProgressHistory history={Array.isArray(workoutLog?.history) ? workoutLog.history : []} />
+              <SimpleSection label="Progress" title="What to measure." items={activeItems} />
+            </div>
+          ) : null}
           {activeView === 'science' ? <ScienceBreakdown content={message.content} /> : null}
 
           {activeView !== 'science' ? (
