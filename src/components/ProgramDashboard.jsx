@@ -1205,9 +1205,9 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
             </div>
           )}
 
-          {/* Coach cue */}
+          {/* Exercise description + coaching cue */}
           <div className="mt-4 rounded-lg border border-accent/30 bg-accent/10 p-4">
-            <p className="font-heading text-sm uppercase text-body">Coach cue</p>
+            <p className="font-heading text-sm uppercase text-body">Exercise guide</p>
             <p className="mt-1 text-sm leading-6 text-white">{currentExercise.cue}</p>
           </div>
 
