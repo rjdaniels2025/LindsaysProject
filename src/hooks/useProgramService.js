@@ -1,3 +1,5 @@
+import { nutritionTargets } from '../utils/nutrition.js'
+
 const SYSTEM_PROMPT =
   'You are an elite sports scientist and certified strength and conditioning specialist with deep expertise in exercise physiology, biomechanics, and evidence based training. Give precise recommendations, but explain them in simple everyday language that an average person can follow. Use short sections, clear steps, and friendly wording. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.'
 
@@ -80,6 +82,20 @@ function injuryRules(limitations) {
 - Do not include any exercise that stresses the injured area. When you choose a safer substitute, add a short note in that exercise's Cue explaining it is a joint-friendly choice for the client's limitation.`
 }
 
+function nutritionGuidance(profile) {
+  const t = nutritionTargets(profile)
+  if (!t) {
+    return `- Build the nutrition around THIS client, not generic numbers. Estimate their daily maintenance calories from their bodyweight, age, gender, height, and activity level (factoring in their ${profile.daysPerWeek} training days per week). Set the Calorie Target as a clear deficit for fat loss or losing weight, a clear surplus for muscle gain or gaining weight, or roughly maintenance for body recomposition, matching their weight goal. Set protein roughly 0.7 to 1 gram per pound of bodyweight, fat roughly 0.3 to 0.4 grams per pound, and the remaining calories from carbohydrates, with more carbohydrates on training days. State each target as a clear daily number with a brief reason.`
+  }
+  const dir =
+    t.direction === 'cut'
+      ? 'a calorie deficit for fat loss'
+      : t.direction === 'bulk'
+        ? 'a calorie surplus for muscle gain'
+        : 'maintenance calories for body recomposition'
+  return `- These daily nutrition targets were calculated specifically for this client from their bodyweight, height, age, gender, and ${profile.daysPerWeek} training days per week, set to ${dir}. Use these EXACT numbers on the Calorie Target, Protein Target, Carb Target, Fat Target, and Water Target lines, and build all twelve meal options plus the snack, pre workout, and post workout so the full day adds up to them: Calorie Target ${t.calories} calories per day, Protein Target ${t.proteinG} grams per day, Carb Target ${t.carbsG} grams per day, Fat Target ${t.fatG} grams per day, Water Target ${t.waterLiters} liters per day. Briefly give the reason behind each target.`
+}
+
 async function callProgramService(messages) {
   const apiKey = getApiKey()
 
@@ -146,8 +162,7 @@ ${injuryRules(profile.limitations)}
 - Keep it challenging but safe: tell the user to choose a weight that makes the last 1 to 3 reps genuinely hard while keeping good form, to add load or reps as they get stronger, and to reduce the weight if form breaks. Always respect the client's stated injuries and limitations over intensity.
 - Put warmup and cooldown notes on their own short lines before or after the exercise lines
 - In the Meal Plan section, create a detailed daily meal plan that is easy to follow and matched to the user's goal, body size, schedule, training days, equipment, and any limitations
-- Build the nutrition around THIS client, not generic numbers. First estimate their daily maintenance calories from their bodyweight, age, gender, height, and activity level (factoring in their ${profile.daysPerWeek} training days per week). Then set the Calorie Target by applying a clear deficit if their goal is fat loss or losing weight, a clear surplus if their goal is muscle gain or gaining weight, or roughly maintenance for body recomposition. The direction must match their stated weight goal.
-- Set the macro targets from their bodyweight and goal: protein roughly 0.7 to 1 gram per pound of bodyweight, fat roughly 0.3 to 0.4 grams per pound, and the remaining calories from carbohydrates, with more carbohydrates on training days. State each target as a clear daily number, and briefly give the reason behind it.
+${nutritionGuidance(profile)}
 - Scale every meal's portion sizes so the full day of meals actually adds up to the Calorie Target and the protein target for this client. A larger or heavier client gets bigger portions, a smaller or lighter client gets smaller portions. Do not use one size fits all portions, match them to this person's numbers.
 - In the Meal Plan section, start with Grocery List before any meal options
 - In the Meal Plan section, use these exact line labels in this order: Grocery List, Protein Target, Calorie Target, Water Target, Carb Target, Fat Target, Breakfast Option 1, Breakfast Option 2, Breakfast Option 3, Breakfast Option 4, Lunch Option 1, Lunch Option 2, Lunch Option 3, Lunch Option 4, Dinner Option 1, Dinner Option 2, Dinner Option 3, Dinner Option 4, Snack, Pre Workout, Post Workout, Training Day Intake, Rest Day Intake
