@@ -82,6 +82,32 @@ function injuryRules(limitations) {
 - Do not include any exercise that stresses the injured area. When you choose a safer substitute, add a short note in that exercise's Cue explaining it is a joint-friendly choice for the client's limitation.`
 }
 
+// Selects an explicit periodization scheme from the client's experience level.
+// Returns an object with the scheme name and exact weekly instructions for the prompt.
+function selectPeriodization(experience) {
+  const e = String(experience || '').toLowerCase()
+  if (/beginner|0|6.?12|6 month/i.test(e) || e.includes('complete')) {
+    return {
+      name: 'Linear Progression',
+      instruction:
+        'Use Linear Progression. Add a small amount of weight to every compound lift each week (2.5 to 5 lbs for upper body, 5 to 10 lbs for lower body) as long as the client completes all reps with solid form. Keep the sets and reps constant across all 4 weeks. This is the fastest and most appropriate model for a beginner.',
+    }
+  }
+  if (/1.?3|1 to 3|1,?3 year/i.test(e) || e.includes('1-3') || e.includes('12 month')) {
+    return {
+      name: 'Daily Undulating Periodization',
+      instruction:
+        'Use Daily Undulating Periodization (DUP). Vary the rep range between sessions within each week to train multiple qualities simultaneously. For example: Session A is heavy strength work at 4 to 6 reps, Session B is moderate hypertrophy work at 8 to 12 reps, and if there is a third session use power or technique work at 3 to 5 reps with speed intent. Each week add a small amount of weight to each rep bracket so loads progress consistently across all 4 weeks.',
+    }
+  }
+  // 3-5 years, 5+ years → Wave Loading / Block
+  return {
+    name: 'Wave Loading',
+    instruction:
+      'Use Wave Loading with an accumulation-to-intensification structure. Week 1: moderate weight, higher volume (4 sets of 10 to 12 reps) to build work capacity. Week 2: increase weight slightly, moderate volume (4 sets of 8 to 10 reps). Week 3: increase weight again, lower volume (4 to 5 sets of 5 to 7 reps), push intensity. Week 4: peak week, highest loads, lower volume (4 to 5 sets of 3 to 5 reps on main lifts). This structure drives maximum strength and hypertrophy adaptation in an experienced client.',
+  }
+}
+
 function nutritionGuidance(profile) {
   const t = nutritionTargets(profile)
   if (!t) {
@@ -132,8 +158,9 @@ async function callProgramService(messages) {
   return sanitizeCopy(text)
 }
 
-function programPrompt(profile, { blockNumber = 1, progress = '' } = {}) {
-  return `Generate a personalized science-based 4-week training block for this client. This is block ${blockNumber}. It covers 4 weeks and should get progressively more challenging week by week across those 4 weeks.${progress ? `\n\nProgress logged in the previous block (apply sensible progressive overload: increase load or difficulty where the client clearly handled it, hold or adjust where they did not): ${progress}` : ''}
+function programPrompt(profile, { blockNumber = 1, progress = '', checkins = '' } = {}) {
+  const periodization = selectPeriodization(profile.experience)
+  return `Generate a personalized science-based 4-week training block for this client. This is block ${blockNumber}. The periodization scheme is ${periodization.name}.${progress ? `\n\nProgress logged in the previous block (apply sensible progressive overload based on these real numbers — increase loads where the client clearly handled it): ${progress}` : ''}${checkins ? `\n\nWeekly check-ins from the previous block (use these to understand recovery, effort, and sticking points): ${checkins}` : ''}
 
 Client profile:
 - Name: ${profile.name}
@@ -153,14 +180,15 @@ Include:
 ${injuryRules(profile.limitations)}
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
 - Use clear plain headings exactly named: Today First, Workouts, Meal Plan, Four Week Progression, Recovery, Track Progress, Why This Works
-- Specific sets, reps, rest periods, and tempo notation such as 3-1-2-0
-- Provide one distinct workout session for each of the client's ${profile.daysPerWeek} training days per week, with every session fully detailed. Label each session on its own line as Workout One, then Workout Two, and so on in order, then list that session's exercises on the lines beneath its label. Do not name days of the week, the client chooses when to do each session.
-- In the Workouts section, write every exercise on its own line using this exact pattern: Exercise name: Sets: number, Reps: number or time, Weight: a challenging working weight range in pounds appropriate to this client, or Bodyweight, Rest: seconds or minutes, Tempo: numbers separated by commas, Cue: one simple coaching cue
-- This is a serious results driven program that should actually transform the client, not a light or easy routine. Prescribe genuinely challenging working loads matched to the client's bodyweight, experience, and goal, in the rep range that fits that goal. The working sets must be hard, taken to roughly 1 to 3 reps in reserve on the main lifts. Never default to light, token weights.
-- Scale the intensity to experience. For a beginner, build solid technique with moderate loads that still get progressively heavier. For intermediate or advanced clients, program meaningfully heavy compound lifts and, where it is appropriate and safe, intensity techniques such as supersets, drop sets, controlled tempos, and shorter rest periods for conditioning.
-- Use enough training volume to drive real change: structure each session around big compound movements first, with roughly 3 to 5 working sets on main lifts and 2 to 4 sets on accessories, and several exercises per session. Pick realistic loads from the client's body weight, experience, equipment, and limitations. For bodyweight exercises write Weight: Bodyweight.
-- Keep it challenging but safe: tell the user to choose a weight that makes the last 1 to 3 reps genuinely hard while keeping good form, to add load or reps as they get stronger, and to reduce the weight if form breaks. Always respect the client's stated injuries and limitations over intensity.
-- Put warmup and cooldown notes on their own short lines before or after the exercise lines
+- Periodization: ${periodization.instruction}
+- Provide one distinct workout session for each of the client's ${profile.daysPerWeek} training days per week, with every session fully detailed. Label each session on its own line as Workout One, then Workout Two, and so on in order, then list that session's exercises on the lines beneath its label. Do not name days of the week.
+- Exercise sequencing rules (apply these in every session without exception): (1) Always place the most demanding compound movements first while the client is fresh, for example squat or deadlift before leg press, bench press before flies. (2) Balance pushing and pulling movements across the session or the week, never program three consecutive push movements without a pull. (3) Do not fatigue a muscle that is needed as a stabilizer before it is needed as a prime mover, for example never program bicep curls directly before heavy barbell rows. (4) Place isolation and accessory work after all compound movements are complete. These rules must be followed even if it means reordering exercises from a typical template.
+- In the Workouts section, write every exercise using this exact pattern on a single line: Exercise name: Warmup: weight x reps, weight x reps (2 specific warm-up sets before working weight), Sets: number, Reps: number or rep range, Weight: working weight range, Rest: time, Tempo: numbers, Cue: one coaching cue. For bodyweight or very light exercises write Warmup: none. Example: Barbell Back Squat: Warmup: 95x5, 135x3, Sets: 4, Reps: 5 to 7, Weight: 185 to 205 lbs, Rest: 3 mins, Tempo: 3,1,2,0, Cue: drive knees out and brace hard.
+- For intermediate and advanced clients, pair appropriate accessory exercises as supersets where it makes sense to save time and increase density. Mark the first exercise with "Superset A1" at the start of its name and the second with "Superset A2", and so on for B1 and B2 if there is a second superset. The A1 rest is the time to set up for A2, the A2 rest is the full rest between rounds. Example: Superset A1 Dumbbell Curl: Warmup: none, Sets: 3, Reps: 10 to 12, Weight: 30 lbs, Rest: 15 secs, Tempo: 2,1,2,0, Cue: full squeeze at top. Superset A2 Tricep Pushdown: Warmup: none, Sets: 3, Reps: 12, Weight: 50 lbs, Rest: 75 secs, Tempo: 2,1,2,0, Cue: lock out completely. Do not superset the main compound lifts.
+- This is a serious results driven program. Prescribe genuinely challenging working loads taken to 1 to 3 reps in reserve on main lifts. Never default to light token weights.
+- Use real training volume: 3 to 5 working sets on main lifts, 2 to 4 on accessories. Several exercises per session. Scale intensity to experience.
+- Keep it safe: tell the user to choose a weight that makes the last 1 to 3 reps genuinely hard, add load or reps as they get stronger, and reduce weight if form breaks. Respect injuries over intensity.
+- Put a brief warmup and cooldown note on their own lines (not in exercise format) at the start and end of each session
 - In the Meal Plan section, create a detailed daily meal plan that is easy to follow and matched to the user's goal, body size, schedule, training days, equipment, and any limitations
 ${nutritionGuidance(profile)}
 - Scale every meal's portion sizes so the full day of meals actually adds up to the Calorie Target and the protein target for this client. A larger or heavier client gets bigger portions, a smaller or lighter client gets smaller portions. Do not use one size fits all portions, match them to this person's numbers.
@@ -172,7 +200,7 @@ ${nutritionGuidance(profile)}
 - Build the Grocery List first, tailored to the client's goal, calorie target, equipment, and limitations. It must be a comprehensive comma separated list of every food used across all twelve meal options plus the snack and workout meals, with rough weekly quantities where helpful. List it all on the single Grocery List line.
 - Accuracy rule: every ingredient named in any meal option, snack, pre workout, or post workout must be a food that appears in the Grocery List, and every food in the Grocery List must be used in at least one meal. Do not introduce foods in meals that are not in the Grocery List, and do not list foods in the Grocery List that no meal uses.
 - Still include workout specific meals, hydration, protein, carb, fat, calorie intake targets, and the goal behind each target
-- Four week progressive overload plan that makes each of the 4 weeks noticeably more challenging than the one before by adding load, reps, or sets, so the client keeps adapting
+- Four Week Progression section: describe exactly how each of the 4 weeks changes from the last (specific load or rep changes per lift, following the ${periodization.name} scheme), so the client knows what to expect each week
 - Recovery protocol covering sleep, nutrition timing, and deload strategy
 - Key performance indicators and how to measure them
 - Scientific rationale for every major recommendation
@@ -183,12 +211,7 @@ ${nutritionGuidance(profile)}
 }
 
 async function generateProgram(profile, options = {}) {
-  return callProgramService([
-    {
-      role: 'user',
-      content: programPrompt(profile, options),
-    },
-  ])
+  return callProgramService([{ role: 'user', content: programPrompt(profile, options) }])
 }
 
 async function sendMessage(history, userText) {

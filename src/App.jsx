@@ -35,6 +35,15 @@ function summarizeProgress(workoutLog) {
   return lines.join('; ')
 }
 
+function summarizeCheckins(workoutLog) {
+  const checkins = Array.isArray(workoutLog?.checkins) ? workoutLog.checkins : []
+  if (!checkins.length) return ''
+  return checkins
+    .slice(-4)
+    .map((c) => `Week ${c.week}: soreness ${c.soreness || '?'}/5, energy ${c.energy || '?'}/5${c.notes ? `, notes: ${c.notes}` : ''}`)
+    .join('; ')
+}
+
 function makeMessage(role, content, meta = {}) {
   return { id: crypto.randomUUID(), role, content, timestamp: new Date().toISOString(), meta }
 }
@@ -444,6 +453,7 @@ function App() {
 
     const nextBlock = blockNumber + 1
     const progress = summarizeProgress(workoutLog)
+    const checkins = summarizeCheckins(workoutLog)
     const preservedHistory = Array.isArray(workoutLog?.history) ? workoutLog.history : []
     const createdAt = new Date().toISOString()
 
@@ -452,7 +462,8 @@ function App() {
     setProgramCreatedAt(createdAt)
     setProgramEndsAt(addDays(createdAt, BLOCK_WEEKS * 7))
     setBlockNumber(nextBlock)
-    setWorkoutLog({ history: preservedHistory }) // new block exercises; keep cross-block history
+    const preservedCheckins = Array.isArray(workoutLog?.checkins) ? workoutLog.checkins : []
+    setWorkoutLog({ history: preservedHistory, checkins: preservedCheckins }) // keep cross-block history + check-ins
     setMessages([
       makeMessage(
         'assistant',
@@ -462,7 +473,7 @@ function App() {
     ])
 
     try {
-      const text = await programService.generateProgram(targetProfile, { blockNumber: nextBlock, progress })
+      const text = await programService.generateProgram(targetProfile, { blockNumber: nextBlock, progress, checkins })
       const safetyFlags = auditProgram(text, targetProfile.limitations)
       await waitForProgramImages(text)
       setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])

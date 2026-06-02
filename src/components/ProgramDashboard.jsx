@@ -137,6 +137,32 @@ function usesExternalWeight(weight) {
   return !/bodyweight|none|no weight/i.test(weight || '')
 }
 
+// Reads the Warmup: field and returns an array of { weight, reps } objects.
+// e.g. "Warmup: 95x5, 135x3" → [{ weight:'95', reps:'5' }, { weight:'135', reps:'3' }]
+function readWarmupSets(line) {
+  const raw = readDetail(line, 'warmup')
+  if (!raw || /none|n\/a/i.test(raw)) return []
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const m = s.match(/(\d+(?:\.\d+)?)\s*(?:lbs?|kg|x)?\s*[x×]\s*(\d+)/i)
+      return m ? { weight: m[1], reps: m[2] } : null
+    })
+    .filter(Boolean)
+}
+
+// Extracts the superset label (e.g. "A1", "A2", "B1") if the line starts with "Superset Xn".
+function supersetLabel(name) {
+  const m = name.match(/^Superset\s+([A-Z]\d)\s+/i)
+  return m ? m[1].toUpperCase() : null
+}
+
+function cleanExerciseName(name) {
+  return name.replace(/^Superset\s+[A-Z]\d\s+/i, '').trim()
+}
+
 function exerciseName(line, index) {
   const beforeColon = line.split(':')[0]?.trim()
   if (beforeColon && beforeColon.length > 2 && beforeColon.length < 80 && !/workout|session|day/i.test(beforeColon)) {
@@ -150,24 +176,54 @@ function exerciseName(line, index) {
 }
 
 function parseExercises(details) {
-  const usableDetails = details.filter((detail) => !/warmup|cooldown|note|focus/i.test(detail)).slice(0, 10)
+  const usableDetails = details.filter((detail) => !/^(warmup|cooldown|note|focus)\b/i.test(detail.trim())).slice(0, 16)
   const source = usableDetails.length
     ? usableDetails
     : details.slice(0, 6).length
       ? details.slice(0, 6)
       : ['Exercise: Sets: 3, Reps: Follow plan, Rest: 60 seconds, Tempo: Controlled, Cue: Move with control.']
 
-  return source.map((detail, index) => ({
-    id: `${index}-${detail.slice(0, 24)}`,
-    name: exerciseName(detail, index),
-    sets: readSets(detail),
-    reps: readReps(detail),
-    weight: readWeight(detail),
-    rest: readRest(detail),
-    tempo: readTempo(detail),
-    cue: readCue(detail),
-    detail,
-  }))
+  return source.map((detail, index) => {
+    const rawName = exerciseName(detail, index)
+    const label = supersetLabel(rawName)
+    const name = cleanExerciseName(rawName)
+    return {
+      id: `${index}-${detail.slice(0, 24)}`,
+      name,
+      supersetLabel: label,
+      warmupSets: readWarmupSets(detail),
+      sets: readSets(detail),
+      reps: readReps(detail),
+      weight: readWeight(detail),
+      rest: readRest(detail),
+      tempo: readTempo(detail),
+      cue: readCue(detail),
+      detail,
+    }
+  })
+}
+
+// Groups exercises into superset pairs or single slots.
+// [{ type: 'single'|'superset', exercises: [...] }]
+function groupExercises(exercises) {
+  const groups = []
+  let i = 0
+  while (i < exercises.length) {
+    const ex = exercises[i]
+    const lbl = ex.supersetLabel
+    if (lbl && lbl.endsWith('1')) {
+      const groupLetter = lbl.slice(0, 1)
+      const partner = exercises[i + 1]
+      if (partner?.supersetLabel === `${groupLetter}2`) {
+        groups.push({ type: 'superset', label: groupLetter, exercises: [ex, partner] })
+        i += 2
+        continue
+      }
+    }
+    groups.push({ type: 'single', exercises: [ex] })
+    i++
+  }
+  return groups
 }
 
 function setCount(exercise) {
@@ -730,30 +786,34 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [currentWorkout, setCurrentWorkout] = useState(() => firstIncompleteWorkout(initialCompleted, workouts.length))
   const [completedWorkouts, setCompletedWorkouts] = useState(initialCompleted)
   const [isStarted, setIsStarted] = useState(false)
-  const [activeExercise, setActiveExercise] = useState(0)
+  // activeGroup index and supersetStep (0 = first exercise in group, 1 = second)
+  const [activeGroup, setActiveGroup] = useState(0)
+  const [supersetStep, setSupersetStep] = useState(0)
+  const [warmupStep, setWarmupStep] = useState(null) // null = in working sets; number = warm-up set index
   const [completedSets, setCompletedSets] = useState(() => log.completedSets || {})
-  const [restTimer, setRestTimer] = useState({ showing: false, key: 0 })
+  const [restTimer, setRestTimer] = useState({ showing: false, key: 0, restString: '' })
   const [exerciseWeights, setExerciseWeights] = useState(() => log.exerciseWeights || {})
   const [history, setHistory] = useState(() => (Array.isArray(log.history) ? log.history : []))
   const [week, setWeek] = useState(() => clampWeek(log.week))
+  // check-in state — shown when week-complete card appears
+  const [checkin, setCheckin] = useState({ soreness: '', energy: '', notes: '' })
+  const [showCheckin, setShowCheckin] = useState(false)
+  const [checkins, setCheckins] = useState(() => (Array.isArray(log.checkins) ? log.checkins : []))
 
-  // Push tracking up to the parent, which debounce-saves it to app_state so logged weights,
-  // completed sets/workouts, weight history, and the current week survive refreshes. Skip the
-  // initial mount so loading a saved log doesn't trigger a redundant write.
   const didMountLog = useRef(false)
   useEffect(() => {
-    if (!didMountLog.current) {
-      didMountLog.current = true
-      return
-    }
-    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week })
-  }, [completedWorkouts, completedSets, exerciseWeights, history, week, onLogChange])
+    if (!didMountLog.current) { didMountLog.current = true; return }
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week, checkins })
+  }, [completedWorkouts, completedSets, exerciseWeights, history, week, checkins, onLogChange])
 
   const activeWorkout = workouts[currentWorkout] || workouts[0]
   const exercises = useMemo(() => parseExercises(activeWorkout.details), [activeWorkout.details])
-  const currentExercise = exercises[activeExercise] || exercises[0]
+  const groups = useMemo(() => groupExercises(exercises), [exercises])
+  const currentGroup = groups[activeGroup] || groups[0]
+  const currentExercise = currentGroup?.exercises[supersetStep] || currentGroup?.exercises[0]
+  const isSuperset = currentGroup?.type === 'superset'
+  const onLastSupersetStep = !isSuperset || supersetStep >= (currentGroup.exercises.length - 1)
 
-  // Most recent logged weight for the current exercise from a prior completed session.
   const lastLogged = useMemo(() => {
     if (!currentExercise) return null
     for (let i = history.length - 1; i >= 0; i--) {
@@ -761,51 +821,77 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     }
     return null
   }, [history, currentExercise])
+
   const exerciseSets = currentExercise ? setCount(currentExercise) : 0
   const finishedSets = completedSets[currentExercise?.id] || []
   const exerciseIsDone = currentExercise ? finishedSets.length >= exerciseSets : false
-  const finishedExerciseCount = exercises.filter((exercise) => (completedSets[exercise.id] || []).length >= setCount(exercise)).length
+  // For supersets, a "group round" is done when both exercises have one more set completed
+  const completedRoundsForGroup = isSuperset && currentGroup
+    ? Math.min(
+        (completedSets[currentGroup.exercises[0].id] || []).length,
+        (completedSets[currentGroup.exercises[1].id] || []).length,
+      )
+    : finishedSets.length
+  const groupIsDone = isSuperset
+    ? completedRoundsForGroup >= exerciseSets
+    : exerciseIsDone
+  const finishedExerciseCount = exercises.filter((e) => (completedSets[e.id] || []).length >= setCount(e)).length
   const allExercisesDone = exercises.length > 0 && finishedExerciseCount === exercises.length
   const canComplete = allExercisesDone
   const weekComplete = allSessionsDone(completedWorkouts, workouts.length)
   const canAdvanceWeek = weekComplete && week < BLOCK_WEEKS
 
+  const currentWarmupSet = warmupStep !== null ? currentExercise?.warmupSets?.[warmupStep] : null
+
+  function advanceWarmup() {
+    const next = (warmupStep ?? -1) + 1
+    if (next < (currentExercise?.warmupSets?.length || 0)) setWarmupStep(next)
+    else setWarmupStep(null) // done with warm-up, enter working sets
+  }
+
   function resetSession() {
     setIsStarted(false)
-    setActiveExercise(0)
+    setActiveGroup(0)
+    setSupersetStep(0)
+    setWarmupStep(null)
     setCompletedSets({})
-    setRestTimer({ showing: false, key: 0 })
+    setRestTimer({ showing: false, key: 0, restString: '' })
   }
 
   function completeSet(setIndex) {
     if (!currentExercise) return
-    const currentSets = completedSets[currentExercise.id] || []
-    const alreadyDone = currentSets.includes(setIndex)
-
+    const existing = completedSets[currentExercise.id] || []
+    const alreadyDone = existing.includes(setIndex)
     setCompletedSets((current) => {
-      const existing = current[currentExercise.id] || []
-      const next = alreadyDone
+      const updated = alreadyDone
         ? existing.filter((i) => i !== setIndex)
         : [...existing, setIndex].sort((a, b) => a - b)
-      return { ...current, [currentExercise.id]: next }
+      return { ...current, [currentExercise.id]: updated }
     })
-
     if (!alreadyDone) {
-      setRestTimer((r) => ({ showing: true, key: r.key + 1 }))
+      // Supersets: after A1 set, switch to A2 without rest; after A2, start rest
+      if (isSuperset && !onLastSupersetStep) {
+        setSupersetStep(1)
+        setRestTimer((r) => ({ showing: false, key: r.key + 1, restString: currentExercise.rest }))
+      } else {
+        setSupersetStep(0)
+        setRestTimer((r) => ({ showing: true, key: r.key + 1, restString: currentExercise.rest }))
+      }
     }
   }
 
   const dismissRest = useCallback(() => setRestTimer((r) => ({ ...r, showing: false })), [])
 
-  function nextExercise() {
-    if (!exerciseIsDone) return
-    setActiveExercise((current) => Math.min(current + 1, exercises.length - 1))
-    setRestTimer({ showing: false, key: 0 })
+  function nextGroup() {
+    if (!groupIsDone) return
+    setActiveGroup((g) => Math.min(g + 1, groups.length - 1))
+    setSupersetStep(0)
+    setWarmupStep(null)
+    setRestTimer({ showing: false, key: 0, restString: '' })
   }
 
   function completeWorkout() {
     if (!canComplete) return
-    // Snapshot the weights logged this session into dated history for progress tracking.
     const stamp = new Date().toISOString()
     const entries = exercises
       .map((ex) => ({ ex, weight: (exerciseWeights[ex.id] || '').toString().trim() }))
@@ -817,10 +903,11 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     setCurrentWorkout((current) => Math.min(current + 1, workouts.length - 1))
   }
 
-  // Move to the next week of the block: repeat the same sessions with heavier load. Keep the
-  // logged weights (so they pre-fill as a starting point) and the cross-week history.
-  function advanceWeek() {
-    if (!canAdvanceWeek) return
+  function submitCheckinAndAdvance() {
+    const entry = { week, date: new Date().toISOString(), ...checkin }
+    setCheckins((c) => [...c, entry])
+    setCheckin({ soreness: '', energy: '', notes: '' })
+    setShowCheckin(false)
     setWeek((w) => clampWeek(w + 1))
     setCompletedWorkouts([])
     setCurrentWorkout(0)
@@ -833,32 +920,74 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
 
   return (
     <div className="grid gap-4 sm:gap-5">
-      {canAdvanceWeek ? (
-        <div className="rounded-lg border border-accent/50 bg-accent/10 p-4 sm:p-5">
-          <p className="font-heading text-base uppercase text-accent">Week {week} complete</p>
-          <p className="mt-1 text-sm leading-6 text-body">
-            Great work, you finished every session this week. Start week {week + 1} and push the same
-            movements a little harder, adding load or reps where you can.
-          </p>
-          <button
-            type="button"
-            onClick={advanceWeek}
-            className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95"
-          >
+      {/* ── Check-in form (shown between weeks) ── */}
+      {showCheckin ? (
+        <div className="rounded-lg border border-accent/50 bg-[#111] p-5">
+          <p className="font-heading text-base uppercase text-accent">Week {week} check-in</p>
+          <p className="mt-1 text-sm leading-6 text-body">A quick note before week {week + 1}. Lindsay will use this when building your next block.</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="mb-2 font-heading text-sm uppercase text-white">Soreness level</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button key={n} type="button" onClick={() => setCheckin((c) => ({ ...c, soreness: String(n) }))}
+                    className={`min-h-11 flex-1 rounded-lg border font-heading text-lg transition ${checkin.soreness === String(n) ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-body">1 = none, 5 = very sore</p>
+            </div>
+            <div>
+              <p className="mb-2 font-heading text-sm uppercase text-white">Energy levels</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button key={n} type="button" onClick={() => setCheckin((c) => ({ ...c, energy: String(n) }))}
+                    className={`min-h-11 flex-1 rounded-lg border font-heading text-lg transition ${checkin.energy === String(n) ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-body">1 = exhausted, 5 = great</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="mb-2 font-heading text-sm uppercase text-white">Anything that felt too hard or too easy?</p>
+            <textarea
+              value={checkin.notes}
+              onChange={(e) => setCheckin((c) => ({ ...c, notes: e.target.value }))}
+              placeholder="e.g. Squats felt heavy, bench felt fine..."
+              rows={2}
+              className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-sm text-white outline-none placeholder:text-[#555] focus:border-accent"
+            />
+          </div>
+          <button type="button" onClick={submitCheckinAndAdvance}
+            className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95">
             <Play size={18} />
             Start Week {week + 1}
           </button>
         </div>
+      ) : canAdvanceWeek ? (
+        <div className="rounded-lg border border-accent/50 bg-accent/10 p-4 sm:p-5">
+          <p className="font-heading text-base uppercase text-accent">Week {week} complete</p>
+          <p className="mt-1 text-sm leading-6 text-body">
+            Every session done. Do a quick check-in before week {week + 1} so Lindsay can push you in the right direction.
+          </p>
+          <button type="button" onClick={() => setShowCheckin(true)}
+            className="mt-4 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95">
+            <ClipboardCheck size={18} />
+            Weekly Check-in
+          </button>
+        </div>
       ) : null}
 
+      {/* ── Current workout header ── */}
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="font-heading text-sm uppercase text-accent">Week {week} of {BLOCK_WEEKS} · Current workout</p>
             <h4 className="mt-1 break-words font-heading text-2xl uppercase leading-none text-white sm:text-3xl">{activeWorkout.title}</h4>
-            <p className="mt-2 text-sm leading-6 text-body">
-              Start when you are ready. Lindsay walks you through one exercise and one set at a time.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-body">Lindsay walks you through each exercise and set.</p>
           </div>
           <div className="grid gap-2 min-[420px]:grid-cols-3 sm:min-w-72">
             <FocusCard icon={Dumbbell} label="Moves" value={String(exercises.length)} />
@@ -868,6 +997,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
         </div>
       </div>
 
+      {/* ── Preview / Coach mode ── */}
       {!isStarted ? (
         <div className="rounded-lg border border-line bg-[#111] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -875,40 +1005,44 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
               <p className="font-heading text-2xl uppercase text-white">Workout preview</p>
               <p className="mt-1 text-sm leading-6 text-body">All exercises for this session. Tap Start when you are ready.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsStarted(true)}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 font-heading text-xl uppercase text-black transition hover:bg-white"
-            >
+            <button type="button" onClick={() => { setIsStarted(true); if (groups[0]?.exercises[0]?.warmupSets?.length) setWarmupStep(0) }}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 font-heading text-xl uppercase text-black transition hover:bg-white">
               <Play size={20} />
               Start Workout
             </button>
           </div>
-
           <div className="mt-4 grid gap-3">
-            {exercises.map((exercise, index) => (
-              <div key={exercise.id} className="rounded-lg border border-line bg-card p-3">
-                <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
-                  <ExerciseMedia exercise={exercise} compact={true} />
-                  <div className="min-w-0">
-                    <div className="flex items-start gap-3">
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-base text-black">
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="break-words font-heading text-xl uppercase leading-none text-white">{exercise.name}</p>
-                        <div className="mt-3 grid gap-2 text-sm text-body sm:grid-cols-5">
-                          <span>Sets: {exercise.sets}</span>
-                          <span>Reps: {exercise.reps}</span>
-                          <span>Weight: {exercise.weight}</span>
-                          <span>Rest: {exercise.rest}</span>
-                          <span>Tempo: {exercise.tempo}</span>
+            {groups.map((group, gi) => (
+              <div key={gi} className={`rounded-lg border border-line bg-card p-3 ${group.type === 'superset' ? 'border-accent/20' : ''}`}>
+                {group.type === 'superset' && (
+                  <p className="mb-2 font-heading text-xs uppercase text-accent">Superset {group.label}</p>
+                )}
+                {group.exercises.map((exercise, ei) => (
+                  <div key={exercise.id} className={`grid gap-3 sm:grid-cols-[8rem_1fr] ${ei > 0 ? 'mt-3 border-t border-line pt-3' : ''}`}>
+                    <ExerciseMedia exercise={exercise} compact={true} />
+                    <div className="min-w-0">
+                      <div className="flex items-start gap-3">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-base text-black">
+                          {group.type === 'superset' ? `${group.label}${ei + 1}` : gi + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="break-words font-heading text-xl uppercase leading-none text-white">{exercise.name}</p>
+                          {exercise.warmupSets?.length > 0 && (
+                            <p className="mt-1 text-xs text-body">Warm-up: {exercise.warmupSets.map((s) => `${s.weight} lbs × ${s.reps}`).join(', ')}</p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-body">
+                            <span>Sets: {exercise.sets}</span>
+                            <span>Reps: {exercise.reps}</span>
+                            <span>Weight: {exercise.weight}</span>
+                            <span>Rest: {exercise.rest}</span>
+                            <span>Tempo: {exercise.tempo}</span>
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-body">{exercise.cue}</p>
                         </div>
-                        <p className="mt-2 text-sm leading-6 text-body">{exercise.cue}</p>
                       </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
             ))}
           </div>
@@ -917,108 +1051,126 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
         <div className="rounded-lg border border-line bg-[#111] p-4">
           <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-heading text-sm uppercase text-accent">Coach mode</p>
-              <h5 className="font-heading text-3xl uppercase leading-none text-white">{currentExercise.name}</h5>
-              <p className="mt-2 text-sm text-body">Exercise {activeExercise + 1} of {exercises.length}</p>
+              {isSuperset && (
+                <p className="font-heading text-xs uppercase text-accent">Superset {currentGroup.label} — {supersetStep === 0 ? `${currentGroup.label}1 then ${currentGroup.label}2` : `Now ${currentGroup.label}2`}</p>
+              )}
+              <p className="font-heading text-sm uppercase text-accent">{warmupStep !== null ? 'Warm-up set' : 'Coach mode'}</p>
+              <h5 className="font-heading text-3xl uppercase leading-none text-white">{currentExercise?.name}</h5>
+              <p className="mt-1 text-sm text-body">
+                {warmupStep !== null
+                  ? `Warm-up ${warmupStep + 1} of ${currentExercise?.warmupSets?.length}`
+                  : `Exercise ${activeGroup + 1} of ${groups.length}`}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={resetSession}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent"
-            >
+            <button type="button" onClick={resetSession}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent">
               <RotateCcw size={18} />
               Restart
             </button>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_1.1fr]">
-            <ExerciseMedia key={currentExercise?.id} exercise={currentExercise} />
-            <div className="grid content-start gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-line bg-card p-3">
-                <Repeat className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Sets</p>
-                <p className="text-lg font-bold text-white">{currentExercise.sets}</p>
+          {warmupStep !== null && currentWarmupSet ? (
+            /* ── Warm-up set card ── */
+            <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/5 p-4">
+              <p className="font-heading text-base uppercase text-amber-200">Warm-up set {warmupStep + 1}</p>
+              <div className="mt-2 flex flex-wrap gap-4 text-sm">
+                <span className="font-bold text-white">{currentWarmupSet.weight} lbs × {currentWarmupSet.reps} reps</span>
+                <span className="text-body">Light and controlled — prime the movement pattern</span>
               </div>
-              <div className="rounded-lg border border-line bg-card p-3">
-                <Gauge className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Reps</p>
-                <p className="text-lg font-bold text-white">{currentExercise.reps}</p>
-              </div>
-              <div className={`rounded-lg border p-3 ${usesExternalWeight(currentExercise.weight) ? 'border-accent/40 bg-accent/10' : 'border-line bg-card'}`}>
-                <Dumbbell className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Weight</p>
-                <p className="text-lg font-bold text-white">{currentExercise.weight}</p>
-              </div>
-              <div className="rounded-lg border border-line bg-card p-3">
-                <Timer className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Rest</p>
-                <p className="text-lg font-bold text-white">{currentExercise.rest}</p>
-              </div>
+              <button type="button" onClick={advanceWarmup}
+                className="mt-4 w-full rounded-lg bg-amber-400/20 px-4 py-3 font-heading text-lg uppercase text-amber-200 transition hover:bg-amber-400/30">
+                {warmupStep < (currentExercise?.warmupSets?.length || 1) - 1 ? `Next warm-up set` : `Start working sets`}
+              </button>
             </div>
-          </div>
+          ) : (
+            /* ── Working sets ── */
+            <>
+              <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(16rem,0.9fr)_1.1fr]">
+                <ExerciseMedia key={currentExercise?.id} exercise={currentExercise} />
+                <div className="grid content-start gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-line bg-card p-3">
+                    <Repeat className="mb-2 text-accent" size={18} />
+                    <p className="font-heading text-sm uppercase text-body">Sets</p>
+                    <p className="text-lg font-bold text-white">{currentExercise?.sets}</p>
+                  </div>
+                  <div className="rounded-lg border border-line bg-card p-3">
+                    <Gauge className="mb-2 text-accent" size={18} />
+                    <p className="font-heading text-sm uppercase text-body">Reps</p>
+                    <p className="text-lg font-bold text-white">{currentExercise?.reps}</p>
+                  </div>
+                  <div className={`rounded-lg border p-3 ${usesExternalWeight(currentExercise?.weight) ? 'border-accent/40 bg-accent/10' : 'border-line bg-card'}`}>
+                    <Dumbbell className="mb-2 text-accent" size={18} />
+                    <p className="font-heading text-sm uppercase text-body">Weight</p>
+                    <p className="text-lg font-bold text-white">{currentExercise?.weight}</p>
+                  </div>
+                  <div className="rounded-lg border border-line bg-card p-3">
+                    <Timer className="mb-2 text-accent" size={18} />
+                    <p className="font-heading text-sm uppercase text-body">Rest</p>
+                    <p className="text-lg font-bold text-white">{currentExercise?.rest}</p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-4 rounded-lg border border-accent/30 bg-accent/10 p-4">
-            <p className="font-heading text-xl uppercase text-white">Coach cue</p>
-            <p className="mt-1 text-sm leading-6 text-body">{currentExercise.cue}</p>
-          </div>
+              {isSuperset && supersetStep === 0 && (
+                <div className="mt-4 rounded-lg border border-accent/20 bg-accent/5 p-3">
+                  <p className="text-sm text-body">
+                    <span className="font-bold text-accent">Superset:</span> complete a set of <span className="text-white">{currentGroup.exercises[0].name}</span>, then immediately move to <span className="text-white">{currentGroup.exercises[1].name}</span> with minimal rest. Rest fully after both.
+                  </p>
+                </div>
+              )}
 
-          <div className="mt-4">
-            <label className="block">
-              <span className="mb-2 block font-heading text-lg uppercase text-white">Log your weight</span>
-              <input
-                type="text"
-                value={exerciseWeights[currentExercise.id] || ''}
-                onChange={(e) => updateWeight(currentExercise.id, e.target.value)}
-                placeholder={`e.g. 20 kg, 45 lbs, bodyweight`}
-                className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-white outline-none transition placeholder:text-[#555] focus:border-accent"
-              />
-            </label>
-            {lastLogged ? (
-              <p className="mt-2 text-sm text-body">
-                Last time: <span className="font-bold text-accent">{lastLogged.weight}</span>
-              </p>
-            ) : null}
-          </div>
+              <div className="mt-4 rounded-lg border border-accent/30 bg-accent/10 p-4">
+                <p className="font-heading text-xl uppercase text-white">Coach cue</p>
+                <p className="mt-1 text-sm leading-6 text-body">{currentExercise?.cue}</p>
+              </div>
 
-          <div className="mt-4">
-            <p className="font-heading text-2xl uppercase text-white">Check off each set</p>
-            <div className="mt-3 grid gap-2 min-[420px]:grid-cols-2 sm:grid-cols-4">
-              {Array.from({ length: exerciseSets }, (_, index) => {
-                const done = finishedSets.includes(index)
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => completeSet(index)}
-                    className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-3 font-heading text-lg uppercase transition ${
-                      done ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'
-                    }`}
-                  >
-                    {done ? <CheckCircle2 size={18} /> : null}
-                    Set {index + 1}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+              <div className="mt-4">
+                <label className="block">
+                  <span className="mb-2 block font-heading text-lg uppercase text-white">Log your weight</span>
+                  <input type="text" value={exerciseWeights[currentExercise?.id] || ''}
+                    onChange={(e) => updateWeight(currentExercise.id, e.target.value)}
+                    placeholder="e.g. 45 lbs, 95 lbs, bodyweight"
+                    className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-white outline-none transition placeholder:text-[#555] focus:border-accent" />
+                </label>
+                {lastLogged ? (
+                  <p className="mt-2 text-sm text-body">Last time: <span className="font-bold text-accent">{lastLogged.weight}</span></p>
+                ) : null}
+              </div>
 
-          {restTimer.showing ? (
-            <div className="mt-4">
-              <RestTimer key={restTimer.key} restString={currentExercise.rest} onDone={dismissRest} />
-            </div>
-          ) : null}
+              <div className="mt-4">
+                <p className="font-heading text-2xl uppercase text-white">Check off each set</p>
+                <div className="mt-3 grid gap-2 min-[420px]:grid-cols-2 sm:grid-cols-4">
+                  {Array.from({ length: exerciseSets }, (_, index) => {
+                    const done = finishedSets.includes(index)
+                    return (
+                      <button key={index} type="button" onClick={() => completeSet(index)}
+                        className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-3 font-heading text-lg uppercase transition ${done ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'}`}>
+                        {done ? <CheckCircle2 size={18} /> : null}
+                        Set {index + 1}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-          <button
-            type="button"
-            disabled={!exerciseIsDone || activeExercise >= exercises.length - 1}
-            onClick={nextExercise}
-            className="mt-4 w-full rounded-lg border border-line bg-card px-4 py-3 font-heading text-xl uppercase text-white transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {activeExercise >= exercises.length - 1 ? 'Last Exercise' : 'Next Exercise'}
-          </button>
+              {restTimer.showing ? (
+                <div className="mt-4">
+                  <RestTimer key={restTimer.key} restString={restTimer.restString || currentExercise?.rest} onDone={dismissRest} />
+                </div>
+              ) : null}
+
+              <button type="button"
+                disabled={!groupIsDone || activeGroup >= groups.length - 1}
+                onClick={nextGroup}
+                className="mt-4 w-full rounded-lg border border-line bg-card px-4 py-3 font-heading text-xl uppercase text-white transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-40">
+                {activeGroup >= groups.length - 1 ? 'Last Exercise' : 'Next Exercise'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
+      {/* ── Finish workout ── */}
       <div className="rounded-lg border border-line bg-[#111] p-4">
         <p className="font-heading text-2xl uppercase text-white">Finish workout</p>
         <p className="mt-1 text-sm text-body">
@@ -1026,34 +1178,26 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
             ? 'Every exercise is done. Lock it in to open your next workout.'
             : `Complete every exercise to finish. ${finishedExerciseCount} of ${exercises.length} done.`}
         </p>
-        <button
-          type="button"
-          disabled={!canComplete}
-          onClick={completeWorkout}
-          className="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-heading text-xl uppercase text-black disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <button type="button" disabled={!canComplete} onClick={completeWorkout}
+          className="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-heading text-xl uppercase text-black disabled:cursor-not-allowed disabled:opacity-40">
           {currentWorkout >= workouts.length - 1 && canComplete ? 'Complete Final Workout' : 'Unlock Next Workout'}
         </button>
       </div>
 
+      {/* ── Upcoming list ── */}
       <div className="grid gap-3">
         <p className="font-heading text-2xl uppercase text-white">Upcoming workouts</p>
         {workouts.map((workout, index) => {
           const isCurrent = index === currentWorkout
           const isDone = completedWorkouts.includes(index)
           const isLocked = index > currentWorkout
-
           return (
-            <div
-              key={`${workout.title}-${index}`}
-              className={`rounded-lg border p-3 ${isCurrent ? 'border-accent bg-accent/10' : 'border-line bg-[#111]'}`}
-            >
+            <div key={`${workout.title}-${index}`}
+              className={`rounded-lg border p-3 ${isCurrent ? 'border-accent bg-accent/10' : 'border-line bg-[#111]'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="break-words font-heading text-lg uppercase leading-none text-white sm:text-xl">{workout.title}</p>
-                  <p className="mt-1 text-sm text-body">
-                    {isLocked ? workout.summary : isDone ? 'Completed.' : 'Available now.'}
-                  </p>
+                  <p className="mt-1 text-sm text-body">{isLocked ? workout.summary : isDone ? 'Completed.' : 'Available now.'}</p>
                 </div>
                 {isLocked ? <Lock className="shrink-0 text-body" size={18} /> : null}
                 {isDone ? <CheckCircle2 className="shrink-0 text-accent" size={20} /> : null}
