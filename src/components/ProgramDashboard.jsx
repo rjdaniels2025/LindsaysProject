@@ -100,9 +100,15 @@ function sectionContent(content, heading) {
   return lines.slice(start, end > -1 ? end : undefined).join('\n')
 }
 
+const DETAIL_LABELS = ['warmup', 'sets', 'reps', 'weight', 'load', 'rest', 'tempo', 'cue', 'coach cue']
+
 function readDetail(line, label) {
-  const pattern = new RegExp(`${label}\\s*:?\\s*([^,\\.]+)`, 'i')
-  return line.match(pattern)?.[1]?.trim()
+  const escapedLabels = DETAIL_LABELS.map((field) => field.replace(/\s+/g, '\\s+')).join('|')
+  const pattern = new RegExp(
+    `\\b${label.replace(/\s+/g, '\\s+')}\\s*:?\\s*(.*?)(?=\\s*,\\s*(?:${escapedLabels})\\s*:|\\s+(?:${escapedLabels})\\s*:|$)`,
+    'i',
+  )
+  return line.match(pattern)?.[1]?.trim().replace(/[,.]\s*$/, '')
 }
 
 function hasExerciseDetail(line) {
@@ -233,15 +239,32 @@ function setCount(exercise) {
 
 function parseRestSeconds(restString) {
   const s = String(restString || '').toLowerCase()
-  const mins = s.match(/(\d+)\s*min/)?.[1]
-  const secs = s.match(/(\d+)\s*sec/)?.[1]
-  if (mins && secs) return parseInt(mins) * 60 + parseInt(secs)
-  if (mins) return parseInt(mins) * 60
-  if (secs) return parseInt(secs)
-  const range = s.match(/(\d+)\s*(?:to|,)\s*(\d+)/)
-  if (range) return Math.round((parseInt(range[1]) + parseInt(range[2])) / 2)
-  const single = s.match(/\d+/)
-  return single ? Math.min(300, parseInt(single[0])) : 60
+  const number = '(\\d+(?:\\.\\d+)?)'
+  const minUnit = '(?:mins?|minutes?)'
+  const secUnit = '(?:secs?|seconds?)'
+  const toSeconds = (value, unit) => {
+    const parsed = Number.parseFloat(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return 60
+    if (new RegExp(minUnit, 'i').test(unit)) return parsed * 60
+    return parsed
+  }
+
+  const mixed = s.match(new RegExp(`${number}\\s*${minUnit}\\s*(?:and\\s*)?${number}\\s*${secUnit}`))
+  if (mixed) return Math.round(Number.parseFloat(mixed[1]) * 60 + Number.parseFloat(mixed[2]))
+
+  const range = s.match(new RegExp(`${number}\\s*(?:to|-|\\u2013|,)\\s*${number}\\s*(${minUnit}|${secUnit})?`))
+  if (range) {
+    const unit = range[3] || (Number.parseFloat(range[1]) <= 5 && Number.parseFloat(range[2]) <= 5 ? 'min' : 'sec')
+    return Math.min(300, Math.round((toSeconds(range[1], unit) + toSeconds(range[2], unit)) / 2))
+  }
+
+  const withUnit = s.match(new RegExp(`${number}\\s*(${minUnit}|${secUnit})`))
+  if (withUnit) return Math.min(300, Math.round(toSeconds(withUnit[1], withUnit[2])))
+
+  const single = s.match(new RegExp(number))
+  if (!single) return 60
+  const value = Number.parseFloat(single[1])
+  return Math.min(300, Math.round(value <= 5 ? value * 60 : value))
 }
 
 function parseMealPlan(content) {
