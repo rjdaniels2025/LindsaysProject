@@ -81,7 +81,9 @@ function storedBillingOption() {
 
 function saveBillingOption(billing) {
   if (!VALID_BILLING_OPTIONS.includes(billing)) return
-  try { localStorage.setItem('elevate_selected_billing', billing) } catch {}
+  try { localStorage.setItem('elevate_selected_billing', billing) } catch {
+    // Storage can be unavailable in private browsing or restricted contexts.
+  }
 }
 
 async function functionErrorMessage(error, fallback = 'Unable to start checkout.') {
@@ -119,16 +121,11 @@ function clearUrl() {
   window.history.replaceState(null, '', '/')
 }
 
-// Where to send a logged-in user on page load (session restore)
-function resolveLoadRoute({ messages }) {
+function resolveUserRoute({ messages, profile, hasMembership, isLogin }) {
   if (hasProgramMessage(messages)) return 'chat'
-  return 'landing'
-}
-
-// Where to send a user after they log in — only used when they already have a program
-function resolveLoginRoute({ messages }) {
-  if (hasProgramMessage(messages)) return 'chat'
-  return 'assessment' // no program yet — assessment or auto-generate handles it
+  if (hasMembership) return 'chat'
+  if (profile) return 'pricing'
+  return isLogin ? 'assessment' : 'landing'
 }
 
 // ─── UI components ────────────────────────────────────────────────────────────
@@ -522,7 +519,9 @@ function App() {
     try {
       const raw = localStorage.getItem('elevate_draft')
       if (raw) { storedDraft = JSON.parse(raw); localStorage.removeItem('elevate_draft') }
-    } catch {}
+    } catch {
+      // A bad draft should not block a member from loading their account.
+    }
 
     const loadedProfile = saved.profile || saved.profileDraft || storedDraft || null
     const loadedMessages = Array.isArray(saved.messages) ? saved.messages : []
@@ -551,17 +550,12 @@ function App() {
       return
     }
 
-    if (membershipIsActive) {
-      navigate('assessment', { replace: true })
-      return
-    }
-
-    if (loadedProfile) {
-      navigate('pricing', { replace: true })
-      return
-    }
-
-    navigate(isLogin ? 'assessment' : 'landing', { replace: true })
+    navigate(resolveUserRoute({
+      messages: loadedMessages,
+      profile: loadedProfile,
+      hasMembership: membershipIsActive,
+      isLogin,
+    }), { replace: true })
   }, [navigate, generateProgramForProfile])
 
   // ── Auth setup (runs once) ────────────────────────────────────────────────
@@ -737,7 +731,7 @@ function App() {
     }
     if (hasProgramMessage(messages)) { navigate('chat'); return }
     if (hasMembership && profile) { generateProgramForProfile(profile); return }
-    if (hasMembership) { navigate('assessment'); return }
+    if (hasMembership) { navigate('chat'); return }
     if (profile) { navigate('pricing'); return }
     navigate('assessment')
   }
@@ -773,7 +767,9 @@ function App() {
     profileRef.current = completedProfile
     setProfileDraft(completedProfile)
     // Save to localStorage so it survives email-confirmation redirect
-    try { localStorage.setItem('elevate_draft', JSON.stringify(completedProfile)) } catch {}
+    try { localStorage.setItem('elevate_draft', JSON.stringify(completedProfile)) } catch {
+      // Account creation still works if local storage is unavailable.
+    }
     setAccountMode('create')
     navigate('account')
   }
@@ -881,6 +877,7 @@ function App() {
         onAnalyzeMedia={analyzeMedia}
         onSignOut={signOut}
         onHome={goHome}
+        onStartAssessment={() => navigate('assessment')}
         onRetry={retryGenerateProgram}
       />
     )
