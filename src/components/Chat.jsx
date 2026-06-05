@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Camera, Sparkles, Target, X } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'undefinedimport { ArrowLeft, Camera, Sparkles, Target, X } from 'lucide-react'
 import ProgramDashboard from './ProgramDashboard.jsx'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
@@ -98,7 +97,6 @@ export default function Chat({
   onAnalyzeMedia,
   onSignOut,
   onHome,
-  onStartAssessment,
   onRetry,
 }) {
   const [media, setMedia] = useState(null)
@@ -238,27 +236,15 @@ export default function Chat({
               <div className="rounded-lg border border-line bg-card p-4 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
                   <Sparkles size={15} />
-                  <span className="font-heading text-sm uppercase">{needsAssessment ? 'Member Access' : 'Building Your Plan'}</span>
+                  <span className="font-heading text-sm uppercase">'Building Your Plan'</span>
                 </div>
                 <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
-                  {needsAssessment ? 'Your dashboard is ready' : 'Lindsay is making your plan'}
+                  'Lindsay is making your plan'
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
-                  {needsAssessment
-                    ? 'Complete your assessment so Lindsay can build your personalized training, nutrition, and progress plan.'
-                    : statusCopy}
+                  {statusCopy}
                 </p>
-                {needsAssessment ? (
-                  <div className="mt-6">
-                    <button
-                      type="button"
-                      onClick={onStartAssessment}
-                      className="min-h-11 rounded-lg bg-accent px-5 font-heading text-lg uppercase text-black transition hover:bg-white"
-                    >
-                      Complete Assessment
-                    </button>
-                  </div>
-                ) : error && !isLoading ? (
+                {error && !isLoading ? (
                   <div className="mt-6 space-y-3">
                     <p className="rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
                     {onRetry ? (

@@ -545,7 +545,7 @@ function App() {
       return
     }
 
-    if (membershipIsActive && loadedProfile) {
+    // Member with profile but no program yet — generate it now (e.g. post-payment auto-login)
       generateProgramForProfile(loadedProfile)
       return
     }
