@@ -124,7 +124,7 @@ function clearUrl() {
 function resolveUserRoute({ messages, profile, hasMembership, isLogin }) {
   if (hasProgramMessage(messages)) return 'chat'
   if (hasMembership) return 'chat'
-  if (profile && !isLogin) return 'pricing'
+  if (profile) return 'pricing'
   return 'landing'
 }
 
@@ -729,9 +729,7 @@ function App() {
       navigate('account')
       return
     }
-    if (hasProgramMessage(messages)) { navigate('chat'); return }
-    if (hasMembership && profile) { navigate('chat'); return }
-    if (hasMembership) { navigate('chat'); return }
+    if (hasMembership || hasProgramMessage(messages)) { navigate('chat'); return }
     if (profile) { navigate('pricing'); return }
     navigate('landing')
   }
