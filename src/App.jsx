@@ -124,8 +124,8 @@ function clearUrl() {
 function resolveUserRoute({ messages, profile, hasMembership, isLogin }) {
   if (hasProgramMessage(messages)) return 'chat'
   if (hasMembership) return 'chat'
-  if (profile) return 'pricing'
-  return isLogin ? 'assessment' : 'landing'
+  if (profile && !isLogin) return 'pricing'
+  return 'landing'
 }
 
 // ─── UI components ────────────────────────────────────────────────────────────
@@ -730,10 +730,10 @@ function App() {
       return
     }
     if (hasProgramMessage(messages)) { navigate('chat'); return }
-    if (hasMembership && profile) { generateProgramForProfile(profile); return }
+    if (hasMembership && profile) { navigate('chat'); return }
     if (hasMembership) { navigate('chat'); return }
     if (profile) { navigate('pricing'); return }
-    navigate('assessment')
+    navigate('landing')
   }
 
   function openPricing() {
@@ -747,7 +747,7 @@ function App() {
       saveBillingOption(billing)
     }
     setError('')
-    navigate('assessment')
+    navigate('landing')
   }
 
   function onAccountAuthenticated() {
