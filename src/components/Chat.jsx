@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'undefinedimport { ArrowLeft, Camera, Sparkles, Target, X } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Camera, Sparkles, Target, X } from 'lucide-react'
 import ProgramDashboard from './ProgramDashboard.jsx'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 

@@ -546,6 +546,11 @@ function App() {
     }
 
     // Member with profile but no program yet — generate it now (e.g. post-payment auto-login)
+    if (
+      loadedProfile &&
+      membershipIsActive &&
+      !hasProgramMessage(loadedMessages)
+    ) {
       generateProgramForProfile(loadedProfile)
       return
     }
