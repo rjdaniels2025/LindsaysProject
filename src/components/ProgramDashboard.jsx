@@ -632,7 +632,7 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
   if (!items.length) return null
 
   return (
-    <section className="rounded-lg border border-line bg-[#111] p-4">
+    <section className="min-h-64 rounded-lg border border-line bg-[#111] p-4">
       <div className={`mt-3 grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
         {items.map((item, index) => {
           const itemIndex = offset + index
@@ -668,13 +668,6 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
 function MealPlan({ items }) {
   const [activeGroup, setActiveGroup] = useState('Grocery list')
   const [checkedItems, setCheckedItems] = useState({})
-  const mealContainerRef = useRef(null)
-  const groupMounted = useRef(false)
-
-  useEffect(() => {
-    if (!groupMounted.current) { groupMounted.current = true; return }
-    mealContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [activeGroup])
   const orderedItems = [
     ...items.grocery, ...items.targets, ...items.breakfast,
     ...items.lunch, ...items.dinner, ...items.workout,
@@ -703,7 +696,7 @@ function MealPlan({ items }) {
   const selectedGroup = visibleGroups.find((group) => group.title === activeGroup) || visibleGroups[0]
 
   return (
-    <div ref={mealContainerRef} className="grid scroll-mt-4 gap-4 sm:gap-5">
+    <div className="grid gap-4 sm:gap-5">
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1505,7 +1498,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           </div>
         </div>
       ) : null}
-      <div className={`border-b border-line bg-[#0b0b0b] transition-all duration-300 ${headerCollapsed ? 'p-2 sm:p-3' : 'p-3 sm:p-5'}`}>
+      <div className={`border-b border-line bg-[#0b0b0b] transition-[padding] duration-300 ${headerCollapsed ? 'p-2 sm:p-3' : 'p-3 sm:p-5'}`}>
         {!headerCollapsed ? (
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -1577,7 +1570,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           })}
         </nav>
 
-        <section ref={contentRef} className="scroll-mt-4 p-3 sm:p-5">
+        <section ref={contentRef} className="scroll-mt-24 p-3 sm:p-5">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-heading text-sm uppercase text-accent">{VIEW_CONTEXT[activeView]?.label || 'Program'}</p>
