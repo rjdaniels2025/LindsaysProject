@@ -19,17 +19,24 @@ import {
   Utensils,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
-import { useAiImage } from '../hooks/useAiImage.js'
-import { prefetchImages, exercisePrompt, mealPrompt } from '../utils/aiImage.js'
 
 const views = [
-  { id: 'today', label: 'Today', icon: Sparkles },
-  { id: 'workouts', label: 'Workouts', icon: CheckCircle2 },
-  { id: 'meal', label: 'Meal Plan', icon: Utensils },
-  { id: 'recover', label: 'Recover', icon: HeartPulse },
-  { id: 'track', label: 'Track', icon: LineChart },
-  { id: 'science', label: 'Science', icon: BookOpenText },
+  { id: 'today', label: 'Today', mobileLabel: 'Today', icon: Sparkles },
+  { id: 'workouts', label: 'Workouts', mobileLabel: 'Train', icon: CheckCircle2 },
+  { id: 'meal', label: 'Meal Plan', mobileLabel: 'Meals', icon: Utensils },
+  { id: 'recover', label: 'Recovery', mobileLabel: 'Recovery', icon: HeartPulse },
+  { id: 'track', label: 'Progress', mobileLabel: 'Progress', icon: LineChart },
+  { id: 'science', label: 'Why It Works', mobileLabel: 'Science', icon: BookOpenText },
 ]
+
+const VIEW_CONTEXT = {
+  today:    { label: 'Daily focus',   title: "What's next for you" },
+  workouts: { label: 'Follow along',  title: 'Your training session' },
+  meal:     { label: 'Nutrition',     title: 'What to eat today' },
+  recover:  { label: 'Rest & repair', title: 'How to stay ready' },
+  track:    { label: 'Results',       title: "How far you've come" },
+  science:  { label: 'The reasoning', title: 'Why this plan works' },
+}
 
 const completionItems = [
   'I finished the warmup.',
@@ -395,29 +402,6 @@ function FocusCard({ icon: Icon, label, value }) {
 }
 
 
-function ExerciseMedia({ exercise, compact = false }) {
-  const prompt = exercise?.name ? exercisePrompt(exercise.name) : null
-  const { src, isLoading } = useAiImage(prompt)
-
-  return (
-    <div className={`relative overflow-hidden rounded-lg border border-line bg-[#171717] ${compact ? 'aspect-[4/3] w-full sm:w-32' : 'aspect-[16/10] w-full'}`}>
-      {isLoading ? (
-        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
-          <Dumbbell size={compact ? 28 : 42} className="animate-pulse text-accent" aria-hidden="true" />
-        </div>
-      ) : src ? (
-        <img src={src} alt={`${exercise?.name} exercise demonstration`} className="h-full w-full object-cover transition-opacity duration-500" />
-      ) : (
-        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808] text-accent">
-          <Dumbbell size={compact ? 28 : 42} aria-hidden="true" />
-        </div>
-      )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2">
-        <p className={`font-heading uppercase text-white ${compact ? 'text-sm' : 'text-lg'}`}>{exercise?.name}</p>
-      </div>
-    </div>
-  )
-}
 
 function Checklist({ items }) {
   return (
@@ -643,29 +627,6 @@ function ScienceBreakdown({ content }) {
 // ─── Meal plan ────────────────────────────────────────────────────────────────
 
 
-const MEAL_IMAGE_TITLES = /breakfast|lunch|dinner|snack|pre workout|post workout/i
-
-function MealItemImage({ item }) {
-  const prompt = MEAL_IMAGE_TITLES.test(item.title) ? mealPrompt(item.title, item.details) : null
-  const { src, isLoading } = useAiImage(prompt)
-  if (!prompt) return null
-
-  return (
-    <div className="mb-3 aspect-video overflow-hidden rounded-lg border border-line bg-[#171717]">
-      {isLoading ? (
-        <div className="grid h-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
-          <Utensils size={24} className="animate-pulse text-accent" aria-hidden="true" />
-        </div>
-      ) : src ? (
-        <img src={src} alt={item.title} className="h-full w-full object-cover transition-opacity duration-500" />
-      ) : (
-        <div className="grid h-full place-items-center bg-gradient-to-br from-[#1c1c1c] to-[#080808]">
-          <Utensils size={24} className="text-accent" aria-hidden="true" />
-        </div>
-      )}
-    </div>
-  )
-}
 
 function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = false }) {
   if (!items.length) return null
@@ -684,7 +645,6 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
                 checked ? 'border-accent bg-accent/10' : 'border-line bg-card hover:border-accent/70'
               }`}
             >
-              <MealItemImage item={item} />
               <div className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -781,6 +741,31 @@ function MealPlan({ items }) {
   )
 }
 
+// ─── Workout phase indicator ─────────────────────────────────────────────────
+
+const WORKOUT_PHASES = [
+  { id: 'preview', label: 'Overview' },
+  { id: 'warmup',  label: 'Warm-up' },
+  { id: 'active',  label: 'Exercise' },
+  { id: 'resting', label: 'Rest' },
+]
+
+function WorkoutPhaseBar({ phase }) {
+  const currentIdx = WORKOUT_PHASES.findIndex((p) => p.id === phase)
+  return (
+    <div className="mb-4 flex items-start gap-1.5 sm:gap-2">
+      {WORKOUT_PHASES.map((p, i) => (
+        <div key={p.id} className="flex flex-1 flex-col items-center gap-1">
+          <div className={`h-1.5 w-full rounded-full transition-all duration-300 ${i <= currentIdx ? 'bg-accent' : 'bg-line'}`} />
+          <span className={`font-heading text-[10px] uppercase transition-colors ${i === currentIdx ? 'text-accent' : i < currentIdx ? 'text-accent/50' : 'text-body/40'}`}>
+            {p.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Workout tracker ──────────────────────────────────────────────────────────
 
 const BLOCK_WEEKS = 4
@@ -851,6 +836,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [restString, setRestString] = useState('')
   // What phase to restore after rest completes or is skipped.
   const pendingPhaseRef = useRef('active')
+  const activeExerciseRef = useRef(null)
 
   // ── Check-in ─────────────────────────────────────────────────────────────
   const [showCheckin, setShowCheckin] = useState(false)
@@ -901,6 +887,12 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const currentWarmupSet = warmupSets[warmupIdx] || null
 
   // ── Navigation helpers ────────────────────────────────────────────────────
+
+  const scrollToActiveExercise = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      activeExerciseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [])
 
   // Enter a group: always starts warm-ups if the first exercise has them.
   // When afterRest=true we only set the pending phase (the rest timer will apply it).
@@ -959,6 +951,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     if (isSuperset && step === 0) {
       // A1 done → show A2 immediately, no rest
       setStep(1)
+      scrollToActiveExercise()
       return
     }
 
@@ -979,15 +972,18 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
       setRound(nextRound)
       setStep(0)
       startRest(restStr, 'active')
+      scrollToActiveExercise()
     } else {
       // All rounds done — advance to next group (if any) after rest
       const nextG = groupIdx + 1
       if (nextG < groups.length) {
         enterGroup(nextG, true)          // sets pending phase
         startRest(restStr, pendingPhaseRef.current)
+        scrollToActiveExercise()
       } else {
         // Last group finished
         startRest(restStr, 'active')
+        scrollToActiveExercise()
       }
     }
   }
@@ -995,7 +991,8 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const afterRest = useCallback(() => {
     setPhase(pendingPhaseRef.current || 'active')
     pendingPhaseRef.current = 'active'
-  }, [])
+    scrollToActiveExercise()
+  }, [scrollToActiveExercise])
 
   // ── Workout completion ─────────────────────────────────────────────────────
 
@@ -1096,6 +1093,8 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
         </div>
       </div>
 
+      <WorkoutPhaseBar phase={phase} />
+
       {/* PREVIEW */}
       {phase === 'preview' && (
         <div className="rounded-lg border border-line bg-[#111] p-4">
@@ -1116,8 +1115,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
                   <p className="mb-2 font-heading text-xs uppercase text-accent">Superset {group.label} — do back-to-back with minimal rest</p>
                 )}
                 {group.exercises.map((ex, ei) => (
-                  <div key={ex.id} className={`grid gap-3 sm:grid-cols-[8rem_1fr] ${ei > 0 ? 'mt-3 border-t border-line pt-3' : ''}`}>
-                    <ExerciseMedia exercise={ex} compact />
+                  <div key={ex.id} className={ei > 0 ? 'mt-3 border-t border-line pt-3' : ''}>
                     <div className="min-w-0">
                       <div className="flex items-start gap-3">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-sm text-black">
@@ -1173,7 +1171,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
 
       {/* ACTIVE */}
       {phase === 'active' && currentExercise && (
-        <div className="rounded-lg border border-line bg-[#111] p-4">
+        <div ref={activeExerciseRef} className="scroll-mt-4 rounded-lg border border-line bg-[#111] p-4 sm:scroll-mt-6">
           {/* Header */}
           <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1193,9 +1191,8 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
             </button>
           </div>
 
-          {/* Media + stats */}
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(14rem,0.85fr)_1.15fr]">
-            <ExerciseMedia key={currentExercise.id} exercise={currentExercise} />
+          {/* Stats */}
+          <div className="mt-4">
             <div className="grid content-start gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-line bg-card p-3">
                 <Repeat className="mb-2 text-accent" size={18} />
@@ -1271,7 +1268,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
 
       {/* RESTING */}
       {phase === 'resting' && (
-        <div className="rounded-lg border border-line bg-[#111] p-4">
+        <div ref={activeExerciseRef} className="scroll-mt-4 rounded-lg border border-line bg-[#111] p-4 sm:scroll-mt-6">
           <p className="font-heading text-sm uppercase text-accent">Rest</p>
           <p className="mt-1 font-heading text-2xl uppercase text-white">
             Set {round + 1 <= totalRounds ? round + 1 : totalRounds} of {totalRounds} logged
@@ -1328,28 +1325,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
       </div>
 
     </div>
-  )
-}
-
-// ─── Action button ────────────────────────────────────────────────────────────
-
-function ActionButton({ action, pendingAction, isLoading, onQuickAction }) {
-  return (
-    <button
-      type="button"
-      disabled={isLoading}
-      onClick={() => onQuickAction(action)}
-      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
-    >
-      <span>{action.label}</span>
-      {pendingAction === action.label ? (
-        <span className="flex items-center gap-1">
-          {[0, 1, 2].map((dot) => (
-            <span key={dot} className="h-2 w-2 animate-pulse rounded-full bg-accent" style={{ animationDelay: `${dot * 150}ms` }} />
-          ))}
-        </span>
-      ) : null}
-    </button>
   )
 }
 
@@ -1431,8 +1406,15 @@ function ProgressHistory({ history }) {
   )
 }
 
-export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, onQuickAction, pendingAction, isLoading }) {
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, isLoading }) {
   const [activeView, setActiveView] = useState('today')
+  const [headerCollapsed, setHeaderCollapsed] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setHeaderCollapsed(window.scrollY > 120)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
   const weekNum = clampWeek(workoutLog?.week)
 
   const sections = useMemo(
@@ -1454,33 +1436,10 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
   // The 4-week block is finished once week 4's sessions are all done.
   const blockComplete = weekNum >= BLOCK_WEEKS && allSessionsDone(completedWorkouts, workouts.length)
 
-  useEffect(() => {
-    const exerciseNames = [...new Set(workouts.flatMap((w) => parseExercises(w.details).map((ex) => ex.name)))]
-    const mealItems = [...mealPlan.breakfast, ...mealPlan.lunch, ...mealPlan.dinner, ...mealPlan.workout].filter(
-      (item) => MEAL_IMAGE_TITLES.test(item.title),
-    )
-    prefetchImages([
-      ...exerciseNames.map(exercisePrompt),
-      ...mealItems.map((item) => mealPrompt(item.title, item.details)),
-    ])
-  }, [workouts, mealPlan])
-
   const activeSectionItems = sections[activeView] || []
-  const activeLabel = views.find((view) => view.id === activeView)?.label || 'today'
   const activeItems = activeSectionItems.length
     ? activeSectionItems
-    : ['Open the Science tab for the full plan, or use the simplify button for a clearer version.']
-
-  const topAction = {
-    label: `Simplify ${activeLabel}`,
-    prompt: `Turn my ${activeLabel.toLowerCase()} plan into simple steps with exact actions.`,
-  }
-  const helperActions = [
-    { label: 'First thing to do', prompt: 'Tell me the first thing I should do today in simple steps.' },
-    { label: 'Make it easier', prompt: 'Make this plan easier to follow for a normal person.' },
-    { label: 'Next workout', prompt: 'Explain my next workout in simple steps.' },
-    { label: 'Meal prep', prompt: 'Turn my meal plan into a simple prep list for the next two days.' },
-  ]
+    : ['Open the "Why It Works" tab for the full plan.']
 
   const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
 
@@ -1532,40 +1491,55 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           </div>
         </div>
       ) : null}
-      <div className="border-b border-line bg-[#0b0b0b] p-3 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
-              <Sparkles size={15} />
-              <span className="font-heading text-sm uppercase">Your Game Plan</span>
-            </div>
-            <h2 className="font-heading text-[2rem] uppercase leading-none text-white sm:text-5xl">
-              Start simple. Build momentum.
-            </h2>
-            {weekNum ? (
-              <div className="mt-3 flex items-center gap-3">
-                <p className="font-heading text-sm uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(weekNum / 4) * 100}%` }} />
-                </div>
-                <p className="font-heading text-sm uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
+      <div className={`border-b border-line bg-[#0b0b0b] transition-all duration-300 ${headerCollapsed ? 'p-2 sm:p-3' : 'p-3 sm:p-5'}`}>
+        {!headerCollapsed ? (
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+                <Sparkles size={15} />
+                <span className="font-heading text-sm uppercase">Your Game Plan</span>
               </div>
-            ) : (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
-                Lindsay built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
-              </p>
-            )}
+              <h2 className="font-heading text-[2rem] uppercase leading-none text-white sm:text-5xl">
+                Start simple. Build momentum.
+              </h2>
+              {weekNum ? (
+                <div className="mt-3 flex items-center gap-3">
+                  <p className="font-heading text-sm uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                    <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(weekNum / 4) * 100}%` }} />
+                  </div>
+                  <p className="font-heading text-sm uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
+                </div>
+              ) : (
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
+                  Lindsay built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
+                </p>
+              )}
+            </div>
+            <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
+              <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
+              <FocusCard icon={CalendarDays} label="Training" value={`${profile?.daysPerWeek || '-'} days`} />
+              <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
+            </div>
           </div>
-          <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
-            <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
-            <FocusCard icon={CalendarDays} label="Training" value={`${profile?.daysPerWeek || '-'} days`} />
-            <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
+        ) : weekNum ? (
+          <div className="flex items-center gap-3">
+            <p className="font-heading text-xs uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${(weekNum / 4) * 100}%` }} />
+            </div>
+            <p className="font-heading text-xs uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
           </div>
-        </div>
+        ) : (
+          <p className="font-heading text-xs uppercase text-accent">Your Game Plan</p>
+        )}
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[15rem_1fr]">
-        <nav aria-label="Program sections" className="flex gap-2 overflow-x-auto border-b border-line p-2 sm:p-3 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r">
+        <nav
+          aria-label="Program sections"
+          className="fixed bottom-0 inset-x-0 z-40 flex gap-0 border-t border-line bg-card/95 p-1 backdrop-blur-sm sm:p-2 lg:static lg:inset-auto lg:z-auto lg:flex-col lg:gap-2 lg:overflow-visible lg:border-b-0 lg:border-r lg:border-t-0 lg:bg-transparent lg:p-3 lg:backdrop-blur-none"
+        >
           {views.map((view) => {
             const Icon = view.icon
             const selected = activeView === view.id
@@ -1574,13 +1548,16 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
                 key={view.id}
                 type="button"
                 onClick={() => setActiveView(view.id)}
-                className={`flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-left transition sm:gap-3 sm:px-4 lg:justify-start ${
-                  selected ? 'border-accent bg-accent text-black' : 'border-line bg-[#111] text-white hover:border-accent/70'
+                className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-2 px-0.5 transition lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:border lg:px-4 lg:py-0 ${
+                  selected
+                    ? 'text-accent lg:border-accent lg:bg-accent lg:text-black'
+                    : 'text-body hover:text-white lg:border-line lg:bg-[#111] lg:text-white lg:hover:border-accent/70'
                 }`}
                 aria-current={selected ? 'page' : undefined}
               >
-                <Icon size={18} />
-                <span className="font-heading text-base uppercase sm:text-lg">{view.label}</span>
+                <Icon size={18} className="shrink-0" />
+                <span className="font-heading text-[10px] uppercase lg:hidden">{view.mobileLabel}</span>
+                <span className="hidden font-heading text-base uppercase lg:block lg:text-lg">{view.label}</span>
               </button>
             )
           })}
@@ -1589,14 +1566,11 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
         <section className="p-3 sm:p-5">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="font-heading text-sm uppercase text-accent">{activeView === 'science' ? 'Reference' : 'Organized dashboard'}</p>
+              <p className="font-heading text-sm uppercase text-accent">{VIEW_CONTEXT[activeView]?.label || 'Program'}</p>
               <h3 className="font-heading text-2xl uppercase text-white sm:text-3xl">
-                {activeView === 'today' ? 'Today overview' : `${activeLabel} tab`}
+                {VIEW_CONTEXT[activeView]?.title || 'Your plan'}
               </h3>
             </div>
-            {activeView !== 'science' ? (
-              <ActionButton action={topAction} pendingAction={pendingAction} isLoading={isLoading} onQuickAction={onQuickAction} />
-            ) : null}
           </div>
 
           {activeView === 'today' ? (
@@ -1626,25 +1600,8 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           ) : null}
           {activeView === 'science' ? <ScienceBreakdown content={message.content} /> : null}
 
-          {activeView !== 'science' ? (
-            <div className="mt-5 rounded-lg border border-line bg-[#111] p-4">
-              <div className="mb-3">
-                <p className="font-heading text-sm uppercase text-accent">Need help?</p>
-                <h4 className="font-heading text-2xl uppercase text-white">Ask for a simpler answer</h4>
-              </div>
-              <div className="grid gap-2 min-[420px]:grid-cols-2 xl:grid-cols-4">
-                {helperActions.map((action) => (
-                  <ActionButton
-                    key={action.label}
-                    action={action}
-                    pendingAction={pendingAction}
-                    isLoading={isLoading}
-                    onQuickAction={onQuickAction}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
+          {/* Spacer so fixed mobile nav doesn't obscure last content */}
+          <div className="h-20 lg:hidden" aria-hidden="true" />
         </section>
       </div>
     </article>

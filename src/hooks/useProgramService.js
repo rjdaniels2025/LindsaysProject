@@ -1,6 +1,10 @@
 import { supabase } from '../lib/supabase.js'
 
-async function callProgramService(action, body) {
+async function invokeProgramService(action, body = {}) {
+  if (!supabase) {
+    throw new Error('Account system is not configured.')
+  }
+
   const { data, error } = await supabase.functions.invoke('program-service', {
     body: { action, ...body },
   })
@@ -20,18 +24,15 @@ async function callProgramService(action, body) {
 }
 
 async function generateProgram(profile, options = {}) {
-  return callProgramService('generateProgram', { profile, options })
+  return invokeProgramService('generateProgram', { profile, options })
 }
 
 async function sendMessage(history, userText) {
-  return callProgramService('sendMessage', {
-    history,
-    text: userText,
-  })
+  return invokeProgramService('sendMessage', { history, text: userText })
 }
 
 async function analyzeMedia(history, mediaPayload) {
-  return callProgramService('analyzeMedia', { history, mediaPayload })
+  return invokeProgramService('analyzeMedia', { history, mediaPayload })
 }
 
 const programService = {

@@ -123,7 +123,7 @@ function clearUrl() {
 
 function resolveUserRoute({ messages, profile, hasMembership, isLogin }) {
   if (hasProgramMessage(messages)) return 'chat'
-  if (hasMembership) return 'chat'
+  if (hasMembership) return profile ? 'chat' : 'assessment'
   if (profile) return 'pricing'
   return 'landing'
 }
@@ -708,13 +708,10 @@ function App() {
     if (!user || !isAuthReady) return
 
     const timer = setTimeout(async () => {
-      const { data: authData, error: authError } = await supabase.auth.getUser()
-      if (authError || !authData.user) return
-
       const { error: saveError } = await supabase.from('user_programs').upsert(
         {
-          user_id: authData.user.id,
-          display_name: user.name || authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'Member',
+          user_id: user.id,
+          display_name: user.name || user.email?.split('@')[0] || 'Member',
           app_state: { profile, messages, programCreatedAt, programEndsAt, workoutLog, blockNumber },
         },
         { onConflict: 'user_id' },
@@ -880,7 +877,6 @@ function App() {
         onAnalyzeMedia={analyzeMedia}
         onSignOut={signOut}
         onHome={goHome}
-        onStartAssessment={() => navigate('assessment')}
         onRetry={retryGenerateProgram}
       />
     )

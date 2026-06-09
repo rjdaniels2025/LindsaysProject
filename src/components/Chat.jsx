@@ -1,12 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Camera, Sparkles, Target, X } from 'lucide-react'
+import { ArrowLeft, Camera, Sparkles, X } from 'lucide-react'
 import ProgramDashboard from './ProgramDashboard.jsx'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
-const quickReplies = [
-  { label: 'Food before workout', prompt: 'Explain what I should eat before workouts in simple steps.' },
-  { label: 'Adjust for soreness', prompt: 'Adjust my plan for soreness and explain what to do today.' },
-]
 const MAX_MEDIA_SIZE = 20 * 1024 * 1024
 
 function formatGoals(primaryGoal) {
@@ -94,7 +90,6 @@ export default function Chat({
   onStartNextBlock,
   isLoading,
   error,
-  onSendMessage,
   onAnalyzeMedia,
   onSignOut,
   onHome,
@@ -103,7 +98,6 @@ export default function Chat({
   const [media, setMedia] = useState(null)
   const [mediaError, setMediaError] = useState('')
   const [isPreparingMedia, setIsPreparingMedia] = useState(false)
-  const [pendingAction, setPendingAction] = useState('')
   const fileInputRef = useRef(null)
 
   const subtitle = useMemo(() => {
@@ -119,22 +113,11 @@ export default function Chat({
     .find((message) => message.role === 'assistant' && !['program', 'status'].includes(message.meta?.type))
   const statusCopy = statusMessage?.content?.replace(/^#+\s*/gm, '') ||
     `${user?.name || 'Your'} answers are being turned into workouts, recovery steps, and progress goals.`
-  const needsAssessment = membershipActive && !profile && !programMessage
   const planDates = useMemo(() => {
     if (!programCreatedAt || !programEndsAt) return ''
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     return `${formatter.format(new Date(programCreatedAt))} to ${formatter.format(new Date(programEndsAt))}`
   }, [programCreatedAt, programEndsAt])
-
-  async function runAction(action) {
-    if (isLoading) return
-    setPendingAction(action.label)
-    try {
-      await onSendMessage(action.prompt, { label: action.label })
-    } finally {
-      setPendingAction('')
-    }
-  }
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -229,18 +212,16 @@ export default function Chat({
                 blockNumber={blockNumber}
                 membershipActive={membershipActive}
                 onStartNextBlock={onStartNextBlock}
-                onQuickAction={runAction}
-                pendingAction={pendingAction}
                 isLoading={isLoading}
               />
             ) : (
               <div className="rounded-lg border border-line bg-card p-4 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
                   <Sparkles size={15} />
-                  <span className="font-heading text-sm uppercase">'Building Your Plan'</span>
+                  <span className="font-heading text-sm uppercase">Building Your Plan</span>
                 </div>
                 <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
-                  'Lindsay is making your plan'
+                  Lindsay is making your plan
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
                   {statusCopy}
@@ -268,32 +249,6 @@ export default function Chat({
           </div>
 
           <aside className="grid content-start gap-3 sm:gap-4 xl:sticky xl:top-24">
-            <section className="rounded-lg border border-line bg-card p-4">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="grid h-9 w-9 place-items-center rounded bg-accent text-black">
-                  <Target size={18} />
-                </div>
-                <div>
-                  <p className="font-heading text-xl uppercase text-white">Next Moves</p>
-                  <p className="text-sm text-body">Tap one to get a simple answer.</p>
-                </div>
-              </div>
-              <div className="grid gap-2 min-[420px]:grid-cols-2 xl:grid-cols-1">
-                {quickReplies.map((reply) => (
-                  <button
-                    key={reply.label}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => runAction(reply)}
-                    className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-line bg-[#111] p-3 text-left text-sm text-white transition hover:border-accent disabled:opacity-50"
-                  >
-                    <span>{reply.label}</span>
-                    {pendingAction === reply.label ? <LoadingDots /> : null}
-                  </button>
-                ))}
-              </div>
-            </section>
-
             <section className="rounded-lg border border-line bg-card p-4">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -361,7 +316,7 @@ export default function Chat({
                 {latestResult?.meta?.label ? <p className="mb-3 text-sm text-body">{latestResult.meta.label}</p> : null}
                 {isLoading ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-line bg-[#111] p-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
-                    <span className="text-sm text-body">{pendingAction ? `Working on ${pendingAction}` : 'Lindsay is working on it...'}</span>
+                    <span className="text-sm text-body">Lindsay is working on it...</span>
                     <LoadingDots />
                   </div>
                 ) : null}
