@@ -716,7 +716,15 @@ function App() {
         },
         { onConflict: 'user_id' },
       )
-      if (saveError) setError(saveError.message)
+      if (saveError) {
+        // FK violation means the auth.users record is gone (deleted account with a
+        // cached JWT). Sign out to clear the stale session instead of showing an error.
+        if (saveError.code === '23503') {
+          await supabase.auth.signOut()
+        } else {
+          setError(saveError.message)
+        }
+      }
     }, 100)
 
     return () => clearTimeout(timer)
