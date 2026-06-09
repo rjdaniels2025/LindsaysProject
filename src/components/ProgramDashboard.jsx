@@ -668,6 +668,13 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
 function MealPlan({ items }) {
   const [activeGroup, setActiveGroup] = useState('Grocery list')
   const [checkedItems, setCheckedItems] = useState({})
+  const mealContainerRef = useRef(null)
+  const groupMounted = useRef(false)
+
+  useEffect(() => {
+    if (!groupMounted.current) { groupMounted.current = true; return }
+    mealContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [activeGroup])
   const orderedItems = [
     ...items.grocery, ...items.targets, ...items.breakfast,
     ...items.lunch, ...items.dinner, ...items.workout,
@@ -696,7 +703,7 @@ function MealPlan({ items }) {
   const selectedGroup = visibleGroups.find((group) => group.title === activeGroup) || visibleGroups[0]
 
   return (
-    <div className="grid gap-4 sm:gap-5">
+    <div ref={mealContainerRef} className="grid scroll-mt-4 gap-4 sm:gap-5">
       <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1409,12 +1416,19 @@ function ProgressHistory({ history }) {
 export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, isLoading }) {
   const [activeView, setActiveView] = useState('today')
   const [headerCollapsed, setHeaderCollapsed] = useState(false)
+  const contentRef = useRef(null)
+  const viewMounted = useRef(false)
 
   useEffect(() => {
     const onScroll = () => setHeaderCollapsed(window.scrollY > 120)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    if (!viewMounted.current) { viewMounted.current = true; return }
+    contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [activeView])
   const weekNum = clampWeek(workoutLog?.week)
 
   const sections = useMemo(
@@ -1563,7 +1577,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           })}
         </nav>
 
-        <section className="p-3 sm:p-5">
+        <section ref={contentRef} className="scroll-mt-4 p-3 sm:p-5">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-heading text-sm uppercase text-accent">{VIEW_CONTEXT[activeView]?.label || 'Program'}</p>

@@ -15,6 +15,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   color: #bbbbbb;
   background: #080808;
