@@ -822,14 +822,16 @@ export default function CinematicLandingHero({
               Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <button
-                type="button"
-                onClick={runPrimaryAction}
-                className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
-              >
-                {hasProgram ? 'Open Dashboard' : 'Start Assessment'}
-                <ArrowRight size={20} />
-              </button>
+              {!hasProgram && (
+                <button
+                  type="button"
+                  onClick={runPrimaryAction}
+                  className="elevate-btn-primary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+                >
+                  Start Assessment
+                  <ArrowRight size={20} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onPricing}

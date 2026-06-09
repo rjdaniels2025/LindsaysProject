@@ -147,14 +147,16 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <button
-                type="button"
-                onClick={hasProgram ? onDashboard : onStart}
-                className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 font-heading text-xl uppercase text-black transition hover:bg-white sm:w-auto"
-              >
-                {hasProgram ? 'Open Dashboard' : 'Start Your Assessment'}
-                <ArrowRight size={20} />
-              </button>
+              {!hasProgram && (
+                <button
+                  type="button"
+                  onClick={onStart}
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 font-heading text-xl uppercase text-black transition hover:bg-white sm:w-auto"
+                >
+                  Start Your Assessment
+                  <ArrowRight size={20} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onPricing}
