@@ -1408,15 +1408,8 @@ function ProgressHistory({ history }) {
 
 export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, isLoading }) {
   const [activeView, setActiveView] = useState('today')
-  const [headerCollapsed, setHeaderCollapsed] = useState(false)
   const contentRef = useRef(null)
   const viewMounted = useRef(false)
-
-  useEffect(() => {
-    const onScroll = () => setHeaderCollapsed(window.scrollY > 120)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   useEffect(() => {
     if (!viewMounted.current) { viewMounted.current = true; return }
@@ -1451,7 +1444,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
   const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
 
   return (
-    <article className="mr-auto w-full max-w-5xl overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
+    <article className="mr-auto w-full max-w-5xl [overflow:clip] rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
       {blockComplete && membershipActive ? (
         <div className="border-b border-accent/50 bg-accent/10 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1498,48 +1491,36 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           </div>
         </div>
       ) : null}
-      <div className={`border-b border-line bg-[#0b0b0b] transition-[padding] duration-300 ${headerCollapsed ? 'p-2 sm:p-3' : 'p-3 sm:p-5'}`}>
-        {!headerCollapsed ? (
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
-                <Sparkles size={15} />
-                <span className="font-heading text-sm uppercase">Your Game Plan</span>
-              </div>
-              <h2 className="font-heading text-[2rem] uppercase leading-none text-white sm:text-5xl">
-                Start simple. Build momentum.
-              </h2>
-              {weekNum ? (
-                <div className="mt-3 flex items-center gap-3">
-                  <p className="font-heading text-sm uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-                    <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(weekNum / 4) * 100}%` }} />
-                  </div>
-                  <p className="font-heading text-sm uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
+      <div className="border-b border-line bg-[#0b0b0b] p-3 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+              <Sparkles size={15} />
+              <span className="font-heading text-sm uppercase">Your Game Plan</span>
+            </div>
+            <h2 className="font-heading text-[2rem] uppercase leading-none text-white sm:text-5xl">
+              Start simple. Build momentum.
+            </h2>
+            {weekNum ? (
+              <div className="mt-3 flex items-center gap-3">
+                <p className="font-heading text-sm uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(weekNum / 4) * 100}%` }} />
                 </div>
-              ) : (
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
-                  Lindsay built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
-                </p>
-              )}
-            </div>
-            <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
-              <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
-              <FocusCard icon={CalendarDays} label="Training" value={`${profile?.daysPerWeek || '-'} days`} />
-              <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
-            </div>
+                <p className="font-heading text-sm uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
+              </div>
+            ) : (
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-body sm:text-base">
+                Lindsay built your plan. Use one section at a time, follow the next step, and keep the details nearby when you want them.
+              </p>
+            )}
           </div>
-        ) : weekNum ? (
-          <div className="flex items-center gap-3">
-            <p className="font-heading text-xs uppercase text-accent">Block {blockNumber || 1} · Week {weekNum} of 4</p>
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${(weekNum / 4) * 100}%` }} />
-            </div>
-            <p className="font-heading text-xs uppercase text-body">{Math.round((weekNum / 4) * 100)}%</p>
+          <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
+            <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
+            <FocusCard icon={CalendarDays} label="Training" value={`${profile?.daysPerWeek || '-'} days`} />
+            <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
           </div>
-        ) : (
-          <p className="font-heading text-xs uppercase text-accent">Your Game Plan</p>
-        )}
+        </div>
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[15rem_1fr]">
