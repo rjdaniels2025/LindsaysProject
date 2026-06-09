@@ -633,10 +633,13 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
 
   return (
     <section className="min-h-64 rounded-lg border border-line bg-[#111] p-4">
-      <div className={`mt-3 grid gap-3 ${compact ? '' : 'md:grid-cols-2'}`}>
+      <div className={`mt-3 grid gap-3 ${compact ? 'sm:grid-cols-2' : 'md:grid-cols-2'}`}>
         {items.map((item, index) => {
           const itemIndex = offset + index
           const checked = Boolean(checkedItems[itemIndex])
+          const ingredients = item.details
+            ? item.details.split(',').map((s) => s.trim()).filter(Boolean)
+            : []
 
           return (
             <label
@@ -652,9 +655,18 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
                   onChange={() => onToggleItem(itemIndex)}
                   className="mt-1 h-5 w-5 shrink-0 accent-[#e8ff47]"
                 />
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block break-words font-heading text-lg uppercase leading-none text-white">{item.title}</span>
-                  <span className="mt-2 block text-sm leading-6 text-body">{item.details}</span>
+                  {ingredients.length > 0 && (
+                    <ul className="mt-2 grid gap-1">
+                      {ingredients.map((ingredient, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm leading-6 text-body">
+                          <span className="mt-2 block h-1.5 w-1.5 shrink-0 rounded-full bg-accent/60" aria-hidden="true" />
+                          <span>{ingredient}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </span>
               </div>
             </label>
