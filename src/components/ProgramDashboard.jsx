@@ -4,6 +4,7 @@ import {
   BookOpenText,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   Dumbbell,
   Gauge,
@@ -17,6 +18,7 @@ import {
   Timer,
   Trophy,
   Utensils,
+  X,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 
@@ -850,6 +852,10 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const pendingPhaseRef = useRef('active')
   const activeExerciseRef = useRef(null)
 
+  // ── Modal / accordion ────────────────────────────────────────────────────
+  const [modalOpen, setModalOpen] = useState(false)
+  const [expandedGroup, setExpandedGroup] = useState(-1)
+
   // ── Check-in ─────────────────────────────────────────────────────────────
   const [showCheckin, setShowCheckin] = useState(false)
   const [checkinForm, setCheckinForm] = useState({ soreness: '', energy: '', notes: '' })
@@ -1040,7 +1046,220 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   return (
     <div className="grid gap-4 sm:gap-5">
 
-      {/* Check-in / week-advance */}
+      {/* ── Full-screen workout modal ─────────────────────────────────────── */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#080808]">
+
+          {/* Header */}
+          <div className="flex shrink-0 items-center gap-3 border-b border-line bg-card px-4 py-3 sm:px-5">
+            <button type="button" onClick={() => setModalOpen(false)}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-[#111] text-white transition hover:border-accent">
+              <X size={18} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-heading text-base uppercase leading-none text-white">{activeWorkout.title}</p>
+              <p className="mt-0.5 text-xs text-body">
+                {phase === 'preview'
+                  ? `${exercises.length} exercises · tap to preview`
+                  : `${doneExCount} of ${exercises.length} complete`}
+              </p>
+            </div>
+            {phase !== 'preview' && exercises.length > 0 && (
+              <div className="flex shrink-0 gap-1">
+                {exercises.slice(0, 10).map((ex, i) => {
+                  const done = (rounds[ex.id] || 0) >= setCount(ex)
+                  return <span key={i} className={`h-2 w-2 rounded-full transition ${done ? 'bg-accent' : 'bg-line'}`} />
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Warm-up banner */}
+          {phase === 'warmup' && currentWarmupSet && (
+            <div className="shrink-0 border-b border-amber-400/30 bg-amber-400/5 px-4 py-4">
+              <p className="font-heading text-xs uppercase text-amber-300">Warm-up {warmupIdx + 1} of {warmupSets.length}</p>
+              <p className="mt-1 font-heading text-2xl uppercase text-white">{currentGroup.exercises[0].name}</p>
+              <p className="mt-2 font-heading text-3xl text-white">
+                {currentWarmupSet.weight} lbs <span className="text-xl font-normal text-body">× {currentWarmupSet.reps} reps</span>
+              </p>
+              <p className="mt-1 text-sm text-body">Light and controlled — prime the movement.</p>
+              <button type="button" onClick={doneWarmup}
+                className="mt-3 w-full rounded-lg bg-amber-400/20 py-3 font-heading text-lg uppercase text-amber-200 transition hover:bg-amber-400/30">
+                {warmupIdx < warmupSets.length - 1 ? 'Next Warm-up Set' : 'Start Working Sets'}
+              </button>
+            </div>
+          )}
+
+          {/* Rest banner */}
+          {phase === 'resting' && (
+            <div className="shrink-0 border-b border-line bg-[#0f0f0f] px-4 py-4">
+              <p className="font-heading text-xs uppercase text-accent">
+                Rest · Set {round + 1 <= totalRounds ? round + 1 : totalRounds} of {totalRounds} logged
+              </p>
+              <div className="mt-2">
+                <RestTimer key={restKey} restString={restString} onDone={afterRest} />
+              </div>
+              <button type="button" onClick={afterRest}
+                className="mt-3 w-full rounded-lg border border-line bg-card py-3 font-heading text-base uppercase text-white transition hover:border-accent">
+                Skip Rest
+              </button>
+            </div>
+          )}
+
+          {/* Exercise list */}
+          <div className="flex-1 overflow-y-auto">
+            {groups.map((group, gi) => {
+              const primaryEx = group.exercises[0]
+              const doneRounds = rounds[primaryEx.id] || 0
+              const exDone = doneRounds >= setCount(primaryEx)
+              const isCurrentGroup = gi === groupIdx
+              const isActiveGroup = isCurrentGroup && phase !== 'preview'
+              const isManuallyExpanded = expandedGroup === gi
+              const isExpanded = isManuallyExpanded || (isActiveGroup && phase === 'active')
+
+              return (
+                <div
+                  key={gi}
+                  ref={isCurrentGroup && phase !== 'preview' ? activeExerciseRef : null}
+                  className={`border-b border-line ${isActiveGroup && !exDone ? 'bg-accent/5' : ''}`}
+                >
+                  {/* Row button */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedGroup(isManuallyExpanded ? -1 : gi)}
+                    className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+                  >
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full font-heading text-sm transition ${
+                      exDone ? 'bg-accent text-black' : isActiveGroup ? 'border-2 border-accent text-accent' : 'bg-line text-body'
+                    }`}>
+                      {exDone ? <CheckCircle2 size={15} /> : gi + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`break-words font-heading text-xl uppercase leading-none transition ${
+                        exDone ? 'text-body/50 line-through' : isActiveGroup ? 'text-accent' : 'text-white'
+                      }`}>
+                        {group.type === 'superset'
+                          ? `${primaryEx.name} + ${group.exercises[1].name}`
+                          : primaryEx.name}
+                      </p>
+                      <p className="mt-0.5 text-sm text-body">
+                        {primaryEx.sets} sets · {primaryEx.reps}
+                        {group.type === 'superset' ? ' · Superset' : ''}
+                        {isActiveGroup && !exDone ? ` · Set ${round + 1}/${totalRounds}` : ''}
+                      </p>
+                    </div>
+                    <ChevronDown size={18} className={`shrink-0 text-body transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div className="border-t border-line/40 px-4 pb-5 pt-4">
+                      {group.exercises.map((ex, ei) => {
+                        const isActiveStep = isCurrentGroup && phase === 'active' && step === ei
+                        const exLastLogged = (() => {
+                          for (let i = history.length - 1; i >= 0; i--) {
+                            if (history[i].id === ex.id) return history[i]
+                          }
+                          return null
+                        })()
+                        return (
+                          <div key={ex.id} className={ei > 0 ? 'mt-5 border-t border-line pt-5' : ''}>
+                            {group.type === 'superset' && (
+                              <p className="mb-2 font-heading text-xs uppercase text-accent">
+                                {group.label}{ei + 1} — {ei === 0 ? 'go first, then immediately' : 'go second, then rest'}
+                              </p>
+                            )}
+                            <p className="font-heading text-xl uppercase text-white">{ex.name}</p>
+
+                            {/* Stats */}
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              {[['Sets', ex.sets], ['Reps', ex.reps], ['Weight', ex.weight], ['Rest', ex.rest]].map(([label, val]) => (
+                                <div key={label} className="rounded-lg border border-line bg-card p-2.5">
+                                  <p className="font-heading text-xs uppercase text-body">{label}</p>
+                                  <p className="mt-0.5 font-bold text-white">{val}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Cue */}
+                            {ex.cue && (
+                              <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3">
+                                <p className="text-sm leading-6 text-body">{ex.cue}</p>
+                              </div>
+                            )}
+
+                            {/* Active-step controls */}
+                            {isActiveStep && (
+                              <>
+                                {totalRounds > 1 && (
+                                  <div className="mt-4 flex items-center gap-1.5">
+                                    {Array.from({ length: totalRounds }, (_, i) => (
+                                      <span key={i} className={`h-2 flex-1 rounded-full transition-all ${
+                                        i < doneRoundsForGroup ? 'bg-accent' : i === round ? 'bg-accent/50' : 'bg-line'
+                                      }`} />
+                                    ))}
+                                    <span className="ml-1 shrink-0 text-xs text-body">Set {round + 1}/{totalRounds}</span>
+                                  </div>
+                                )}
+                                <div className="mt-4">
+                                  <label className="block">
+                                    <span className="mb-2 block font-heading text-sm uppercase text-white">Log weight</span>
+                                    <input type="text"
+                                      value={exerciseWeights[ex.id] || ''}
+                                      onChange={(e) => updateWeight(ex.id, e.target.value)}
+                                      placeholder="e.g. 95 lbs, 45 kg, bodyweight"
+                                      className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-white outline-none transition placeholder:text-[#555] focus:border-accent"
+                                    />
+                                  </label>
+                                  {exLastLogged && (
+                                    <p className="mt-1.5 text-sm text-body">Last time: <span className="font-bold text-accent">{exLastLogged.weight}</span></p>
+                                  )}
+                                </div>
+                                <button type="button" onClick={logSet}
+                                  className="mt-4 w-full rounded-lg bg-accent py-4 font-heading text-xl uppercase text-black transition hover:brightness-95">
+                                  {isSuperset && step === 0
+                                    ? `Log Set · Next: ${group.exercises[1].name}`
+                                    : `Log Set ${round + 1} of ${totalRounds}`}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            <div className="h-8" />
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-line bg-card px-4 py-3 sm:px-5">
+            {phase === 'preview' ? (
+              <button type="button" onClick={startWorkout}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent py-4 font-heading text-xl uppercase text-black transition hover:brightness-95">
+                <Play size={20} /> Start Workout
+              </button>
+            ) : workoutDone ? (
+              <button type="button" onClick={() => { completeWorkout(); setModalOpen(false) }}
+                className="w-full rounded-lg bg-accent py-4 font-heading text-xl uppercase text-black transition hover:brightness-95">
+                {workoutIdx >= workouts.length - 1 ? 'Complete Final Session' : 'Complete · Unlock Next Session'}
+              </button>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-body">{doneExCount} of {exercises.length} exercises done</p>
+                <button type="button" onClick={resetSession}
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-[#111] px-4 py-2.5 font-heading text-base uppercase text-white transition hover:border-accent">
+                  <RotateCcw size={16} /> Restart
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Check-in / week-advance ──────────────────────────────────────── */}
       {showCheckin ? (
         <div className="rounded-lg border border-accent/50 bg-[#111] p-5">
           <p className="font-heading text-base uppercase text-accent">Week {week} check-in</p>
@@ -1086,250 +1305,59 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
         </div>
       ) : null}
 
-      {/* Workout header */}
-      <div className="rounded-lg border border-accent/40 bg-accent/10 p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="font-heading text-sm uppercase text-accent">Week {week} of {BLOCK_WEEKS} · {activeWorkout.title}</p>
-            <p className="mt-2 text-sm leading-6 text-body">
-              {phase === 'preview'
-                ? 'Review your session then tap Start.'
-                : `${doneExCount} of ${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} complete.`}
-            </p>
-          </div>
-          <div className="grid gap-2 min-[420px]:grid-cols-3 sm:min-w-64">
-            <FocusCard icon={Dumbbell} label="Moves" value={String(exercises.length)} />
-            <FocusCard icon={ClipboardCheck} label="Done" value={`${doneExCount}/${exercises.length}`} />
-            <FocusCard icon={Timer} label="Week" value={`${week}/${BLOCK_WEEKS}`} />
-          </div>
-        </div>
-      </div>
-
-      <WorkoutPhaseBar phase={phase} />
-
-      {/* PREVIEW */}
-      {phase === 'preview' && (
-        <div className="rounded-lg border border-line bg-[#111] p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-heading text-2xl uppercase text-white">Today's session</p>
-              <p className="mt-1 text-sm leading-6 text-body">All exercises in order. Start when ready.</p>
-            </div>
-            <button type="button" onClick={startWorkout}
-              className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-accent px-5 py-3 font-heading text-xl uppercase text-black transition hover:bg-white">
-              <Play size={20} /> Start Workout
-            </button>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {groups.map((group, gi) => (
-              <div key={gi} className={`rounded-lg border bg-card p-3 ${group.type === 'superset' ? 'border-accent/30' : 'border-line'}`}>
-                {group.type === 'superset' && (
-                  <p className="mb-2 font-heading text-xs uppercase text-accent">Superset {group.label} — do back-to-back with minimal rest</p>
-                )}
-                {group.exercises.map((ex, ei) => (
-                  <div key={ex.id} className={ei > 0 ? 'mt-3 border-t border-line pt-3' : ''}>
-                    <div className="min-w-0">
-                      <div className="flex items-start gap-3">
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-accent font-heading text-sm text-black">
-                          {group.type === 'superset' ? `${group.label}${ei + 1}` : gi + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="break-words font-heading text-xl uppercase leading-none text-white">{ex.name}</p>
-                          {ex.warmupSets?.length > 0 && (
-                            <p className="mt-1 text-xs text-body">Warm-up: {ex.warmupSets.map((s) => `${s.weight} lbs × ${s.reps}`).join(', ')}</p>
-                          )}
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-body">
-                            <span>Sets: {ex.sets}</span><span>Reps: {ex.reps}</span>
-                            <span>Weight: {ex.weight}</span><span>Rest: {ex.rest}</span>
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-body">{ex.cue}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* WARM-UP */}
-      {phase === 'warmup' && currentWarmupSet && (
-        <div className="rounded-lg border border-line bg-[#111] p-4">
-          <div className="flex items-center justify-between gap-3 border-b border-line pb-4">
-            <div>
-              <p className="font-heading text-sm uppercase text-amber-300">Warm-up · {warmupIdx + 1} of {warmupSets.length}</p>
-              <h5 className="font-heading text-3xl uppercase leading-none text-white">{currentGroup.exercises[0].name}</h5>
-              <p className="mt-1 text-sm text-body">Exercise {groupIdx + 1} of {groups.length}</p>
-            </div>
-            <button type="button" onClick={resetSession}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent">
-              <RotateCcw size={18} /> Restart
-            </button>
-          </div>
-          <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/5 p-4">
-            <p className="text-sm text-body">Light and controlled — prime the movement before working sets.</p>
-            <p className="mt-3 font-heading text-3xl uppercase text-white">
-              {currentWarmupSet.weight} lbs <span className="text-xl font-normal text-body">× {currentWarmupSet.reps} reps</span>
-            </p>
-          </div>
-          <button type="button" onClick={doneWarmup}
-            className="mt-4 w-full rounded-lg bg-amber-400/20 px-4 py-3 font-heading text-lg uppercase text-amber-200 transition hover:bg-amber-400/30">
-            {warmupIdx < warmupSets.length - 1 ? 'Next Warm-up Set' : 'Start Working Sets'}
-          </button>
-        </div>
-      )}
-
-      {/* ACTIVE */}
-      {phase === 'active' && currentExercise && (
-        <div ref={activeExerciseRef} className="scroll-mt-4 rounded-lg border border-line bg-[#111] p-4 sm:scroll-mt-6">
-          {/* Header */}
-          <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              {isSuperset && (
-                <p className="font-heading text-xs uppercase text-accent">
-                  Superset {currentGroup.label} · {step === 0 ? 'Do A1, then immediately A2' : 'Now A2'}
-                </p>
-              )}
-              <p className="font-heading text-sm uppercase text-accent">
-                Exercise {groupIdx + 1} of {groups.length} · Set {round + 1} of {totalRounds}
-              </p>
-              <h5 className="font-heading text-3xl uppercase leading-none text-white">{currentExercise.name}</h5>
-            </div>
-            <button type="button" onClick={resetSession}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-card px-4 font-heading text-lg uppercase text-white transition hover:border-accent">
-              <RotateCcw size={18} /> Restart
-            </button>
-          </div>
-
-          {/* Stats */}
-          <div className="mt-4">
-            <div className="grid content-start gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-line bg-card p-3">
-                <Repeat className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Reps</p>
-                <p className="text-lg font-bold text-white">{currentExercise.reps}</p>
-              </div>
-              <div className={`rounded-lg border p-3 ${usesExternalWeight(currentExercise.weight) ? 'border-accent/40 bg-accent/10' : 'border-line bg-card'}`}>
-                <Dumbbell className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Weight</p>
-                <p className="text-lg font-bold text-white">{currentExercise.weight}</p>
-              </div>
-              <div className="rounded-lg border border-line bg-card p-3">
-                <Timer className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Rest after</p>
-                <p className="text-lg font-bold text-white">{currentExercise.rest}</p>
-              </div>
-              <div className="rounded-lg border border-line bg-card p-3">
-                <Gauge className="mb-2 text-accent" size={18} />
-                <p className="font-heading text-sm uppercase text-body">Tempo</p>
-                <p className="text-lg font-bold text-white">{currentExercise.tempo}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Superset hint */}
-          {isSuperset && step === 0 && (
-            <div className="mt-4 rounded-lg border border-accent/20 bg-accent/5 p-3 text-sm text-body">
-              <span className="font-bold text-accent">Superset:</span> log this set, then go straight to{' '}
-              <span className="text-white">{currentGroup.exercises[1].name}</span>. Rest after both.
-            </div>
-          )}
-
-          {/* Exercise guide */}
-          <div className="mt-4 rounded-lg border border-accent/30 bg-accent/10 p-4">
-            <p className="font-heading text-sm uppercase text-body">Exercise guide</p>
-            <p className="mt-1 text-sm leading-6 text-white">{currentExercise.cue}</p>
-          </div>
-
-          {/* Weight log */}
-          <div className="mt-4">
-            <label className="block">
-              <span className="mb-2 block font-heading text-sm uppercase text-white">Log your weight</span>
-              <input type="text"
-                value={exerciseWeights[currentExercise.id] || ''}
-                onChange={(e) => updateWeight(currentExercise.id, e.target.value)}
-                placeholder="e.g. 95 lbs, 45 kg, bodyweight"
-                className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-white outline-none transition placeholder:text-[#555] focus:border-accent" />
-            </label>
-            {lastLogged ? (
-              <p className="mt-2 text-sm text-body">Last time: <span className="font-bold text-accent">{lastLogged.weight}</span></p>
-            ) : null}
-          </div>
-
-          {/* Round progress bar */}
-          {totalRounds > 1 && (
-            <div className="mt-4 flex items-center gap-2">
-              {Array.from({ length: totalRounds }, (_, i) => (
-                <span key={i} className={`h-2.5 flex-1 rounded-full transition-all ${i < doneRoundsForGroup ? 'bg-accent' : i === round ? 'bg-accent/50' : 'bg-line'}`} />
-              ))}
-              <span className="ml-1 shrink-0 text-xs text-body">Set {round + 1}/{totalRounds}</span>
-            </div>
-          )}
-
-          {/* Log Set button */}
-          <button type="button" onClick={logSet}
-            className="mt-4 w-full rounded-lg bg-accent px-4 py-4 font-heading text-xl uppercase text-black transition hover:brightness-95">
-            {isSuperset && step === 0
-              ? `Log Set · move to ${currentGroup.exercises[1].name}`
-              : `Log Set ${round + 1} of ${totalRounds}`}
-          </button>
-        </div>
-      )}
-
-      {/* RESTING */}
-      {phase === 'resting' && (
-        <div ref={activeExerciseRef} className="scroll-mt-4 rounded-lg border border-line bg-[#111] p-4 sm:scroll-mt-6">
-          <p className="font-heading text-sm uppercase text-accent">Rest</p>
-          <p className="mt-1 font-heading text-2xl uppercase text-white">
-            Set {round + 1 <= totalRounds ? round + 1 : totalRounds} of {totalRounds} logged
-          </p>
-          <div className="mt-4">
-            <RestTimer key={restKey} restString={restString} onDone={afterRest} />
-          </div>
-          <button type="button" onClick={afterRest}
-            className="mt-3 w-full rounded-lg border border-line bg-card px-4 py-3 font-heading text-lg uppercase text-white transition hover:border-accent">
-            Skip Rest
-          </button>
-        </div>
-      )}
-
-      {/* Finish / Unlock */}
-      <div className="rounded-lg border border-line bg-[#111] p-4">
-        <p className="font-heading text-2xl uppercase text-white">
-          {workoutDone ? 'Session complete.' : 'Finish session'}
-        </p>
-        <p className="mt-1 text-sm text-body">
-          {workoutDone
-            ? 'Lock it in to unlock your next session.'
-            : `${doneExCount} of ${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} done.`}
-        </p>
-        <button type="button" disabled={!workoutDone} onClick={completeWorkout}
-          className="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-heading text-xl uppercase text-black disabled:cursor-not-allowed disabled:opacity-40">
-          {workoutIdx >= workouts.length - 1 ? 'Complete Final Session' : 'Unlock Next Session'}
-        </button>
-      </div>
-
-      {/* Session list */}
+      {/* ── Session list ─────────────────────────────────────────────────── */}
       <div className="grid gap-3">
-        <p className="font-heading text-xl uppercase text-white">All sessions</p>
+        <div className="flex items-center justify-between">
+          <p className="font-heading text-xl uppercase text-white">Week {week} of {BLOCK_WEEKS}</p>
+          <p className="text-sm text-body">{workouts.length} sessions</p>
+        </div>
         {workouts.map((workout, index) => {
           const isCurrent = index === workoutIdx
           const isDone = completedWorkouts.includes(index)
-          const isLocked = index > workoutIdx
+          const isLocked = !isDone && index > workoutIdx
+          const inProgress = isCurrent && phase !== 'preview'
           return (
             <div key={`${workout.title}-${index}`}
-              className={`rounded-lg border p-3 ${isCurrent ? 'border-accent bg-accent/10' : 'border-line bg-[#111]'}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="break-words font-heading text-lg uppercase leading-none text-white">{workout.title}</p>
-                  <p className="mt-1 text-sm text-body">
-                    {isDone ? 'Completed.' : isCurrent ? 'Current session.' : 'Unlocks after the current session.'}
+              className={`rounded-lg border p-4 transition ${
+                isCurrent && !isDone ? 'border-accent/50 bg-accent/5' : 'border-line bg-[#111]'
+              }`}>
+              <div className="flex items-center gap-3">
+                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-heading text-sm ${
+                  isDone ? 'bg-accent text-black' : isCurrent ? 'border-2 border-accent text-accent' : 'bg-line text-body'
+                }`}>
+                  {isDone ? <CheckCircle2 size={16} /> : isLocked ? <Lock size={15} /> : index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={`break-words font-heading text-xl uppercase leading-none ${isDone ? 'text-body/60' : 'text-white'}`}>
+                    {workout.title}
                   </p>
+                  <p className="mt-0.5 text-sm text-body">
+                    {isDone ? 'Completed' : isCurrent ? (inProgress ? 'In progress' : 'Up next') : 'Locked'}
+                  </p>
+                  {inProgress && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                        <div className="h-full rounded-full bg-accent transition-all"
+                          style={{ width: `${Math.round((doneExCount / Math.max(exercises.length, 1)) * 100)}%` }} />
+                      </div>
+                      <span className="text-xs text-body">{doneExCount}/{exercises.length}</span>
+                    </div>
+                  )}
                 </div>
-                {isLocked && !isDone ? <Lock className="shrink-0 text-body" size={18} /> : null}
-                {isDone ? <CheckCircle2 className="shrink-0 text-accent" size={20} /> : null}
+                {!isLocked && (
+                  <button type="button"
+                    onClick={() => {
+                      if (index !== workoutIdx) { setWorkoutIdx(index); resetSession() }
+                      setModalOpen(true)
+                    }}
+                    className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-heading text-base uppercase transition ${
+                      isCurrent && !isDone
+                        ? 'bg-accent text-black hover:brightness-95'
+                        : 'border border-line bg-card text-white hover:border-accent'
+                    }`}>
+                    {inProgress ? <><Play size={15} /> Continue</> : isDone ? 'Review' : <><Play size={15} /> Start</>}
+                  </button>
+                )}
               </div>
             </div>
           )
