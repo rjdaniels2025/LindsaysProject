@@ -838,7 +838,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [exerciseWeights, setExerciseWeights] = useState(() => log.exerciseWeights || {})
   const [history, setHistory] = useState(() => (Array.isArray(log.history) ? log.history : []))
   const [week, setWeek] = useState(() => clampWeek(log.week))
-  const [checkins, setCheckins] = useState(() => (Array.isArray(log.checkins) ? log.checkins : []))
 
   // ── Session navigation ───────────────────────────────────────────────────
   const [phase, setPhase] = useState('preview') // 'preview' | 'warmup' | 'active' | 'resting'
@@ -856,10 +855,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [expandedGroup, setExpandedGroup] = useState(-1)
 
-  // ── Check-in ─────────────────────────────────────────────────────────────
-  const [showCheckin, setShowCheckin] = useState(false)
-  const [checkinForm, setCheckinForm] = useState({ soreness: '', energy: '', notes: '' })
-
   // ── Sync to parent ────────────────────────────────────────────────────────
   const didMount = useRef(false)
   useEffect(() => {
@@ -868,8 +863,8 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     const completedSets = Object.fromEntries(
       Object.entries(rounds).map(([k, n]) => [k, Array.from({ length: n }, (_, i) => i)])
     )
-    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week, checkins })
-  }, [completedWorkouts, rounds, exerciseWeights, history, week, checkins, onLogChange])
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week })
+  }, [completedWorkouts, rounds, exerciseWeights, history, week, onLogChange])
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const activeWorkout = workouts[workoutIdx] || workouts[0]
@@ -891,7 +886,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const doneExCount = exercises.filter((e) => (rounds[e.id] || 0) >= setCount(e)).length
 
   const weekComplete = allSessionsDone(completedWorkouts, workouts.length)
-  const canAdvanceWeek = weekComplete && week < BLOCK_WEEKS
 
   const lastLogged = useMemo(() => {
     if (!currentExercise) return null
@@ -1027,15 +1021,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     resetSession()
   }
 
-  function submitCheckinAndAdvance() {
-    setCheckins((prev) => [...prev, { week, date: new Date().toISOString(), ...checkinForm }])
-    setCheckinForm({ soreness: '', energy: '', notes: '' })
-    setShowCheckin(false)
-    setWeek((w) => clampWeek(w + 1))
-    setCompletedWorkouts([])
-    setWorkoutIdx(0)
-    resetSession()
-  }
+
 
   function updateWeight(id, value) {
     setExerciseWeights((prev) => ({ ...prev, [id]: value }))
@@ -1259,51 +1245,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
         </div>
       )}
 
-      {/* ── Check-in / week-advance ──────────────────────────────────────── */}
-      {showCheckin ? (
-        <div className="rounded-lg border border-accent/50 bg-[#111] p-5">
-          <p className="font-heading text-base uppercase text-accent">Week {week} check-in</p>
-          <p className="mt-1 text-sm leading-6 text-body">A quick note before week {week + 1}. Lindsay uses this to adjust your next week.</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {[['Soreness', 'soreness', '1 = none · 5 = very sore'], ['Energy', 'energy', '1 = exhausted · 5 = great']].map(([label, key, hint]) => (
-              <div key={key}>
-                <p className="mb-2 font-heading text-sm uppercase text-white">{label}</p>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} type="button"
-                      onClick={() => setCheckinForm((f) => ({ ...f, [key]: String(n) }))}
-                      className={`min-h-11 flex-1 rounded-lg border font-heading text-lg transition ${checkinForm[key] === String(n) ? 'border-accent bg-accent text-black' : 'border-line bg-card text-white hover:border-accent'}`}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1 text-xs text-body">{hint}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4">
-            <p className="mb-2 font-heading text-sm uppercase text-white">Anything too hard or too easy?</p>
-            <textarea value={checkinForm.notes}
-              onChange={(e) => setCheckinForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="e.g. Squats felt heavy, bench felt fine..."
-              rows={2}
-              className="w-full rounded-lg border border-line bg-[#0d0d0d] px-4 py-3 text-sm text-white outline-none placeholder:text-[#555] focus:border-accent" />
-          </div>
-          <button type="button" onClick={submitCheckinAndAdvance}
-            className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95">
-            <Play size={18} /> Start Week {week + 1}
-          </button>
-        </div>
-      ) : canAdvanceWeek ? (
-        <div className="rounded-lg border border-accent/50 bg-accent/10 p-4 sm:p-5">
-          <p className="font-heading text-base uppercase text-accent">Week {week} complete</p>
-          <p className="mt-1 text-sm leading-6 text-body">Every session done. Quick check-in before week {week + 1} so Lindsay can adjust your next week.</p>
-          <button type="button" onClick={() => setShowCheckin(true)}
-            className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-lg bg-accent px-6 font-heading text-lg uppercase text-black transition hover:brightness-95">
-            <ClipboardCheck size={18} /> Weekly Check-in
-          </button>
-        </div>
-      ) : null}
 
       {/* ── Session list ─────────────────────────────────────────────────── */}
       <div className="grid gap-3">
