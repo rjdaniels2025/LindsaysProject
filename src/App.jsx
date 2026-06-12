@@ -121,18 +121,20 @@ function clearUrl() {
   window.history.replaceState(null, '', '/')
 }
 
-// The single source of truth for where an authenticated member belongs, based purely
-// on their data. Returns a stage name, or 'generate' meaning "they have paid and
-// completed the assessment but no program exists yet — build one now".
+// The single source of truth for where an authenticated member belongs after a real
+// auth transition (login, signup, payment, password reset). Returns a stage name, or
+// 'generate' meaning "paid and assessed but no program exists yet — build one now".
 //   - hasProgram                       → chat (their dashboard)
 //   - membership + profile, no program → generate (first plan after payment)
+//   - membership, no profile           → assessment (paid; finish onboarding to get a plan)
 //   - profile, no membership           → pricing (complete payment)
-//   - anything else                    → landing
-// Routing NEVER forces the assessment form — the only way into the assessment is the
-// explicit "Start Your Assessment" action, so a member is never dropped into it.
+//   - neither                          → landing
+// This only runs on genuine transitions — the "Member Login" button and passive page
+// loads do NOT call it, so a member is never bounced into the assessment just by
+// clicking around or revisiting the site.
 function routeForState({ hasProgram, hasMembership, hasProfile }) {
   if (hasProgram) return 'chat'
-  if (hasMembership && hasProfile) return 'generate'
+  if (hasMembership) return hasProfile ? 'generate' : 'assessment'
   if (hasProfile) return 'pricing'
   return 'landing'
 }
