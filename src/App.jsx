@@ -242,16 +242,32 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
         : await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
 
       if (result.error) {
+        const msg = result.error.message
         setError(
-          result.error.message.includes('Email not confirmed')
-            ? 'Check your email and confirm your account before logging in.'
-            : result.error.message,
+          /already registered|already exists|user already/i.test(msg)
+            ? 'An account with this email already exists. Log in instead.'
+            : msg.includes('Email not confirmed')
+              ? 'Check your email and confirm your account before logging in.'
+              : msg,
         )
+        if (/already registered|already exists|user already/i.test(msg)) {
+          setMode('login')
+          setPassword('')
+        }
+        return
+      }
+
+      // Supabase returns a user with no identities (and no session) when the email is
+      // already registered — surface that clearly instead of a dead-end "check email".
+      if (isCreating && Array.isArray(result.data.user?.identities) && result.data.user.identities.length === 0) {
+        setMode('login')
+        setPassword('')
+        setError('An account with this email already exists. Log in instead.')
         return
       }
 
       if (result.data.session) {
-        onAuthenticated?.()
+        onAuthenticated?.({ isSignup: isCreating })
         return
       }
 
@@ -806,11 +822,15 @@ function App() {
     navigate('landing')
   }
 
-  async function onAccountAuthenticated() {
-    // A password login just succeeded — load the member's data and route them to their
-    // dashboard (or the next step their state requires).
+  async function onAccountAuthenticated({ isSignup = false } = {}) {
+    // A login or signup just succeeded with an immediate session.
     const { data } = await supabase.auth.getSession()
-    routeAfterAuth(await loadUserData(data.session))
+    let summary = await loadUserData(data.session)
+    // On signup the assessment lives only in the localStorage draft (nothing in the DB
+    // yet) — restore it so the new member carries their answers into pricing. We never
+    // do this for a plain login, so a stale draft can't leak into an existing account.
+    if (isSignup) summary = restoreSignupDraft(summary)
+    routeAfterAuth(summary)
   }
 
   function onPasswordReset() {
