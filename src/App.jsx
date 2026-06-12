@@ -121,10 +121,18 @@ function clearUrl() {
   window.history.replaceState(null, '', '/')
 }
 
-function resolveUserRoute({ messages, profile, hasMembership }) {
-  if (hasProgramMessage(messages)) return 'chat'
-  if (hasMembership) return profile ? 'chat' : 'assessment'
-  if (profile) return 'pricing'
+// The single source of truth for where an authenticated member belongs, based purely
+// on their data. Returns a stage name, or 'generate' meaning "they have paid and
+// completed the assessment but no program exists yet — build one now".
+//   - hasProgram                      → chat (their dashboard)
+//   - membership + profile, no program→ generate (first plan after payment)
+//   - membership, no profile          → assessment (finish onboarding)
+//   - profile, no membership          → pricing (complete payment)
+//   - neither                         → landing
+function routeForState({ hasProgram, hasMembership, hasProfile }) {
+  if (hasProgram) return 'chat'
+  if (hasMembership) return hasProfile ? 'generate' : 'assessment'
+  if (hasProfile) return 'pricing'
   return 'landing'
 }
 
@@ -398,6 +406,9 @@ function App() {
   // Stable refs — read inside callbacks without causing re-subscriptions
   const isInitializedRef = useRef(false)
   const profileRef = useRef(null)
+  // Tracks whose data is currently loaded, so a duplicate SIGNED_IN (token refresh,
+  // tab refocus) for the same user is ignored instead of re-routing or re-generating.
+  const currentUserIdRef = useRef(null)
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -483,7 +494,11 @@ function App() {
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
-  const loadUserData = useCallback(async (session, { isLogin = false } = {}) => {
+  // Pure loader: fetches the member's saved program + membership, pushes it all into
+  // state, and returns a summary. It performs NO navigation and NO generation — callers
+  // decide what to do via routeAfterAuth. Passing a null session fully resets to a
+  // signed-out state. Returns null when there is no user.
+  const loadUserData = useCallback(async (session) => {
     const nextUser = userFromSession(session)
 
     if (!nextUser) {
@@ -496,9 +511,9 @@ function App() {
       setWorkoutLog({})
       setBlockNumber(1)
       setHasMembership(false)
+      currentUserIdRef.current = null
       setIsAuthReady(true)
-      navigate('landing', { replace: true })
-      return
+      return null
     }
 
     // Fetch data BEFORE updating state — prevents the save effect from firing
@@ -513,17 +528,7 @@ function App() {
     const membershipIsActive = membershipResult.data?.status === 'active'
 
     const saved = programData?.app_state || {}
-
-    // Recover profile saved before navigating to account (survives email-confirmation redirect)
-    let storedDraft = null
-    try {
-      const raw = localStorage.getItem('elevate_draft')
-      if (raw) { storedDraft = JSON.parse(raw); localStorage.removeItem('elevate_draft') }
-    } catch {
-      // A bad draft should not block a member from loading their account.
-    }
-
-    const loadedProfile = saved.profile || saved.profileDraft || storedDraft || null
+    const loadedProfile = saved.profile || saved.profileDraft || null
     const loadedMessages = Array.isArray(saved.messages) ? saved.messages : []
     const resolvedName = programData?.display_name || nextUser.name
 
@@ -537,32 +542,48 @@ function App() {
     setWorkoutLog(saved.workoutLog && typeof saved.workoutLog === 'object' ? saved.workoutLog : {})
     setBlockNumber(typeof saved.blockNumber === 'number' && saved.blockNumber > 0 ? saved.blockNumber : 1)
     setHasMembership(membershipIsActive)
+    currentUserIdRef.current = nextUser.id
     setIsAuthReady(true)
 
-    // Route based on membership + program state
-    if (hasProgramMessage(loadedMessages)) {
-      navigate('chat', { replace: true })
-      return
+    return {
+      userId: nextUser.id,
+      profile: loadedProfile,
+      hasProfile: !!loadedProfile,
+      hasMembership: membershipIsActive,
+      hasProgram: hasProgramMessage(loadedMessages),
     }
+  }, [])
 
-    // Member with profile but no program yet — generate it now (e.g. post-payment auto-login)
-    if (
-      loadedProfile &&
-      membershipIsActive &&
-      !hasProgramMessage(loadedMessages)
-    ) {
-      generateProgramForProfile(loadedProfile)
-      return
-    }
-
-    // Only auto-route on an active login; session restores (page load while already
-    // signed in) just show the landing page so the site never hijacks navigation.
-    if (isLogin) {
-      navigate(resolveUserRoute({ messages: loadedMessages, profile: loadedProfile, hasMembership: membershipIsActive }), { replace: true })
-    } else {
-      navigate('landing', { replace: true })
-    }
+  // The one place that turns a loaded auth summary into a destination. Called only at
+  // genuine transition points (login, signup confirmation, payment return, password
+  // reset) — never on a passive page refresh.
+  const routeAfterAuth = useCallback((summary) => {
+    if (!summary) { navigate('landing', { replace: true }); return }
+    const target = routeForState(summary)
+    if (target === 'generate') { generateProgramForProfile(summary.profile); return }
+    navigate(target, { replace: true })
   }, [navigate, generateProgramForProfile])
+
+  // Restores an in-progress assessment saved to localStorage during signup, so a brand
+  // new member who just confirmed their email keeps their answers even though nothing is
+  // in the database yet. Only ever consumed in the email-confirmation path.
+  const restoreSignupDraft = useCallback((summary) => {
+    let storedDraft = null
+    try {
+      const raw = localStorage.getItem('elevate_draft')
+      if (raw) storedDraft = JSON.parse(raw)
+    } catch {
+      // A bad draft should not block a member from loading their account.
+    }
+    try { localStorage.removeItem('elevate_draft') } catch { /* storage may be unavailable */ }
+
+    if (summary && !summary.profile && storedDraft) {
+      setProfile(storedDraft)
+      profileRef.current = storedDraft
+      return { ...summary, profile: storedDraft, hasProfile: true }
+    }
+    return summary
+  }, [])
 
   // ── Auth setup (runs once) ────────────────────────────────────────────────
 
@@ -587,14 +608,16 @@ function App() {
         return
       }
 
-      // Stripe checkout success return
+      // ── Stripe checkout success return ──
+      // Poll until the webhook has marked the membership active, then load + route
+      // (which generates the first plan for a paid, assessed member).
       if (searchParams.get('checkout') === 'success') {
         clearUrl()
         if (!mounted) return
         const { data: sessionData } = await supabase.auth.getSession()
         if (!sessionData.session) {
-          setIsAuthReady(true)
           isInitializedRef.current = true
+          await loadUserData(null)
           navigate('landing', { replace: true })
           return
         }
@@ -616,17 +639,23 @@ function App() {
         }
         if (!mounted) return
         setIsVerifyingPayment(false)
-        await loadUserData(sessionData.session, { isLogin: true })
+        const summary = await loadUserData(sessionData.session)
         isInitializedRef.current = true
+        routeAfterAuth(summary)
         return
       }
 
-      // Password reset link
+      // ── Password reset link ──
+      // Land on the reset form; routing happens later via the USER_UPDATED event once
+      // the new password is saved.
       if (hashParams.get('type') === 'recovery') {
         clearUrl()
         if (!mounted) return
         const { data } = await supabase.auth.getSession()
-        if (data.session) setUser(userFromSession(data.session))
+        if (data.session) {
+          setUser(userFromSession(data.session))
+          currentUserIdRef.current = data.session.user.id
+        }
         setIsPasswordReset(true)
         setIsAuthReady(true)
         navigate('account', { replace: true })
@@ -634,7 +663,9 @@ function App() {
         return
       }
 
-      // Email confirmation code exchange
+      // ── Email confirmation (signup) ──
+      // Restore the assessment draft they filled in before confirming, then route
+      // (a freshly confirmed, unpaid member lands on pricing).
       const code = searchParams.get('code') || hashParams.get('code') || ''
       if (code) {
         const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
@@ -646,39 +677,62 @@ function App() {
           isInitializedRef.current = true
           return
         }
-        await loadUserData(data.session, { isLogin: true })
+        const summary = restoreSignupDraft(await loadUserData(data.session))
         isInitializedRef.current = true
+        routeAfterAuth(summary)
         return
       }
 
-      // Implicit token (magic link, OAuth)
+      // ── Implicit token (magic link, OAuth) ──
       const hasImplicitToken =
         hashParams.get('access_token') || hashParams.get('refresh_token') || searchParams.get('token_hash')
       if (hasImplicitToken) clearUrl()
 
-      // Standard session restore
+      // ── Passive session restore ──
+      // A normal page load. Load the member's data but NEVER auto-navigate — always
+      // show the landing page so visiting the site can't hijack where they are.
       const { data } = await supabase.auth.getSession()
       if (!mounted) return
       await loadUserData(data.session)
       isInitializedRef.current = true
+      navigate('landing', { replace: true })
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
+      // Recovery can arrive as an event instead of a URL fragment.
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordReset(true)
         setUser(userFromSession(session))
+        if (session?.user?.id) currentUserIdRef.current = session.user.id
         navigate('account')
         setIsAuthReady(true)
         return
       }
 
+      // Ignore events fired while init() is still resolving the initial session.
       if (!isInitializedRef.current) return
 
-      if (event === 'SIGNED_OUT') { loadUserData(null); return }
-      if (event === 'SIGNED_IN') { loadUserData(session, { isLogin: true }); return }
-      if (event === 'USER_UPDATED') { loadUserData(session, { isLogin: true }); return }
+      if (event === 'SIGNED_OUT') {
+        await loadUserData(null)
+        navigate('landing', { replace: true })
+        return
+      }
+
+      // A real sign-in. Skip duplicates for the already-loaded user (token refresh /
+      // tab refocus fire SIGNED_IN too) so we don't re-route or regenerate.
+      if (event === 'SIGNED_IN') {
+        if (session?.user?.id && session.user.id === currentUserIdRef.current) return
+        routeAfterAuth(await loadUserData(session))
+        return
+      }
+
+      // Fired after a successful password change — reload and route to their dashboard.
+      if (event === 'USER_UPDATED') {
+        routeAfterAuth(await loadUserData(session))
+        return
+      }
     })
 
     init()
@@ -687,21 +741,19 @@ function App() {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [loadUserData, navigate])
+  }, [loadUserData, navigate, routeAfterAuth, restoreSignupDraft])
 
   // ── Browser navigation (back/forward) ────────────────────────────────────
 
   useEffect(() => {
     function onNavigation() {
-      const next = stageFromHash()
-      if (!next) return
+      const next = stageFromHash() || 'landing'
 
-      // Don't let stale history entries route authenticated users back into the
-      // auth/onboarding flow — replace with the correct stage for their current state.
-      if (isAuthReady && user && (next === 'account' || next === 'assessment')) {
-        const correct = resolveUserRoute({ messages, profile, hasMembership })
-        replaceStage(correct)
-        setStage(correct)
+      // The dashboard only makes sense with a program loaded (or one being built).
+      // Bounce stale #chat history entries to landing instead of showing an empty shell.
+      if (next === 'chat' && !hasProgramMessage(messages) && !isLoading) {
+        replaceStage('landing')
+        setStage('landing')
         return
       }
 
@@ -713,7 +765,7 @@ function App() {
       window.removeEventListener('hashchange', onNavigation)
       window.removeEventListener('popstate', onNavigation)
     }
-  }, [isAuthReady, user, messages, profile, hasMembership])
+  }, [messages, isLoading])
 
   // ── Persist user data (debounced) ─────────────────────────────────────────
 
@@ -752,9 +804,13 @@ function App() {
       navigate('account')
       return
     }
-    if (hasMembership || hasProgramMessage(messages)) { navigate('chat'); return }
-    if (profile) { navigate('pricing'); return }
-    navigate('landing')
+    // Already signed in — send them to wherever their current state belongs.
+    routeAfterAuth({
+      profile,
+      hasProfile: !!profile,
+      hasMembership,
+      hasProgram: hasProgramMessage(messages),
+    })
   }
 
   function openPricing() {
@@ -772,7 +828,7 @@ function App() {
   }
 
   function onAccountAuthenticated() {
-    // SIGNED_IN event fires and loadUserData handles routing — nothing to do here
+    // Nothing to do: the SIGNED_IN auth event triggers loadUserData + routeAfterAuth.
   }
 
   function onPasswordReset() {
@@ -785,7 +841,21 @@ function App() {
     setProfile(completedProfile)
     profileRef.current = completedProfile
     setProfileDraft(completedProfile)
-    // Save to localStorage so it survives email-confirmation redirect
+
+    // Already signed in (e.g. a paid member who hadn't finished onboarding): no account
+    // step needed — generate their plan if they've paid, otherwise send them to pricing.
+    if (user) {
+      routeAfterAuth({
+        profile: completedProfile,
+        hasProfile: true,
+        hasMembership,
+        hasProgram: hasProgramMessage(messages),
+      })
+      return
+    }
+
+    // New visitor: persist the assessment so it survives the email-confirmation redirect,
+    // then move on to account creation.
     try { localStorage.setItem('elevate_draft', JSON.stringify(completedProfile)) } catch {
       // Account creation still works if local storage is unavailable.
     }
@@ -850,7 +920,7 @@ function App() {
         if (fnError) { setError(await functionErrorMessage(fnError, 'Unable to redeem coupon.')); return }
         if (!fnData?.success) { setError('Unable to redeem coupon. Please try again.'); return }
         const { data: sessionData } = await supabase.auth.getSession()
-        await loadUserData(sessionData.session, { isLogin: true })
+        routeAfterAuth(await loadUserData(sessionData.session))
         return
       }
 
