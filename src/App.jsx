@@ -425,6 +425,10 @@ function App() {
   // Stable refs — read inside callbacks without causing re-subscriptions
   const isInitializedRef = useRef(false)
   const profileRef = useRef(null)
+  // Guards the debounced save: it must never run until a real loadUserData has populated
+  // state, otherwise an auth flow that sets `user` without loading (e.g. password reset)
+  // would persist empty profile/messages over the member's saved program.
+  const dataLoadedRef = useRef(false)
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -527,6 +531,7 @@ function App() {
       setWorkoutLog({})
       setBlockNumber(1)
       setHasMembership(false)
+      dataLoadedRef.current = false
       setIsAuthReady(true)
       return null
     }
@@ -557,6 +562,7 @@ function App() {
     setWorkoutLog(saved.workoutLog && typeof saved.workoutLog === 'object' ? saved.workoutLog : {})
     setBlockNumber(typeof saved.blockNumber === 'number' && saved.blockNumber > 0 ? saved.blockNumber : 1)
     setHasMembership(membershipIsActive)
+    dataLoadedRef.current = true
     setIsAuthReady(true)
 
     return {
@@ -660,15 +666,16 @@ function App() {
       }
 
       // ── Password reset link ──
-      // Land on the reset form; routing happens later via the USER_UPDATED event once
-      // the new password is saved.
+      // Load the member's real data (so the save effect can't clobber their program with
+      // empty state) and land on the reset form. Routing happens later via the
+      // USER_UPDATED event once the new password is saved.
       if (hashParams.get('type') === 'recovery') {
         clearUrl()
         if (!mounted) return
         const { data } = await supabase.auth.getSession()
-        if (data.session) setUser(userFromSession(data.session))
+        await loadUserData(data.session)
+        if (!mounted) return
         setIsPasswordReset(true)
-        setIsAuthReady(true)
         navigate('account', { replace: true })
         isInitializedRef.current = true
         return
@@ -712,12 +719,13 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
-      // Recovery can arrive as an event instead of a URL fragment.
+      // Recovery can arrive as an event instead of a URL fragment. Load real data first
+      // so the save effect can't overwrite the member's program with empty state.
       if (event === 'PASSWORD_RECOVERY') {
+        await loadUserData(session)
+        if (!mounted) return
         setIsPasswordReset(true)
-        setUser(userFromSession(session))
         navigate('account')
-        setIsAuthReady(true)
         return
       }
 
@@ -776,7 +784,9 @@ function App() {
   // ── Persist user data (debounced) ─────────────────────────────────────────
 
   useEffect(() => {
-    if (!user || !isAuthReady) return
+    // Never persist until a real load has populated state — prevents wiping a member's
+    // saved program when an auth flow sets `user` before loadUserData runs.
+    if (!user || !isAuthReady || !dataLoadedRef.current) return
 
     const timer = setTimeout(async () => {
       const { error: saveError } = await supabase.from('user_programs').upsert(
