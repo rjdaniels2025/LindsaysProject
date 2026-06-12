@@ -121,10 +121,8 @@ function clearUrl() {
   window.history.replaceState(null, '', '/')
 }
 
-function resolveUserRoute({ messages, profile, hasMembership, isLogin }) {
+function resolveUserRoute({ messages }) {
   if (hasProgramMessage(messages)) return 'chat'
-  if (hasMembership) return profile ? 'chat' : 'assessment'
-  if (profile) return 'pricing'
   return 'landing'
 }
 
@@ -555,12 +553,7 @@ function App() {
       return
     }
 
-    navigate(resolveUserRoute({
-      messages: loadedMessages,
-      profile: loadedProfile,
-      hasMembership: membershipIsActive,
-      isLogin,
-    }), { replace: true })
+    navigate(resolveUserRoute({ messages: loadedMessages }), { replace: true })
   }, [navigate, generateProgramForProfile])
 
   // ── Auth setup (runs once) ────────────────────────────────────────────────
@@ -698,9 +691,7 @@ function App() {
       // Don't let stale history entries route authenticated users back into the
       // auth/onboarding flow — replace with the correct stage for their current state.
       if (isAuthReady && user && (next === 'account' || next === 'assessment')) {
-        const correct = hasProgramMessage(messages)
-          ? 'chat'
-          : resolveUserRoute({ messages, profile, hasMembership, isLogin: false })
+        const correct = resolveUserRoute({ messages })
         replaceStage(correct)
         setStage(correct)
         return
