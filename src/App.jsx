@@ -121,8 +121,10 @@ function clearUrl() {
   window.history.replaceState(null, '', '/')
 }
 
-function resolveUserRoute({ messages }) {
+function resolveUserRoute({ messages, profile, hasMembership }) {
   if (hasProgramMessage(messages)) return 'chat'
+  if (hasMembership) return profile ? 'chat' : 'assessment'
+  if (profile) return 'pricing'
   return 'landing'
 }
 
@@ -553,7 +555,13 @@ function App() {
       return
     }
 
-    navigate(resolveUserRoute({ messages: loadedMessages }), { replace: true })
+    // Only auto-route on an active login; session restores (page load while already
+    // signed in) just show the landing page so the site never hijacks navigation.
+    if (isLogin) {
+      navigate(resolveUserRoute({ messages: loadedMessages, profile: loadedProfile, hasMembership: membershipIsActive }), { replace: true })
+    } else {
+      navigate('landing', { replace: true })
+    }
   }, [navigate, generateProgramForProfile])
 
   // ── Auth setup (runs once) ────────────────────────────────────────────────
@@ -691,7 +699,7 @@ function App() {
       // Don't let stale history entries route authenticated users back into the
       // auth/onboarding flow — replace with the correct stage for their current state.
       if (isAuthReady && user && (next === 'account' || next === 'assessment')) {
-        const correct = resolveUserRoute({ messages })
+        const correct = resolveUserRoute({ messages, profile, hasMembership })
         replaceStage(correct)
         setStage(correct)
         return
