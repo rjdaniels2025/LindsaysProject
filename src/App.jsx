@@ -676,7 +676,8 @@ function App() {
       if (!isInitializedRef.current) return
 
       if (event === 'SIGNED_OUT') { loadUserData(null); return }
-      if (event === 'SIGNED_IN') { loadUserData(session, { isLogin: true }) }
+      if (event === 'SIGNED_IN') { loadUserData(session, { isLogin: true }); return }
+      if (event === 'USER_UPDATED') { loadUserData(session, { isLogin: true }); return }
     })
 
     init()
@@ -692,7 +693,20 @@ function App() {
   useEffect(() => {
     function onNavigation() {
       const next = stageFromHash()
-      if (next) setStage(next)
+      if (!next) return
+
+      // Don't let stale history entries route authenticated users back into the
+      // auth/onboarding flow — replace with the correct stage for their current state.
+      if (isAuthReady && user && (next === 'account' || next === 'assessment')) {
+        const correct = hasProgramMessage(messages)
+          ? 'chat'
+          : resolveUserRoute({ messages, profile, hasMembership, isLogin: false })
+        replaceStage(correct)
+        setStage(correct)
+        return
+      }
+
+      setStage(next)
     }
     window.addEventListener('hashchange', onNavigation)
     window.addEventListener('popstate', onNavigation)
@@ -700,7 +714,7 @@ function App() {
       window.removeEventListener('hashchange', onNavigation)
       window.removeEventListener('popstate', onNavigation)
     }
-  }, [])
+  }, [isAuthReady, user, messages, profile, hasMembership])
 
   // ── Persist user data (debounced) ─────────────────────────────────────────
 
@@ -764,9 +778,7 @@ function App() {
 
   function onPasswordReset() {
     setIsPasswordReset(false)
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) loadUserData(data.session, { isLogin: true })
-    })
+    // Routing is handled by the USER_UPDATED auth event fired after updateUser
   }
 
   function completeAssessment(completedProfile) {

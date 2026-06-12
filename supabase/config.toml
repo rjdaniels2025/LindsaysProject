@@ -201,6 +201,10 @@ sender_name = "Lindsay"
 subject = "Confirm your Elevate Health & Fitness account"
 content_path = "./supabase/templates/confirmation.html"
 
+[auth.email.template.recovery]
+subject = "Reset your Elevate Health & Fitness password"
+content_path = "./supabase/templates/recovery.html"
+
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
