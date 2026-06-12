@@ -124,14 +124,15 @@ function clearUrl() {
 // The single source of truth for where an authenticated member belongs, based purely
 // on their data. Returns a stage name, or 'generate' meaning "they have paid and
 // completed the assessment but no program exists yet — build one now".
-//   - hasProgram                      → chat (their dashboard)
-//   - membership + profile, no program→ generate (first plan after payment)
-//   - membership, no profile          → assessment (finish onboarding)
-//   - profile, no membership          → pricing (complete payment)
-//   - neither                         → landing
+//   - hasProgram                       → chat (their dashboard)
+//   - membership + profile, no program → generate (first plan after payment)
+//   - profile, no membership           → pricing (complete payment)
+//   - anything else                    → landing
+// Routing NEVER forces the assessment form — the only way into the assessment is the
+// explicit "Start Your Assessment" action, so a member is never dropped into it.
 function routeForState({ hasProgram, hasMembership, hasProfile }) {
   if (hasProgram) return 'chat'
-  if (hasMembership) return hasProfile ? 'generate' : 'assessment'
+  if (hasMembership && hasProfile) return 'generate'
   if (hasProfile) return 'pricing'
   return 'landing'
 }
