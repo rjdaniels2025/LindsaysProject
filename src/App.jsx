@@ -800,18 +800,9 @@ function App() {
 
   function openLogin() {
     setError('')
-    if (!user) {
-      setAccountMode('login')
-      navigate('account')
-      return
-    }
-    // Already signed in — send them to wherever their current state belongs.
-    routeAfterAuth({
-      profile,
-      hasProfile: !!profile,
-      hasMembership,
-      hasProgram: hasProgramMessage(messages),
-    })
+    // "Member Login" does exactly one thing: open the login screen.
+    setAccountMode('login')
+    navigate('account')
   }
 
   function openPricing() {
