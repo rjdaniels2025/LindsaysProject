@@ -407,9 +407,6 @@ function App() {
   // Stable refs — read inside callbacks without causing re-subscriptions
   const isInitializedRef = useRef(false)
   const profileRef = useRef(null)
-  // Tracks whose data is currently loaded, so a duplicate SIGNED_IN (token refresh,
-  // tab refocus) for the same user is ignored instead of re-routing or re-generating.
-  const currentUserIdRef = useRef(null)
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -512,7 +509,6 @@ function App() {
       setWorkoutLog({})
       setBlockNumber(1)
       setHasMembership(false)
-      currentUserIdRef.current = null
       setIsAuthReady(true)
       return null
     }
@@ -543,7 +539,6 @@ function App() {
     setWorkoutLog(saved.workoutLog && typeof saved.workoutLog === 'object' ? saved.workoutLog : {})
     setBlockNumber(typeof saved.blockNumber === 'number' && saved.blockNumber > 0 ? saved.blockNumber : 1)
     setHasMembership(membershipIsActive)
-    currentUserIdRef.current = nextUser.id
     setIsAuthReady(true)
 
     return {
@@ -653,10 +648,7 @@ function App() {
         clearUrl()
         if (!mounted) return
         const { data } = await supabase.auth.getSession()
-        if (data.session) {
-          setUser(userFromSession(data.session))
-          currentUserIdRef.current = data.session.user.id
-        }
+        if (data.session) setUser(userFromSession(data.session))
         setIsPasswordReset(true)
         setIsAuthReady(true)
         navigate('account', { replace: true })
@@ -706,7 +698,6 @@ function App() {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordReset(true)
         setUser(userFromSession(session))
-        if (session?.user?.id) currentUserIdRef.current = session.user.id
         navigate('account')
         setIsAuthReady(true)
         return
@@ -721,19 +712,15 @@ function App() {
         return
       }
 
-      // A real sign-in. Skip duplicates for the already-loaded user (token refresh /
-      // tab refocus fire SIGNED_IN too) so we don't re-route or regenerate.
-      if (event === 'SIGNED_IN') {
-        if (session?.user?.id && session.user.id === currentUserIdRef.current) return
-        routeAfterAuth(await loadUserData(session))
-        return
-      }
-
       // Fired after a successful password change — reload and route to their dashboard.
       if (event === 'USER_UPDATED') {
         routeAfterAuth(await loadUserData(session))
         return
       }
+
+      // SIGNED_IN is intentionally not handled here. Explicit form logins route via
+      // onAccountAuthenticated; signup confirmation, checkout and recovery route inside
+      // init(). Ignoring the event avoids re-routing on the SDK's tab-refocus re-emits.
     })
 
     init()
@@ -819,8 +806,11 @@ function App() {
     navigate('landing')
   }
 
-  function onAccountAuthenticated() {
-    // Nothing to do: the SIGNED_IN auth event triggers loadUserData + routeAfterAuth.
+  async function onAccountAuthenticated() {
+    // A password login just succeeded — load the member's data and route them to their
+    // dashboard (or the next step their state requires).
+    const { data } = await supabase.auth.getSession()
+    routeAfterAuth(await loadUserData(data.session))
   }
 
   function onPasswordReset() {
