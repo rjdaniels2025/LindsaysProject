@@ -301,6 +301,81 @@ async function callProgramService(messages: ProgramMessage[]) {
   return { text: sanitizeCopy(text) }
 }
 
+// Kicks off a long-running generation as an OpenAI background job and returns the job id
+// immediately, so the edge function never holds the request open long enough to time out.
+async function startProgramGeneration(messages: ProgramMessage[]) {
+  const key = apiKey()
+  if (!key) {
+    return { error: 'Missing OpenAI API key. Add OPENAI_API_KEY to Supabase function secrets.' }
+  }
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${key}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      instructions: SYSTEM_PROMPT,
+      input: toProgramMessages(messages),
+      max_output_tokens: MAX_OUTPUT_TOKENS,
+      background: true,
+      store: true,
+    }),
+  })
+
+  const payload = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      payload?.error?.message || payload?.message || `Program request failed with status ${response.status}.`
+    return { error: message, status: response.status }
+  }
+
+  if (!payload?.id) return { error: 'Program service did not return a job id.' }
+  return { id: String(payload.id), status: String(payload.status || 'queued') }
+}
+
+// Checks a background job. Returns the finished text when complete, a job-level error when
+// the job failed, or just the status while it is still running. The GET is fast so polling
+// this never risks a timeout.
+async function pollProgramGeneration(id: string) {
+  const key = apiKey()
+  if (!key) {
+    return { httpError: 'Missing OpenAI API key. Add OPENAI_API_KEY to Supabase function secrets.', httpStatus: 500 }
+  }
+
+  const response = await fetch(`${API_URL}/${id}`, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${key}` },
+  })
+
+  const payload = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      payload?.error?.message || payload?.message || `Program poll failed with status ${response.status}.`
+    return { httpError: message, httpStatus: response.status }
+  }
+
+  const status = String(payload?.status || 'in_progress')
+
+  if (status === 'completed') {
+    const text = extractText(payload)
+    if (!text) return { status, error: 'Program generation returned empty output.' }
+    return { status, text: sanitizeCopy(text) }
+  }
+
+  if (status === 'failed' || status === 'incomplete' || status === 'cancelled') {
+    const message =
+      payload?.error?.message || payload?.incomplete_details?.reason || `Program generation ${status}.`
+    return { status, error: message }
+  }
+
+  return { status }
+}
+
 function mediaMessages(history: ProgramMessage[], mediaPayload: Record<string, any>) {
   const mediaBlocks =
     mediaPayload.type === 'video'
@@ -351,7 +426,21 @@ Deno.serve(async (request: Request) => {
     const action = body?.action
     let result: { text?: string; error?: string; status?: number }
 
-    if (action === 'generateProgram') {
+    if (action === 'startProgram') {
+      if (!body.profile) return jsonResponse({ error: 'Missing profile.' }, 400)
+      const started = await startProgramGeneration([
+        { role: 'user', content: programPrompt(body.profile, body.options || {}) },
+      ])
+      if (started.error) return jsonResponse({ error: started.error }, started.status || 500)
+      return jsonResponse({ id: started.id, status: started.status })
+    } else if (action === 'pollProgram') {
+      if (!body.id) return jsonResponse({ error: 'Missing job id.' }, 400)
+      const polled = await pollProgramGeneration(String(body.id))
+      if (polled.httpError) return jsonResponse({ error: polled.httpError }, polled.httpStatus || 500)
+      // 200 with { status, text? , error? } so the client can read job status (including failure)
+      return jsonResponse(polled)
+    } else if (action === 'generateProgram') {
+      // Legacy synchronous path, kept for compatibility. New clients use startProgram/pollProgram.
       if (!body.profile) return jsonResponse({ error: 'Missing profile.' }, 400)
       result = await callProgramService([
         { role: 'user', content: programPrompt(body.profile, body.options || {}) },
