@@ -4,7 +4,7 @@ const SYSTEM_PROMPT =
   'You are an elite sports scientist and certified strength and conditioning specialist with deep expertise in exercise physiology, biomechanics, and evidence based training. Give precise recommendations, but explain them in simple everyday language that an average person can follow. Use short sections, clear steps, and friendly wording. Do not use em dashes, asterisks, square brackets, markdown symbols, bullet symbols, or decorative symbols. Only use commas, periods, colons, quotation marks, regular parentheses, and exclamation marks.'
 
 const API_URL = Deno.env.get('PROGRAM_API_URL') || 'https://api.openai.com/v1/responses'
-const MODEL = Deno.env.get('PROGRAM_MODEL') || Deno.env.get('VITE_PROGRAM_MODEL') || 'gpt-5.5'
+const MODEL = Deno.env.get('PROGRAM_MODEL') || Deno.env.get('VITE_PROGRAM_MODEL') || 'gpt-4o'
 const MAX_OUTPUT_TOKENS = Number(Deno.env.get('PROGRAM_MAX_OUTPUT_TOKENS') || 16000)
 
 type ProgramMessage = {
