@@ -276,6 +276,32 @@ function parseRestSeconds(restString) {
   return Math.min(300, Math.round(value <= 5 ? value * 60 : value))
 }
 
+// Extract a meal's macro breakdown from its details string. Looks for a "Macros:" marker
+// (what the plan prompt asks for) and parses calories + grams of protein, carbs, and fat.
+// Returns the parsed values plus the details with the macro segment removed, or null.
+function extractMacros(text) {
+  if (!text) return null
+  const idx = text.search(/macros\s*:/i)
+  if (idx === -1) return null
+
+  const segment = text.slice(idx)
+  const rest = text.slice(0, idx).replace(/[,\s]+$/, '')
+  const grab = (re) => {
+    const m = segment.match(re)
+    return m ? Number(m[1]) : null
+  }
+  const values = {
+    calories: grab(/(\d+)\s*(?:k?cal|calories)/i),
+    protein: grab(/(\d+)\s*g\s*(?:protein|pro)\b/i),
+    carbs: grab(/(\d+)\s*g\s*(?:carbs?|carbohydrates?)/i),
+    fat: grab(/(\d+)\s*g\s*fat\b/i),
+  }
+  if (values.calories == null && values.protein == null && values.carbs == null && values.fat == null) {
+    return null
+  }
+  return { values, rest }
+}
+
 function parseMealPlan(content) {
   const mealLines = sectionLines(content, 'Meal Plan', ['Four Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const source = mealLines.length
@@ -334,6 +360,16 @@ function parseMealPlan(content) {
       parsed.push(item)
     } else if (parsed.length) {
       appendDetail(parsed[parsed.length - 1], line)
+    }
+  }
+
+  // Pull the trailing "Macros: NNN calories, NNg protein, NNg carbs, NNg fat" off each
+  // meal option so it renders as clean chips instead of as ingredient bullets.
+  for (const item of parsed) {
+    const macros = extractMacros(item.details)
+    if (macros) {
+      item.macros = macros.values
+      item.details = macros.rest
     }
   }
 
@@ -630,6 +666,31 @@ function ScienceBreakdown({ content }) {
 
 
 
+function MacroChips({ macros }) {
+  if (!macros) return null
+  const chips = [
+    macros.calories != null && { label: 'Cal', value: macros.calories },
+    macros.protein != null && { label: 'Protein', value: `${macros.protein}g` },
+    macros.carbs != null && { label: 'Carbs', value: `${macros.carbs}g` },
+    macros.fat != null && { label: 'Fat', value: `${macros.fat}g` },
+  ].filter(Boolean)
+  if (!chips.length) return null
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {chips.map((chip) => (
+        <span
+          key={chip.label}
+          className="inline-flex items-baseline gap-1 rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-xs leading-none text-white"
+        >
+          <span className="font-heading uppercase text-[10px] text-accent">{chip.label}</span>
+          <span className="font-bold">{chip.value}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = false }) {
   if (!items.length) return null
 
@@ -659,6 +720,7 @@ function MealSection({ items, checkedItems, onToggleItem, offset = 0, compact = 
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-heading text-lg uppercase leading-none text-white">{item.title}</span>
+                  <MacroChips macros={item.macros} />
                   {ingredients.length > 0 && (
                     <ul className="mt-2 grid gap-1">
                       {ingredients.map((ingredient, i) => (
