@@ -1,5 +1,5 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, Instagram, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
 
@@ -185,16 +185,16 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
         <p className="mb-2 text-xs text-body/50">Powered by AI based on Coach Lindsay&apos;s personal transformation methods</p>
         {appSettings && (
           <div className="mb-3 flex items-center justify-center gap-4">
-            
+            <a
               href={appSettings.instagram_url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs text-body/50 transition hover:text-body/80"
             >
-              <Instagram size={14} />
+              <Link2 size={14} />
               Instagram
             </a>
-            
+            <a
               href={`mailto:${appSettings.contact_email}`}
               className="inline-flex items-center gap-1.5 text-xs text-body/50 transition hover:text-body/80"
             >
