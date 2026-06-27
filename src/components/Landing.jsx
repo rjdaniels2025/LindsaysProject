@@ -1,6 +1,7 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, LogIn, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, Instagram, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
+import { useAppSettings } from '../hooks/useAppSettings.js'
 
 const foundingOfferPerks = [
   'Personalized Accountability',
@@ -29,6 +30,8 @@ const coachingPrinciples = [
 ]
 
 export default function Landing({ user, hasProgram, onStart, onPricing, onDashboard, onLogin, onSignOut, onAdmin }) {
+  const appSettings = useAppSettings()
+
   return (
     <main className="min-h-screen bg-bg text-body">
       <CinematicLandingHero
@@ -180,6 +183,26 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
 
       <footer className="border-t border-line bg-[#0b0b0b] px-4 py-4 text-center">
         <p className="mb-2 text-xs text-body/50">Powered by AI based on Coach Lindsay&apos;s personal transformation methods</p>
+        {appSettings && (
+          <div className="mb-3 flex items-center justify-center gap-4">
+            
+              href={appSettings.instagram_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-body/50 transition hover:text-body/80"
+            >
+              <Instagram size={14} />
+              Instagram
+            </a>
+            
+              href={`mailto:${appSettings.contact_email}`}
+              className="inline-flex items-center gap-1.5 text-xs text-body/50 transition hover:text-body/80"
+            >
+              <Mail size={14} />
+              {appSettings.contact_email}
+            </a>
+          </div>
+        )}
         <button
           type="button"
           onClick={onAdmin}
