@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js'
 import {
   Users, TrendingUp, UserCheck, CalendarDays,
   RefreshCw, ArrowLeft, Clock, CheckCircle2,
-  XCircle, AlertCircle, ChevronDown, ChevronUp, FileText,
+  XCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Search, X,
 } from 'lucide-react'
 import AdminClientDetail from './AdminClientDetail.jsx'
 
@@ -205,6 +205,7 @@ export default function AdminDashboard({ onBack }) {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   async function loadData(isRefresh = false) {
     isRefresh ? setRefreshing(true) : setLoading(true)
@@ -232,6 +233,15 @@ export default function AdminDashboard({ onBack }) {
     const now = new Date()
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
+
+  const query = searchQuery.trim().toLowerCase()
+  const filteredClients = query
+    ? clients.filter((c) => {
+        const name = (c.display_name || c.app_state?.profile?.name || '').toLowerCase()
+        const plan = (c.plan_id || '').toLowerCase()
+        return name.includes(query) || plan.includes(query)
+      })
+    : clients
 
   if (selectedClient) {
     return <AdminClientDetail client={selectedClient} onBack={() => setSelectedClient(null)} />
@@ -281,10 +291,32 @@ export default function AdminDashboard({ onBack }) {
           <StatCard icon={TrendingUp} label="Programs Running" value={withProgram} />
         </div>
 
-        <h2 className="mb-4 font-heading text-2xl uppercase text-white">
-          All Clients
-          <span className="ml-2 font-heading text-lg text-body">({totalClients})</span>
-        </h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-heading text-2xl uppercase text-white">
+            All Clients
+            <span className="ml-2 font-heading text-lg text-body">({filteredClients.length})</span>
+          </h2>
+          <div className="relative w-full sm:w-72">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search clients by name or plan..."
+              className="w-full rounded-lg border border-line bg-card py-2 pl-9 pr-9 text-sm text-white placeholder:text-body/50 outline-none transition focus:border-accent"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-body transition hover:text-white"
+                title="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        </div>
 
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -296,9 +328,13 @@ export default function AdminDashboard({ onBack }) {
           <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
             No clients yet.
           </div>
+        ) : filteredClients.length === 0 ? (
+          <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
+            No clients match &quot;{searchQuery}&quot;.
+          </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {clients.map((client) => (
+            {filteredClients.map((client) => (
               <ClientCard key={client.user_id} client={client} onView={setSelectedClient} />
             ))}
           </div>
