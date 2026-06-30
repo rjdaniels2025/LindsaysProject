@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase.js'
 import {
   Users, TrendingUp, UserCheck, CalendarDays,
   RefreshCw, ArrowLeft, Clock, CheckCircle2,
-  XCircle, AlertCircle, ChevronDown, ChevronUp,
+  XCircle, AlertCircle, ChevronDown, ChevronUp, FileText,
 } from 'lucide-react'
+import AdminClientDetail from './AdminClientDetail.jsx'
 
 function isActive(status) {
   return status === 'active' || status === 'trialing'
@@ -77,7 +78,7 @@ function ProgressBar({ pct }) {
   )
 }
 
-function ClientCard({ client }) {
+function ClientCard({ client, onView }) {
   const [expanded, setExpanded] = useState(false)
   const progress = monthProgress(
     client.app_state?.programCreatedAt,
@@ -126,13 +127,22 @@ function ClientCard({ client }) {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-4 inline-flex items-center gap-1 text-xs text-body transition hover:text-accent"
-        >
-          {expanded ? <><ChevronUp size={13} /> Less detail</> : <><ChevronDown size={13} /> More detail</>}
-        </button>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs text-body transition hover:text-accent"
+          >
+            {expanded ? <><ChevronUp size={13} /> Less detail</> : <><ChevronDown size={13} /> More detail</>}
+          </button>
+          <button
+            type="button"
+            onClick={() => onView(client)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium uppercase text-accent transition hover:bg-accent/20"
+          >
+            <FileText size={13} /> View Plan &amp; Progress
+          </button>
+        </div>
       </div>
 
       {expanded && (
@@ -194,6 +204,7 @@ export default function AdminDashboard({ onBack }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [selectedClient, setSelectedClient] = useState(null)
 
   async function loadData(isRefresh = false) {
     isRefresh ? setRefreshing(true) : setLoading(true)
@@ -221,6 +232,10 @@ export default function AdminDashboard({ onBack }) {
     const now = new Date()
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
+
+  if (selectedClient) {
+    return <AdminClientDetail client={selectedClient} onBack={() => setSelectedClient(null)} />
+  }
 
   return (
     <main className="min-h-screen bg-bg text-body">
@@ -284,7 +299,7 @@ export default function AdminDashboard({ onBack }) {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {clients.map((client) => (
-              <ClientCard key={client.user_id} client={client} />
+              <ClientCard key={client.user_id} client={client} onView={setSelectedClient} />
             ))}
           </div>
         )}
