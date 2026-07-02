@@ -13,6 +13,18 @@ const goals = [
 const experienceLevels = ['Complete Beginner', '6-12 Months', '1-3 Years', '3-5 Years', '5+ Years']
 const equipmentOptions = ['Full Gym', 'Home Gym', 'Minimal', 'Bodyweight Only']
 
+const dietaryOptions = [
+  'No Restrictions',
+  'Vegan',
+  'Vegetarian',
+  'Pescatarian',
+  'Gluten-Free',
+  'Dairy-Free',
+  'Nut Allergy',
+  'Halal',
+  'Kosher',
+]
+
 const initialTouched = {
   name: false,
   age: false,
@@ -37,6 +49,8 @@ const defaultProfile = {
   daysPerWeek: '4',
   equipment: '',
   limitations: '',
+  dietaryRestrictions: '',
+  dietaryOther: '',
 }
 
 function Field({ label, error, children }) {
@@ -331,6 +345,44 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                   value={profile.limitations}
                   onChange={(event) => setValue('limitations', event.target.value)}
                   placeholder="Shoulder history, knee pain, limited equipment, etc."
+                />
+              </Field>
+              <Field label="Dietary Restrictions / Allergies">
+                <p className="mb-3 text-sm text-body">Select all that apply — your meal plan will be built around these.</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {dietaryOptions.map((option) => {
+                    const selected = profile.dietaryRestrictions.split(',').map((s) => s.trim()).filter(Boolean).includes(option)
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => {
+                          const current = profile.dietaryRestrictions.split(',').map((s) => s.trim()).filter(Boolean)
+                          let next
+                          if (option === 'No Restrictions') {
+                            next = selected ? [] : ['No Restrictions']
+                          } else {
+                            const withoutNo = current.filter((v) => v !== 'No Restrictions')
+                            next = selected ? withoutNo.filter((v) => v !== option) : [...withoutNo, option]
+                          }
+                          setValue('dietaryRestrictions', next.join(', '))
+                        }}
+                        className={`min-h-11 rounded-lg border px-3 py-2 text-left font-heading text-base uppercase transition ${
+                          selected
+                            ? 'border-accent bg-accent text-black'
+                            : 'border-line bg-[#111] text-white hover:border-accent/70'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    )
+                  })}
+                </div>
+                <input
+                  className={`${inputClass(false)} mt-3`}
+                  value={profile.dietaryOther}
+                  onChange={(event) => setValue('dietaryOther', event.target.value)}
+                  placeholder="Other allergies or foods to avoid (optional)"
                 />
               </Field>
             </section>
