@@ -141,7 +141,12 @@ function readTempo(line) {
 }
 
 function readCue(line) {
-  return readDetail(line, 'cue') || readDetail(line, 'coach cue') || 'Move with control and stop if anything feels unsafe.'
+  const explicit = readDetail(line, 'cue') || readDetail(line, 'coach cue')
+  if (explicit) return explicit
+  const stripped = line.replace(/^\d+\.\s*/, '')
+  const afterColon = stripped.split(':').slice(1).join(':').trim().replace(/[.,]\s*$/, '')
+  if (afterColon && afterColon.length > 10 && !hasExerciseDetail(afterColon)) return afterColon
+  return 'Move with control and stop if anything feels unsafe.'
 }
 
 function readWeight(line) {
@@ -179,11 +184,12 @@ function cleanExerciseName(name) {
 }
 
 function exerciseName(line, index) {
-  const beforeColon = line.split(':')[0]?.trim()
+  const stripped = line.replace(/^\d+\.\s*/, '')
+  const beforeColon = stripped.split(':')[0]?.trim()
   if (beforeColon && beforeColon.length > 2 && beforeColon.length < 80 && !/workout|session|day/i.test(beforeColon)) {
     return beforeColon
   }
-  const beforeComma = line.split(',')[0]?.trim()
+  const beforeComma = stripped.split(',')[0]?.trim()
   if (beforeComma && beforeComma.length > 2 && beforeComma.length < 80 && !hasExerciseDetail(beforeComma)) {
     return beforeComma
   }
@@ -419,8 +425,13 @@ function parseWorkouts(content, fallbackItems) {
     .slice(0, 8)
     .map(({ line, index }, itemIndex) => {
       const next = boundaryIndexes[itemIndex + 1]?.index || lines.length
-      const details = lines.slice(index + 1, next).filter(hasExerciseDetail).slice(0, 10)
-      return { title: line, summary: details[0] || 'A focused workout from your plan.', details: details.length ? details : fallbackWorkoutItems }
+      const sectionLines = lines.slice(index + 1, next)
+      const structured = sectionLines.filter(hasExerciseDetail).slice(0, 10)
+      const unstructured = sectionLines
+        .filter((l) => !hasExerciseDetail(l) && l.trim().length > 10)
+        .slice(0, 10)
+      const details = structured.length ? structured : unstructured.length ? unstructured : fallbackWorkoutItems
+      return { title: line, summary: details[0] || 'A focused workout from your plan.', details }
     })
     .filter((workout) => workout.details.length)
 }
