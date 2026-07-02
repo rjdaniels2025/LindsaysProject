@@ -47,7 +47,7 @@ const defaultProfile = {
   primaryGoal: [],
   experience: '',
   daysPerWeek: '4',
-  equipment: '',
+  equipment: [],
   limitations: '',
   dietaryRestrictions: '',
   dietaryOther: '',
@@ -151,7 +151,7 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
     primaryGoal: profile.primaryGoal.length ? '' : 'Choose at least one goal.',
     experience: profile.experience ? '' : 'Choose your training experience.',
     daysPerWeek: profile.daysPerWeek ? '' : 'Choose training days.',
-    equipment: profile.equipment ? '' : 'Choose equipment access.',
+    equipment: profile.equipment.length ? '' : 'Choose at least one equipment option.',
   }
 
   const fieldsByStep = {
@@ -333,7 +333,9 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                 </div>
               </Field>
               <Field label="Equipment Access" error={touched.equipment && errors.equipment}>
+                <p className="mb-3 text-sm text-body">Select all that apply — the program will include alternatives for each.</p>
                 <PillGroup
+                  multiple
                   options={equipmentOptions}
                   value={profile.equipment}
                   onChange={(value) => setValue('equipment', value)}
