@@ -707,13 +707,18 @@ function App() {
       if (hasImplicitToken) clearUrl()
 
       // ── Passive session restore ──
-      // A normal page load. Load the member's data but NEVER auto-navigate — always
-      // show the landing page so visiting the site can't hijack where they are.
+      // A normal page load. If the user has a valid saved session, route them
+      // directly to their dashboard so they don't have to log in again.
+      // If there's no session, show the landing page as normal.
       const { data } = await supabase.auth.getSession()
       if (!mounted) return
-      await loadUserData(data.session)
+      const summary = await loadUserData(data.session)
       isInitializedRef.current = true
-      navigate('landing', { replace: true })
+      if (data.session) {
+        routeAfterAuth(summary)
+      } else {
+        navigate('landing', { replace: true })
+      }
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
