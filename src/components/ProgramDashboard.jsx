@@ -28,9 +28,9 @@ const views = [
   { id: 'today', label: 'Today', mobileLabel: 'Today', icon: Sparkles },
   { id: 'workouts', label: 'Workouts', mobileLabel: 'Train', icon: CheckCircle2 },
   { id: 'meal', label: 'Meal Plan', mobileLabel: 'Meals', icon: Utensils },
-  { id: 'recover', label: 'Recovery', mobileLabel: 'Recovery', icon: HeartPulse },
-  { id: 'track', label: 'Progress', mobileLabel: 'Progress', icon: LineChart },
-  { id: 'science', label: 'Why It Works', mobileLabel: 'Science', icon: BookOpenText },
+  { id: 'recover', label: 'Recovery', mobileLabel: 'Recover', icon: HeartPulse },
+  { id: 'track', label: 'Progress', mobileLabel: 'Track', icon: LineChart },
+  { id: 'science', label: 'Why It Works', mobileLabel: 'Why', icon: BookOpenText },
   { id: 'profile', label: 'My Profile', mobileLabel: 'Profile', icon: User },
 ]
 
@@ -1584,7 +1584,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
       <div className="grid gap-0 lg:grid-cols-[15rem_1fr]">
         <nav
           aria-label="Program sections"
-          className="fixed bottom-0 inset-x-0 z-40 flex gap-0 overflow-x-auto border-t border-line bg-card/95 p-1 backdrop-blur-sm scrollbar-none sm:p-2 lg:static lg:inset-auto lg:z-auto lg:flex-col lg:gap-2 lg:overflow-visible lg:border-b-0 lg:border-r lg:border-t-0 lg:bg-transparent lg:p-3 lg:backdrop-blur-none"
+          className="fixed bottom-0 inset-x-0 z-40 flex gap-0 border-t border-line bg-card/95 p-1 backdrop-blur-sm sm:p-2 lg:static lg:inset-auto lg:z-auto lg:flex-col lg:gap-2 lg:overflow-visible lg:border-b-0 lg:border-r lg:border-t-0 lg:bg-transparent lg:p-3 lg:backdrop-blur-none"
         >
           {views.map((view) => {
             const Icon = view.icon
@@ -1594,7 +1594,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
                 key={view.id}
                 type="button"
                 onClick={() => setActiveView(view.id)}
-                className={`flex shrink-0 flex-col items-center gap-0.5 rounded-lg py-2 px-2 transition lg:min-h-12 lg:w-full lg:flex-row lg:justify-start lg:gap-3 lg:border lg:px-4 lg:py-0 ${
+                className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-2 px-0.5 transition lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:border lg:px-4 lg:py-0 ${
                   selected
                     ? 'text-accent lg:border-accent lg:bg-accent lg:text-black'
                     : 'text-body hover:text-white lg:border-line lg:bg-[#111] lg:text-white lg:hover:border-accent/70'
