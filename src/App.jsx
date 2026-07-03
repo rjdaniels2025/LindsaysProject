@@ -512,6 +512,33 @@ function App() {
     }
   }, [profile, isLoading, blockNumber, workoutLog, programService])
 
+  const updateProfileAndRegenerate = useCallback(async (newProfile) => {
+    if (isLoading) return
+    const createdAt = new Date().toISOString()
+    const preservedHistory = Array.isArray(workoutLog?.history) ? workoutLog.history : []
+    const preservedCheckins = Array.isArray(workoutLog?.checkins) ? workoutLog.checkins : []
+    setError('')
+    setIsLoading(true)
+    setProfile(newProfile)
+    profileRef.current = newProfile
+    setProgramCreatedAt(createdAt)
+    setProgramEndsAt(addDays(createdAt, BLOCK_WEEKS * 7))
+    setWorkoutLog({ history: preservedHistory, checkins: preservedCheckins })
+    setMessages([
+      makeMessage('assistant', `## Updating ${newProfile.name}'s program\n\nYour profile changes are saved. Lindsay is rebuilding your plan now.`, { type: 'status' }),
+    ])
+    try {
+      const text = await programService.generateProgram(newProfile, { blockNumber })
+      const safetyFlags = auditProgram(text, newProfile.limitations)
+      await waitForProgramImages(text)
+      setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])
+    } catch (err) {
+      setError(err.message || 'Unable to update the program.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [isLoading, workoutLog, blockNumber, programService])
+
   // ── Data loading ──────────────────────────────────────────────────────────
 
   // Pure loader: fetches the member's saved program + membership, pushes it all into
@@ -979,6 +1006,7 @@ function App() {
         blockNumber={blockNumber}
         membershipActive={hasMembership}
         onStartNextBlock={generateNextBlock}
+        onUpdateProfile={updateProfileAndRegenerate}
         isLoading={isLoading}
         error={error}
         onSendMessage={sendMessage}

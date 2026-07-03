@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  User,
   BookOpenText,
   CalendarDays,
   CheckCircle2,
@@ -21,6 +22,7 @@ import {
   X,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
+import ProfileEditor from './ProfileEditor.jsx'
 
 const views = [
   { id: 'today', label: 'Today', mobileLabel: 'Today', icon: Sparkles },
@@ -29,6 +31,7 @@ const views = [
   { id: 'recover', label: 'Recovery', mobileLabel: 'Recovery', icon: HeartPulse },
   { id: 'track', label: 'Progress', mobileLabel: 'Progress', icon: LineChart },
   { id: 'science', label: 'Why It Works', mobileLabel: 'Science', icon: BookOpenText },
+  { id: 'profile', label: 'My Profile', mobileLabel: 'Profile', icon: User },
 ]
 
 const VIEW_CONTEXT = {
@@ -38,6 +41,7 @@ const VIEW_CONTEXT = {
   recover:  { label: 'Rest & repair', title: 'How to stay ready' },
   track:    { label: 'Results',       title: "How far you've come" },
   science:  { label: 'The reasoning', title: 'Why this plan works' },
+  profile:  { label: 'Assessment answers', title: 'Your profile' },
 }
 
 const completionItems = [
@@ -1460,7 +1464,7 @@ function ProgressHistory({ history }) {
   )
 }
 
-export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, isLoading }) {
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, onUpdateProfile, isLoading }) {
   const [activeView, setActiveView] = useState('today')
   const contentRef = useRef(null)
   const viewMounted = useRef(false)
@@ -1572,7 +1576,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           <div className="grid gap-2 min-[420px]:grid-cols-3 lg:min-w-80">
             <FocusCard icon={Trophy} label="Goal" value={formatGoals(profile?.primaryGoal) || 'Fitness'} />
             <FocusCard icon={CalendarDays} label="Training" value={`${profile?.daysPerWeek || '-'} days`} />
-            <FocusCard icon={Dumbbell} label="Gear" value={profile?.equipment || 'Custom'} />
+            <FocusCard icon={Dumbbell} label="Gear" value={Array.isArray(profile?.equipment) ? profile.equipment[0] : (profile?.equipment || 'Custom')} />
           </div>
         </div>
       </div>
@@ -1641,6 +1645,9 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
             </div>
           ) : null}
           {activeView === 'science' ? <ScienceBreakdown content={message.content} /> : null}
+          {activeView === 'profile' ? (
+            <ProfileEditor profile={profile} onUpdate={onUpdateProfile} isLoading={isLoading} />
+          ) : null}
 
           {/* Spacer so fixed mobile nav doesn't obscure last content */}
           <div className="h-20 lg:hidden" aria-hidden="true" />

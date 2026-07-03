@@ -88,6 +88,7 @@ export default function Chat({
   blockNumber,
   membershipActive,
   onStartNextBlock,
+  onUpdateProfile,
   isLoading,
   error,
   onAnalyzeMedia,
@@ -212,6 +213,7 @@ export default function Chat({
                 blockNumber={blockNumber}
                 membershipActive={membershipActive}
                 onStartNextBlock={onStartNextBlock}
+                onUpdateProfile={onUpdateProfile}
                 isLoading={isLoading}
               />
             ) : (
