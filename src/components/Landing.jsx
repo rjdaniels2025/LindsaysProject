@@ -2,6 +2,7 @@ import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
 import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
+import { transformationImage } from '../assets/transformationImage.js'
 
 const foundingOfferPerks = [
   'Personalized Accountability',
@@ -186,7 +187,7 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
         <div className="relative z-10 mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/60">
             <img
-              src="/coach-lindsay-transformation.svg"
+              src={transformationImage}
               alt="Coach Lindsay transformation photo showing her journey from 2009 to 2026"
               className="w-full bg-black object-cover"
             />
