@@ -220,7 +220,7 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
                   onClick={onStart}
                   className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 font-heading text-xl uppercase text-black transition hover:bg-white sm:w-auto"
                 >
-                  Book Your Free Consultation
+                  Start Assessment
                   <ArrowRight size={20} />
                 </button>
               )}
