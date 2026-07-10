@@ -77,7 +77,7 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
               <span className="font-heading text-sm uppercase">Limited Time</span>
             </div>
             <p className="text-sm leading-6 text-body">
-              Offer ends <span className="font-semibold text-white">June 30, 2026</span> — or when all
+              Offer ends <span className="font-semibold text-white">June 30, 2026</span> - or when all
               founding spots are filled.
             </p>
             <button
@@ -175,6 +175,61 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
               >
                 Member Login
                 <LogIn size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden border-t border-white/10 bg-[#101010] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(232,255,71,0.08),transparent_24rem),radial-gradient(circle_at_90%_80%,rgba(255,255,255,0.05),transparent_28rem)]" />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/60">
+            <img
+              src="/coach-lindsay-transformation.svg"
+              alt="Coach Lindsay transformation photo showing her journey from 2009 to 2026"
+              className="w-full bg-black object-cover"
+            />
+          </div>
+
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+              <Sparkles size={15} />
+              <span className="font-heading text-sm uppercase">Coach Lindsay</span>
+            </div>
+            <h2 className="mt-5 font-heading text-5xl uppercase leading-none text-white sm:text-6xl lg:text-7xl">
+              My Transformation
+            </h2>
+            <div className="mt-6 space-y-4 text-base leading-8 text-body sm:text-lg">
+              <p>This isn&apos;t about being perfect. It isn&apos;t about competing. It&apos;s about becoming stronger than I was yesterday.</p>
+              <p>The photo on the left is where my journey began. The photo on the right is the result of consistency, discipline, balanced nutrition, and refusing to give up, even through setbacks.</p>
+              <p>I didn&apos;t transform overnight. There were busy days, injuries, moments of doubt, and times when motivation was low. But I kept showing up.</p>
+              <p>That journey is exactly why I created Elevate HnF.</p>
+              <p>I know what it&apos;s like to feel overwhelmed, frustrated, or unsure where to start. My mission is to help everyday people build sustainable habits, gain confidence, lose body fat, build strength, and create a lifestyle they can maintain for years, not just a few weeks.</p>
+              <p>You don&apos;t have to be perfect. You just have to start.</p>
+              <p>If I can do it, so can you. I&apos;d love to help you become the strongest, healthiest version of yourself.</p>
+              <p className="font-semibold text-white">Ready to transform your life? Let&apos;s do it together.</p>
+              <p>Book your FREE consultation today and let&apos;s elevate your health, nutrition, and fitness.</p>
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              {!hasProgram && (
+                <button
+                  type="button"
+                  onClick={onStart}
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-accent px-6 font-heading text-xl uppercase text-black transition hover:bg-white sm:w-auto"
+                >
+                  Book Your Free Consultation
+                  <ArrowRight size={20} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onPricing}
+                className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-accent/70 bg-black/35 px-6 font-heading text-xl uppercase text-white transition hover:border-accent hover:bg-accent/10 sm:w-auto"
+              >
+                View Coaching Options
+                <BadgeDollarSign size={20} />
               </button>
             </div>
           </div>
