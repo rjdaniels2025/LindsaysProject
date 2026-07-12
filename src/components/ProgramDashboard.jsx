@@ -1001,17 +1001,17 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   }
 
   function startWorkout() {
-    setRounds({})
+    if (clearRounds) setRounds({})
     enterGroup(0, false)
   }
 
-  function resetSession() {
+  function resetSession(clearRounds = false) {
     setPhase('preview')
     setGroupIdx(0)
     setRound(0)
     setStep(0)
     setWarmupIdx(0)
-    setRounds({})
+    if (clearRounds) setRounds({})
     pendingPhaseRef.current = 'active'
   }
 
@@ -1095,7 +1095,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
     if (entries.length) setHistory((prev) => [...prev, ...entries])
     setCompletedWorkouts((prev) => [...new Set([...prev, workoutIdx])])
     setWorkoutIdx((prev) => Math.min(prev + 1, workouts.length - 1))
-    resetSession()
+    resetSession(true)
   }
 
 
@@ -1312,7 +1312,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-body">{doneExCount} of {exercises.length} exercises done</p>
-                <button type="button" onClick={resetSession}
+                <button type="button" onClick={() => resetSession(true)}
                   className="inline-flex items-center gap-2 rounded-lg border border-line bg-[#111] px-4 py-2.5 font-heading text-base uppercase text-white transition hover:border-accent">
                   <RotateCcw size={16} /> Restart
                 </button>
@@ -1365,7 +1365,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
                 {!isLocked && (
                   <button type="button"
                     onClick={() => {
-                      if (index !== workoutIdx) { setWorkoutIdx(index); resetSession() }
+                      if (index !== workoutIdx) { setWorkoutIdx(index); resetSession(true) }
                       setModalOpen(true)
                     }}
                     className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-heading text-base uppercase transition ${
