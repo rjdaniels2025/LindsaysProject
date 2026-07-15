@@ -201,11 +201,16 @@ function exerciseName(line, index) {
 }
 
 function parseExercises(details) {
-  const usableDetails = details.filter((detail) => !/^(warmup|cooldown|note|focus)\b/i.test(detail.trim())).slice(0, 16)
+  const detailsArr = Array.isArray(details)
+    ? details
+    : typeof details === 'string'
+      ? details.split('\n').map((s) => s.trim()).filter(Boolean)
+      : []
+  const usableDetails = detailsArr.filter((detail) => !/^(warmup|cooldown|note|focus)\b/i.test(detail.trim())).slice(0, 16)
   const source = usableDetails.length
     ? usableDetails
-    : details.slice(0, 6).length
-      ? details.slice(0, 6)
+    : detailsArr.slice(0, 6).length
+      ? detailsArr.slice(0, 6)
       : ['Exercise: Sets: 3, Reps: Follow plan, Rest: 60 seconds, Tempo: Controlled, Cue: Move with control.']
 
   return source.map((detail, index) => {
@@ -946,7 +951,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const activeWorkout = workouts[workoutIdx] || workouts[0]
-  const exercises = useMemo(() => parseExercises(activeWorkout.details), [activeWorkout.details])
+  const exercises = useMemo(() => parseExercises(activeWorkout?.details || []), [activeWorkout?.details])
   const groups = useMemo(() => groupExercises(exercises), [exercises])
   const currentGroup = groups[groupIdx] || null
   const isSuperset = currentGroup?.type === 'superset'
@@ -987,8 +992,12 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   // Enter a group: always starts warm-ups if the first exercise has them.
   // When afterRest=true we only set the pending phase (the rest timer will apply it).
   function enterGroup(gIdx, afterRest) {
-    const g = groups[gIdx]
-    if (!g) return
+    const g = groups[gIdx] || groups[0]
+    if (!g) {
+      if (!afterRest) setPhase('active')
+      else pendingPhaseRef.current = 'active'
+      return
+    }
     const hasWarmup = (g.exercises[0].warmupSets?.length || 0) > 0
     setGroupIdx(gIdx)
     setRound(0)
