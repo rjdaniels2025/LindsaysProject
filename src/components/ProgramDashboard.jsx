@@ -530,7 +530,7 @@ function RestTimer({ restString, onDone }) {
 
 // ─── Today view ───────────────────────────────────────────────────────────────
 
-function TodayView({ sections, mealPlan, nextWorkout, week, onViewChange }) {
+function TodayView({ sections, mealPlan, nextWorkout, week, onViewChange, onStartWorkout }) {
   const weekNum = week
   const todayWorkout = nextWorkout
   const firstMeal = mealPlan.breakfast[0] || mealPlan.all[0]
@@ -570,7 +570,7 @@ function TodayView({ sections, mealPlan, nextWorkout, week, onViewChange }) {
             </p>
             <button
               type="button"
-              onClick={() => onViewChange('workouts')}
+              onClick={onStartWorkout}
               className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-5 font-heading text-lg uppercase text-black transition hover:bg-white"
             >
               <Play size={18} />
@@ -905,7 +905,7 @@ function allSessionsDone(completedWorkouts, total) {
 //
 // enterGroup() always initialises warm-ups for EVERY group, not just the first.
 
-function WorkoutTracker({ workouts, log = {}, onLogChange }) {
+function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }) {
   // ── Persisted state ──────────────────────────────────────────────────────
   const initialCompleted = Array.isArray(log.completedWorkouts) ? log.completedWorkouts : []
   const [workoutIdx, setWorkoutIdx] = useState(() => firstIncompleteWorkout(initialCompleted, workouts.length))
@@ -935,7 +935,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   const activeExerciseRef = useRef(null)
 
   // ── Modal / accordion ────────────────────────────────────────────────────
-  const [modalOpen, setModalOpen] = useState(false)
+  const [modalOpen, setModalOpen] = useState(openOnMount)
   const [expandedGroup, setExpandedGroup] = useState(-1)
 
   // ── Sync to parent ────────────────────────────────────────────────────────
@@ -1481,6 +1481,7 @@ function ProgressHistory({ history }) {
 
 export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, onUpdateProfile, isLoading }) {
   const [activeView, setActiveView] = useState('today')
+  const [openWorkoutOnMount, setOpenWorkoutOnMount] = useState(false)
   const contentRef = useRef(null)
   const viewMounted = useRef(false)
 
@@ -1488,6 +1489,16 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
     if (!viewMounted.current) { viewMounted.current = true; return }
     contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [activeView])
+
+  function changeView(view) {
+    setOpenWorkoutOnMount(false)
+    setActiveView(view)
+  }
+
+  function startNextWorkout() {
+    setOpenWorkoutOnMount(true)
+    setActiveView('workouts')
+  }
   const weekNum = clampWeek(workoutLog?.week)
 
   const sections = useMemo(
@@ -1608,7 +1619,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               <button
                 key={view.id}
                 type="button"
-                onClick={() => setActiveView(view.id)}
+                onClick={() => changeView(view.id)}
                 className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-2 px-0.5 transition lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:border lg:px-4 lg:py-0 ${
                   selected
                     ? 'text-accent lg:border-accent lg:bg-accent lg:text-black'
@@ -1640,7 +1651,8 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               mealPlan={mealPlan}
               nextWorkout={nextWorkout}
               week={weekNum}
-              onViewChange={setActiveView}
+              onViewChange={changeView}
+              onStartWorkout={startNextWorkout}
             />
           ) : null}
           {activeView === 'workouts' ? (
@@ -1649,6 +1661,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               workouts={workouts}
               log={workoutLog}
               onLogChange={onWorkoutLogChange}
+              openOnMount={openWorkoutOnMount}
             />
           ) : null}
           {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
