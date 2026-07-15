@@ -1011,7 +1011,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
   }
 
   function startWorkout() {
-    if (clearRounds) setRounds({})
     enterGroup(0, false)
   }
 
