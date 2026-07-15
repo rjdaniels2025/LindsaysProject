@@ -489,6 +489,7 @@ function OverviewCard({ icon: Icon, label, title, children }) {
 }
 
 function RestTimer({ restString, onDone }) {
+  const firedRef = useRef(false)
   const total = parseRestSeconds(restString)
   const [remaining, setRemaining] = useState(total)
 
@@ -1066,8 +1067,14 @@ function WorkoutTracker({ workouts, log = {}, onLogChange }) {
       // All rounds done — advance to next group (if any) after rest
       const nextG = groupIdx + 1
       if (nextG < groups.length) {
-        enterGroup(nextG, true)          // sets pending phase
-        startRest(restStr, pendingPhaseRef.current)
+        const g = groups[nextG]
+        const nextPhase = (g.exercises[0].warmupSets?.length || 0) > 0 ? 'warmup' : 'active'
+        setGroupIdx(nextG)
+        setRound(0)
+        setStep(0)
+        setWarmupIdx(0)
+        pendingPhaseRef.current = nextPhase
+        startRest(restStr, nextPhase)
         scrollToActiveExercise()
       } else {
         // Last group finished
