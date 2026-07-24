@@ -19,10 +19,12 @@ import {
   Timer,
   Trophy,
   Utensils,
+  Video,
   X,
 } from 'lucide-react'
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 import ProfileEditor from './ProfileEditor.jsx'
+import { useAiVideo } from '../hooks/useAiVideo.js'
 
 const views = [
   { id: 'today', label: 'Today', mobileLabel: 'Today', icon: Sparkles },
@@ -838,6 +840,45 @@ function MealPlan({ items }) {
   )
 }
 
+// ─── Exercise demonstration ────────────────────────────────────────────────────
+
+function ExerciseDemoModal({ name, onClose }) {
+  const { url, status } = useAiVideo(name, true)
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-lg border border-line bg-[#111] p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-heading text-xs uppercase text-accent">Demonstration</p>
+            <p className="break-words font-heading text-lg uppercase leading-none text-white">{name}</p>
+          </div>
+          <button type="button" onClick={onClose}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-card text-white transition hover:border-accent">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="grid aspect-[3/4] max-h-[65vh] w-full place-items-center overflow-hidden rounded-lg bg-black">
+          {status === 'ready' && url ? (
+            <video src={url} className="h-full w-full object-contain" autoPlay loop muted playsInline />
+          ) : status === 'failed' ? (
+            <p className="max-w-xs px-4 text-center text-sm leading-6 text-body">
+              Demonstration not available for this exercise right now. Follow the written cue above and move with control.
+            </p>
+          ) : (
+            <div className="px-4 text-center">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
+              <p className="text-sm leading-6 text-body">
+                Creating your coach demonstration. This takes about a minute the very first time anyone views this exercise.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Workout phase indicator ─────────────────────────────────────────────────
 
 const WORKOUT_PHASES = [
@@ -937,6 +978,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }
   // ── Modal / accordion ────────────────────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(openOnMount)
   const [expandedGroup, setExpandedGroup] = useState(-1)
+  const [demoExercise, setDemoExercise] = useState(null)
 
   // ── Sync to parent ────────────────────────────────────────────────────────
   const didMount = useRef(false)
@@ -1266,6 +1308,11 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }
                               </div>
                             )}
 
+                            <button type="button" onClick={() => setDemoExercise(ex.name)}
+                              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 font-heading text-sm uppercase text-white transition hover:border-accent">
+                              <Video size={15} /> View Demonstration
+                            </button>
+
                             {/* Active-step controls */}
                             {isActiveStep && (
                               <>
@@ -1396,6 +1443,8 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }
           )
         })}
       </div>
+
+      {demoExercise && <ExerciseDemoModal key={demoExercise} name={demoExercise} onClose={() => setDemoExercise(null)} />}
 
     </div>
   )
