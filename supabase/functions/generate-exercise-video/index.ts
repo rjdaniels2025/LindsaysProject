@@ -178,8 +178,85 @@ async function getOrCreateCoachReferenceImage(supabase: SupabaseClient): Promise
   return publicUrl
 }
 
-function exercisePrompt(name: string) {
-  return `The fitness coach from the reference image performs slow, controlled repetitions of the exercise "${name}" with perfect form, in a clean gym, camera locked off, full body always in frame, realistic human movement, no cuts.`
+// Fallback prompt when the AI prompt-engineering stage is unavailable.
+function staticExercisePrompt(name: string) {
+  return `MEDIUM WIDE SHOT, LOCKED CAMERA, FULL BODY IN FRAME: The fitness coach from the reference image performs one slow, controlled repetition of the exercise "${name}" with textbook-perfect form, in a clean modern gym with soft even lighting, realistic human movement, smooth continuous motion, no cuts, the same coach and lighting consistent throughout, no morphing.`
+}
+
+// Negatives tuned for exercise demonstrations: the failure modes that matter
+// most are anatomical (limbs, joints) and form accuracy, not just image quality.
+const EXERCISE_NEGATIVE_PROMPT =
+  'blurry, low quality, watermark, text overlay, jump cuts, flickering, morphing limbs, extra limbs, distorted joints, impossible anatomy, incorrect exercise form, equipment changing shape or floating, duplicated person, face distortion, camera shake'
+
+const PROMPT_MODEL = Deno.env.get('EXERCISE_PROMPT_MODEL') || 'gpt-4.1'
+
+// Two-stage generation: a prompt-engineering model turns the bare exercise
+// name into a dense, biomechanically exact Wan 2.5 prompt before the video
+// job is submitted. Runs once per unique exercise ever (results are cached),
+// so the added cost is negligible.
+const EXERCISE_DEMO_SYSTEM_PROMPT = `You are a world-class prompt engineer for Wan 2.5 image-to-video generation with the biomechanics knowledge of a certified strength and conditioning specialist. You write prompts for short exercise demonstration clips for a fitness coaching app.
+
+REFERENCE IMAGE IS PROVIDED TO THE VIDEO MODEL:
+A photo of the coach is supplied via image-to-video. The image locks the coach's appearance, clothing, and the studio setting. Do NOT describe the coach's face, body, hair, or clothing — describe only movement, equipment, camera, and lighting continuity.
+
+SHOT TYPE — ALWAYS FIRST:
+Open with exactly: "MEDIUM WIDE SHOT, LOCKED CAMERA, FULL BODY IN FRAME:" — form demonstrations require the entire body visible from head to feet with zero camera motion.
+
+EXERCISE ACCURACY — HIGHEST PRIORITY RULE:
+The movement must be the EXACT named exercise variant, never a lookalike. A goblet squat holds one dumbbell vertically at the chest; a front squat racks a barbell on the shoulders; a Romanian deadlift keeps knees nearly fixed while a conventional deadlift does not. State the precise equipment, grip, stance, and movement path for the named variant. If the exercise uses no equipment, say bodyweight only, hands positioned exactly as the movement requires.
+
+BIOMECHANICS LAYER — describe one repetition as continuous phases with joint-level detail:
+- Setup: exact starting position (stance width, grip, spine, gaze)
+- Eccentric: the lowering/loading phase with tempo ("lowering under control over two seconds"), naming the joint actions (hips hinging back, knees tracking over toes, elbows tucked)
+- Brief pause at the end range
+- Concentric: the working phase, driving back to the start position with correct form cues (neutral spine held, core braced, full hip extension at the top)
+Fit the tempo to the clip duration given in the request: exactly one slow, complete repetition.
+
+REALISM PHYSICS — include at least 2:
+- Fabric: "athletic clothing shifting naturally with the descent"
+- Load: "the weight responding to gravity with realistic momentum, no floating"
+- Effort: "visible controlled breathing and core bracing"
+- Ground contact: "feet planted, pressure visibly distributed through the whole foot"
+
+ANTI-DRIFT ANCHORS — close the prompt by restating the constants:
+"...the same coach throughout, camera locked, gym lighting consistent, smooth continuous motion, no cuts, no morphing."
+
+OUTPUT:
+One dense paragraph, 60 to 80 words, every word load-bearing. Return ONLY the final prompt text with no quotes, labels, or commentary.`
+
+async function buildExercisePrompt(exerciseName: string): Promise<string> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY')
+  if (!openaiKey) return staticExercisePrompt(exerciseName)
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: PROMPT_MODEL,
+        max_tokens: 350,
+        messages: [
+          { role: 'system', content: EXERCISE_DEMO_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION} seconds\n\nWrite the Wan 2.5 image-to-video prompt. Return only the prompt.`,
+          },
+        ],
+      }),
+    })
+    if (!response.ok) throw new Error(`OpenAI prompt enhancement failed with status ${response.status}.`)
+    const payload = await response.json()
+    const enhanced = payload?.choices?.[0]?.message?.content?.trim()
+    // Guard against empty or runaway outputs; the fallback always works.
+    if (!enhanced || enhanced.length < 40 || enhanced.length > 1200) return staticExercisePrompt(exerciseName)
+    return enhanced
+  } catch (err) {
+    console.error('[generate-exercise-video] Prompt enhancement failed, using fallback:', err)
+    return staticExercisePrompt(exerciseName)
+  }
 }
 
 function ageMs(createdAt: string) {
@@ -222,8 +299,10 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
   try {
     await ensureBucket(supabase)
     const referenceImageUrl = await getOrCreateCoachReferenceImage(supabase)
+    const prompt = await buildExercisePrompt(exerciseName)
     const job = await submitFalJob(supabase, VIDEO_MODEL_ID, {
-      prompt: exercisePrompt(exerciseName),
+      prompt,
+      negative_prompt: EXERCISE_NEGATIVE_PROMPT,
       image_url: referenceImageUrl,
       duration: VIDEO_DURATION,
       resolution: VIDEO_RESOLUTION,
@@ -231,7 +310,12 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
 
     await supabase
       .from('exercise_videos')
-      .update({ fal_request_id: job.requestId, fal_status_url: job.statusUrl, fal_response_url: job.responseUrl })
+      .update({
+        fal_request_id: job.requestId,
+        fal_status_url: job.statusUrl,
+        fal_response_url: job.responseUrl,
+        generation_prompt: prompt,
+      })
       .eq('exercise_key', key)
 
     return jsonResponse({ status: 'pending' })
