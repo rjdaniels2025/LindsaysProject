@@ -16,11 +16,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function invokeVideoService(action, name) {
+async function invokeVideoService(action, name, description) {
   if (!supabase) return { status: 'failed', error: 'Video service is not configured.' }
 
   const { data, error } = await supabase.functions.invoke('generate-exercise-video', {
-    body: { action, name },
+    body: description ? { action, name, description } : { action, name },
   })
 
   if (error) {
@@ -33,16 +33,18 @@ async function invokeVideoService(action, name) {
 
 // Requests a demonstration video for an exercise, waiting through the one-time
 // generation (per unique exercise name, shared across all users) until it is
-// ready or failed. `shouldContinue` lets the caller stop polling on unmount;
-// a cancelled wait resolves null without caching, so a later request retries.
-export async function requestExerciseVideo(name, shouldContinue = () => true) {
+// ready or failed. `description` is the exercise's coaching cue, used server-side
+// to make the generated movement match the app's own form instructions.
+// `shouldContinue` lets the caller stop polling on unmount; a cancelled wait
+// resolves null without caching, so a later request retries.
+export async function requestExerciseVideo(name, description, shouldContinue = () => true) {
   if (!name) return null
   if (cache.has(name)) return cache.get(name)
   if (inflight.has(name)) return inflight.get(name)
 
   const promise = (async () => {
     try {
-      let outcome = await invokeVideoService('request', name)
+      let outcome = await invokeVideoService('request', name, description)
       while (outcome?.status === 'pending') {
         if (!shouldContinue()) return null
         await sleep(POLL_INTERVAL_MS)

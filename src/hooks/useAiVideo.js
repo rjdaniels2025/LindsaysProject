@@ -6,7 +6,7 @@ import { requestExerciseVideo, peekVideoCache } from '../utils/aiVideo.js'
 // user actually asks for it (opening the demonstration modal), never eagerly
 // for every exercise on screen. Callers should remount per exercise (key by
 // name) so a previous exercise's outcome never bleeds into the next.
-export function useAiVideo(name, enabled) {
+export function useAiVideo(name, description, enabled) {
   const [outcome, setOutcome] = useState(() => {
     const cached = name ? peekVideoCache(name) : undefined
     return cached === undefined ? null : { url: cached }
@@ -16,14 +16,14 @@ export function useAiVideo(name, enabled) {
     if (!name || !enabled || peekVideoCache(name) !== undefined) return
 
     let cancelled = false
-    requestExerciseVideo(name, () => !cancelled).then((url) => {
+    requestExerciseVideo(name, description, () => !cancelled).then((url) => {
       if (!cancelled) setOutcome({ url })
     })
 
     return () => {
       cancelled = true
     }
-  }, [name, enabled])
+  }, [name, description, enabled])
 
   if (!name || !enabled) return { url: null, status: 'idle' }
   if (!outcome) return { url: null, status: 'generating' }

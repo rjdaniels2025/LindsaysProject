@@ -21,7 +21,7 @@ const FAL_QUEUE_URL = 'https://queue.fal.run'
 const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
 const VIDEO_ASPECT_RATIO = Deno.env.get('FAL_VIDEO_ASPECT_RATIO') || '9:16'
 const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '5'
-const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/flux/schnell'
+const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/kling-image/o3/text-to-image'
 // Hard cap on how many distinct exercise videos can ever be generated, as a
 // spend guard: each unique exercise costs real money exactly once.
 const MAX_LIBRARY_SIZE = Number(Deno.env.get('EXERCISE_VIDEO_MAX_LIBRARY') || 300)
@@ -158,10 +158,11 @@ async function getOrCreateCoachReferenceImage(supabase: SupabaseClient): Promise
 
   if (config?.coach_reference_image_url) return config.coach_reference_image_url
 
+  // Elevate HNF brand kit: black + lime accent (#e8ff47) on a dark premium gym.
   const job = await submitFalJob(supabase, IMAGE_MODEL_ID, {
     prompt:
-      'professional photo of a friendly fitness coach, athletic build, standing in a neutral relaxed pose facing the camera, plain grey gym studio background, full body visible head to feet, fitted athletic clothing, natural even lighting, photorealistic',
-    image_size: 'portrait_4_3',
+      'photorealistic professional photo of a friendly fitness coach, athletic build, standing in a neutral relaxed pose facing the camera, full body visible head to feet, wearing a fitted matte black athletic t-shirt with a subtle lime-yellow accent trim and small lime-yellow chest logo mark, black training shorts with matching lime-yellow accent stripes, clean black training shoes, inside a dark modern premium gym with matte black equipment softly blurred in the background, soft even key lighting with a subtle lime-yellow accent glow, sharp focus, realistic skin texture, natural proportions, no text, no watermark',
+    aspect_ratio: '3:4',
     num_images: 1,
   })
 
@@ -214,6 +215,9 @@ BIOMECHANICS LAYER — describe one repetition as continuous phases with joint-l
 - Concentric: the working phase, driving back to the start position with correct form cues (neutral spine held, core braced, full hip extension at the top)
 Fit the tempo to the clip duration given in the request: exactly one slow, complete repetition.
 
+COACH'S FORM TIP — when the request includes one:
+The tip is the app's own coaching instruction for this exercise. Its technique content (setup, body position, movement path, safety checks) is a set of MANDATORY constraints — the depicted movement must visibly follow every one of them. However, ignore anything in the tip that is client-specific: injury references, substitution explanations, or personal remarks. The clip is shared by every user of the app, so only universal, textbook form belongs in it.
+
 REALISM PHYSICS — include at least 2:
 - Fabric: "athletic clothing shifting naturally with the descent"
 - Load: "the weight responding to gravity with realistic momentum, no floating"
@@ -226,9 +230,11 @@ ANTI-DRIFT ANCHORS — close the prompt by restating the constants:
 OUTPUT:
 One dense paragraph, 60 to 80 words, every word load-bearing. Return ONLY the final prompt text with no quotes, labels, or commentary.`
 
-async function buildExercisePrompt(exerciseName: string): Promise<string> {
+async function buildExercisePrompt(exerciseName: string, tip: string): Promise<string> {
   const openaiKey = Deno.env.get('OPENAI_API_KEY')
   if (!openaiKey) return staticExercisePrompt(exerciseName)
+
+  const tipLine = tip ? `\nCoach's form tip: ${tip}` : ''
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -244,7 +250,7 @@ async function buildExercisePrompt(exerciseName: string): Promise<string> {
           { role: 'system', content: EXERCISE_DEMO_SYSTEM_PROMPT },
           {
             role: 'user',
-            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION} seconds\n\nWrite the Kling 2.5 Turbo Pro image-to-video prompt. Return only the prompt.`,
+            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION} seconds${tipLine}\n\nWrite the Kling 2.5 Turbo Pro image-to-video prompt. Return only the prompt.`,
           },
         ],
       }),
@@ -270,7 +276,7 @@ async function markFailed(supabase: SupabaseClient, key: string, message: string
   return jsonResponse({ status: 'failed', error: message })
 }
 
-async function handleRequest(supabase: SupabaseClient, exerciseName: string, key: string) {
+async function handleRequest(supabase: SupabaseClient, exerciseName: string, key: string, tip: string) {
   const { data: existing } = await supabase
     .from('exercise_videos')
     .select('status, video_url')
@@ -301,7 +307,7 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
   try {
     await ensureBucket(supabase)
     const referenceImageUrl = await getOrCreateCoachReferenceImage(supabase)
-    const prompt = await buildExercisePrompt(exerciseName)
+    const prompt = await buildExercisePrompt(exerciseName, tip)
     const job = await submitFalJob(supabase, VIDEO_MODEL_ID, {
       prompt,
       negative_prompt: EXERCISE_NEGATIVE_PROMPT,
@@ -385,11 +391,14 @@ Deno.serve(async (request) => {
     const body = await request.json()
     const action = body?.action
     const exerciseName = String(body?.name || '').trim().slice(0, 80)
+    // The app's own coaching cue for this exercise; folded into the prompt
+    // engineering stage as mandatory form constraints.
+    const tip = String(body?.description || '').trim().slice(0, 300)
     const key = normalizedKey(exerciseName)
     if (!key) return jsonResponse({ error: 'Missing exercise name.' }, 400)
 
     const supabase = supabaseAdmin()
-    if (action === 'request') return await handleRequest(supabase, exerciseName, key)
+    if (action === 'request') return await handleRequest(supabase, exerciseName, key, tip)
     if (action === 'poll') return await handlePoll(supabase, key)
     return jsonResponse({ error: 'Unknown action.' }, 400)
   } catch (err) {
