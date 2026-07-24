@@ -14,10 +14,12 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const FAL_QUEUE_URL = 'https://queue.fal.run'
-// Cheapest realistic option on Fal: Wan 2.5 image-to-video at 480p. Both are
-// overridable by env so the model can be swapped without a code change.
-const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/wan-25-preview/image-to-video'
-const VIDEO_RESOLUTION = Deno.env.get('FAL_VIDEO_RESOLUTION') || '480p'
+// Kling 2.5 Turbo Pro: meaningfully better motion realism than Wan 2.5 for a
+// single, slow, controlled subject (exactly an exercise rep's profile), at a
+// modest cost step up (~$0.07-0.09/s vs $0.05/s). Overridable by env so the
+// model can be swapped without a code change.
+const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
+const VIDEO_ASPECT_RATIO = Deno.env.get('FAL_VIDEO_ASPECT_RATIO') || '9:16'
 const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '5'
 const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/flux/schnell'
 // Hard cap on how many distinct exercise videos can ever be generated, as a
@@ -191,10 +193,10 @@ const EXERCISE_NEGATIVE_PROMPT =
 const PROMPT_MODEL = Deno.env.get('EXERCISE_PROMPT_MODEL') || 'gpt-4.1'
 
 // Two-stage generation: a prompt-engineering model turns the bare exercise
-// name into a dense, biomechanically exact Wan 2.5 prompt before the video
+// name into a dense, biomechanically exact Kling 2.5 Turbo Pro prompt before the video
 // job is submitted. Runs once per unique exercise ever (results are cached),
 // so the added cost is negligible.
-const EXERCISE_DEMO_SYSTEM_PROMPT = `You are a world-class prompt engineer for Wan 2.5 image-to-video generation with the biomechanics knowledge of a certified strength and conditioning specialist. You write prompts for short exercise demonstration clips for a fitness coaching app.
+const EXERCISE_DEMO_SYSTEM_PROMPT = `You are a world-class prompt engineer for Kling 2.5 Turbo Pro image-to-video generation with the biomechanics knowledge of a certified strength and conditioning specialist. You write prompts for short exercise demonstration clips for a fitness coaching app.
 
 REFERENCE IMAGE IS PROVIDED TO THE VIDEO MODEL:
 A photo of the coach is supplied via image-to-video. The image locks the coach's appearance, clothing, and the studio setting. Do NOT describe the coach's face, body, hair, or clothing — describe only movement, equipment, camera, and lighting continuity.
@@ -242,7 +244,7 @@ async function buildExercisePrompt(exerciseName: string): Promise<string> {
           { role: 'system', content: EXERCISE_DEMO_SYSTEM_PROMPT },
           {
             role: 'user',
-            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION} seconds\n\nWrite the Wan 2.5 image-to-video prompt. Return only the prompt.`,
+            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION} seconds\n\nWrite the Kling 2.5 Turbo Pro image-to-video prompt. Return only the prompt.`,
           },
         ],
       }),
@@ -305,7 +307,9 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
       negative_prompt: EXERCISE_NEGATIVE_PROMPT,
       image_url: referenceImageUrl,
       duration: VIDEO_DURATION,
-      resolution: VIDEO_RESOLUTION,
+      aspect_ratio: VIDEO_ASPECT_RATIO,
+      generate_audio: false,
+      cfg_scale: 0.5,
     })
 
     await supabase
