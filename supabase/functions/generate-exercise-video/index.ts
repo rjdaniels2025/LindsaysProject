@@ -14,13 +14,15 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const FAL_QUEUE_URL = 'https://queue.fal.run'
-// Kling 2.5 Turbo Pro: meaningfully better motion realism than Wan 2.5 for a
-// single, slow, controlled subject (exactly an exercise rep's profile), at a
-// modest cost step up (~$0.07-0.09/s vs $0.05/s). Overridable by env so the
-// model can be swapped without a code change.
+// Kling 2.5 Turbo Pro. NOTE: Google Veo 3.1 is the realism leader, but its
+// safety checker hard-blocks animating photorealistic full-body people (even
+// plain gym form demos), and no parameter — max safety_tolerance, auto_fix —
+// gets past it, so Veo is unusable for this content. Kling has no such filter.
+// Overridable by env so the model can be swapped without a code change.
 const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
 const VIDEO_ASPECT_RATIO = Deno.env.get('FAL_VIDEO_ASPECT_RATIO') || '9:16'
 const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '5'
+const VIDEO_DURATION_SECONDS = VIDEO_DURATION.replace(/[^0-9]/g, '') || '5'
 const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/kling-image/o3/text-to-image'
 // Image-to-image model used to place the coach into each exercise's starting
 // position WITH the right equipment. Image-to-video is hard-anchored to its
@@ -107,7 +109,7 @@ async function falFetch(supabase: SupabaseClient, url: string, init?: RequestIni
 
 // The Fal queue API takes the model input directly as the POST body and
 // returns request_id plus ready-made status_url / response_url. Always use
-// those returned URLs: models with subpaths (like wan-25-preview/image-to-video)
+// those returned URLs: models with subpaths (like kling-video/v2.5-turbo/pro)
 // do not poll at the same path they were submitted to.
 async function submitFalJob(supabase: SupabaseClient, modelId: string, input: Record<string, unknown>) {
   const submitted = await falFetch(supabase, `${FAL_QUEUE_URL}/${modelId}`, {
@@ -215,46 +217,40 @@ function staticSetupPrompt(name: string) {
 }
 
 function staticMotionPrompt(name: string) {
-  return `MEDIUM WIDE SHOT, LOCKED CAMERA, FULL BODY IN FRAME: The coach, already in the starting position shown, performs one slow, controlled repetition of the exercise "${name}" with textbook-perfect form, keeping hold of the same equipment throughout, realistic human movement, smooth continuous motion, no cuts, the same coach and lighting consistent throughout, no morphing.`
+  return `MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement. The coach, already in the starting position shown, performs two slow, controlled repetitions of the exercise "${name}" with textbook-perfect form, keeping hold of the same equipment throughout, torso upright and core braced, feet planted, realistic weight and momentum, athletic fabric shifting naturally, visible steady breathing, soft gym key lighting, one smooth unbroken take. Avoid: extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks.`
 }
-
-// Negatives tuned for exercise demonstrations: the failure modes that matter
-// most are anatomical (limbs, joints) and form accuracy, not just image quality.
-const EXERCISE_NEGATIVE_PROMPT =
-  'blurry, low quality, watermark, text overlay, jump cuts, flickering, morphing limbs, extra limbs, distorted joints, impossible anatomy, incorrect exercise form, equipment changing shape or floating, duplicated person, face distortion, camera shake'
 
 const PROMPT_MODEL = Deno.env.get('EXERCISE_PROMPT_MODEL') || 'gpt-4.1'
 
 // Two-stage generation: a prompt-engineering model turns the bare exercise
-// name into a dense, biomechanically exact Kling 2.5 Turbo Pro prompt before the video
-// job is submitted. Runs once per unique exercise ever (results are cached),
-// so the added cost is negligible.
+// name into a biomechanically exact setup-image prompt and a rich, cinematic
+// motion prompt before the video job is submitted. Runs once per unique
+// exercise ever (results are cached), so the added cost is negligible.
 const EXERCISE_DEMO_SYSTEM_PROMPT = `You are a world-class prompt engineer for AI exercise demonstration videos with the biomechanics knowledge of a certified strength and conditioning specialist. The pipeline works in two stages and you write one prompt for each:
 
 STAGE 1 — SETUP FRAME (Kling image-to-image): a reference photo of the coach is edited to place him in the exercise's starting position. Your "setup_image_prompt" drives this edit.
-STAGE 2 — VIDEO (Kling 2.5 Turbo Pro image-to-video): the setup frame becomes the first frame of the clip. Your "motion_prompt" drives the movement. The video model cannot introduce equipment that is not already visible in the setup frame — the setup frame must therefore contain EVERYTHING the exercise needs.
+STAGE 2 — VIDEO (Kling image-to-video): the setup frame becomes the first frame of a short clip. Your "motion_prompt" drives the movement. The video model cannot introduce equipment that is not already visible in the setup frame — the setup frame must contain EVERYTHING the exercise needs. It rewards richly detailed, precisely choreographed prompts; be specific and physical.
 
 EXERCISE ACCURACY — HIGHEST PRIORITY RULE FOR BOTH PROMPTS:
 The setup and movement must match the EXACT named exercise variant, never a lookalike. A goblet squat holds one dumbbell vertically at the chest; a front squat racks a barbell on the shoulders; a Romanian deadlift keeps knees nearly fixed while a conventional deadlift does not. A lateral raise holds a dumbbell in EACH hand at the sides. State the precise equipment, grip, stance, and movement path for the named variant. If the exercise uses no equipment, say bodyweight only, hands positioned exactly as the movement requires.
 
-SETUP_IMAGE_PROMPT RULES:
+SETUP_IMAGE_PROMPT RULES (50-80 words):
 - Begin with: "The same coach from the reference photo, same outfit, same dark gym," — this preserves identity and brand.
 - Then describe the exact textbook STARTING position of the named exercise: stance width, grip, where each piece of equipment is held or positioned, body angles, gaze. Name every piece of equipment explicitly (e.g. "holding one dumbbell in each hand at his sides"). For bench/machine exercises, include the bench or machine and the coach positioned on it.
 - End with: "full body visible head to feet, photorealistic, sharp focus, no text, no watermark."
 
-MOTION_PROMPT RULES:
-- Open with exactly: "MEDIUM WIDE SHOT, LOCKED CAMERA, FULL BODY IN FRAME:" — the entire body stays visible with zero camera motion.
+MOTION_PROMPT RULES (90-140 words, richly descriptive):
+- Open with exactly: "MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement." — the entire body stays visible.
 - The first frame ALREADY shows the coach in the starting position holding the equipment. Never re-describe his appearance or introduce new equipment; the movement uses exactly what the frame contains, and he keeps hold of it for the entire clip.
-- Describe one repetition as continuous phases with joint-level detail: the working phase with tempo ("raising under control over two seconds"), naming the joint actions; a brief pause at the end range; the return phase to the exact starting position (neutral spine held, core braced).
-- Fit the tempo to the clip duration given in the request: exactly one slow, complete repetition, starting and ending in the setup position.
-- REALISM PHYSICS — include at least 2: athletic clothing shifting naturally with the movement; the weight responding to gravity with realistic momentum, no floating; visible controlled breathing and core bracing; feet planted with pressure distributed through the whole foot.
-- Close with anti-drift anchors: "...the same coach throughout, equipment held continuously, camera locked, gym lighting consistent, smooth continuous motion, no cuts, no morphing."
+- Choreograph TWO complete, slow, controlled repetitions across the clip so the movement path is unmistakable. Break each rep into explicit phases with named joint actions AND concrete angles / body landmarks: e.g. "elbows held soft at roughly 15 degrees, arms rising in the scapular plane out to exactly shoulder height until the wrists are level with the shoulders, a brief one-second hold at the top, then lowering under control back to the sides over two seconds." Specify tempo for each phase and the pause at the end range. State the fixed points that must NOT move (torso upright, core braced, feet planted, spine neutral).
+- REALISM PHYSICS — include at least 3, phrased physically: athletic fabric shifting and creasing with each rep; the weight's real mass and momentum, settling with gravity, never floating; visible controlled breathing and core bracing; feet planted with pressure through the whole foot; soft gym key lighting with gentle contact shadows.
+- Close with continuity anchors then an avoid-clause: "...the same coach throughout, equipment gripped continuously, lighting and background constant, one smooth unbroken take. Avoid: extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks."
 
 COACH'S FORM TIP — when the request includes one:
 The tip is the app's own coaching instruction for this exercise. Its technique content (setup, body position, movement path, safety checks) is a set of MANDATORY constraints — the setup frame and depicted movement must visibly follow every one of them. However, ignore anything in the tip that is client-specific: injury references, substitution explanations, or personal remarks. The clip is shared by every user of the app, so only universal, textbook form belongs in it.
 
 OUTPUT — STRICT JSON:
-Return ONLY a JSON object: {"setup_image_prompt": "...", "motion_prompt": "..."}. Each value is one dense paragraph, 50 to 80 words, every word load-bearing. No markdown, no commentary.`
+Return ONLY a JSON object: {"setup_image_prompt": "...", "motion_prompt": "..."}. No markdown, no commentary.`
 
 type ExercisePrompts = { setupPrompt: string; motionPrompt: string }
 
@@ -277,13 +273,13 @@ async function buildExercisePrompts(exerciseName: string, tip: string): Promise<
       },
       body: JSON.stringify({
         model: PROMPT_MODEL,
-        max_tokens: 600,
+        max_tokens: 800,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: EXERCISE_DEMO_SYSTEM_PROMPT },
           {
             role: 'user',
-            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION} seconds${tipLine}\n\nWrite the setup_image_prompt and motion_prompt. Return only the JSON object.`,
+            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION_SECONDS} seconds (choreograph two complete repetitions)${tipLine}\n\nWrite the setup_image_prompt and motion_prompt. Return only the JSON object.`,
           },
         ],
       }),
@@ -293,8 +289,9 @@ async function buildExercisePrompts(exerciseName: string, tip: string): Promise<
     const parsed = JSON.parse(payload?.choices?.[0]?.message?.content || '{}')
     const setupPrompt = String(parsed.setup_image_prompt || '').trim()
     const motionPrompt = String(parsed.motion_prompt || '').trim()
-    // Guard against empty or runaway outputs; the fallbacks always work.
-    const valid = (s: string) => s.length >= 40 && s.length <= 1200
+    // Guard against empty or runaway outputs; the fallbacks always work. The
+    // motion prompt is intentionally long (two-rep choreography), so allow room.
+    const valid = (s: string) => s.length >= 40 && s.length <= 2000
     if (!valid(setupPrompt) || !valid(motionPrompt)) return fallbackPrompts(exerciseName)
     return { setupPrompt, motionPrompt }
   } catch (err) {
@@ -347,9 +344,10 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
     // The setup frame carries the equipment into the video's first frame —
     // image-to-video cannot conjure equipment the frame doesn't contain.
     const setupFrameUrl = await generateSetupFrame(supabase, key, setupPrompt, referenceImageUrl)
+    // The motion prompt's trailing "Avoid:" clause carries the negative
+    // constraints, so no separate negative_prompt field is needed.
     const job = await submitFalJob(supabase, VIDEO_MODEL_ID, {
       prompt: motionPrompt,
-      negative_prompt: EXERCISE_NEGATIVE_PROMPT,
       image_url: setupFrameUrl,
       duration: VIDEO_DURATION,
       aspect_ratio: VIDEO_ASPECT_RATIO,
