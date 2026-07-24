@@ -14,15 +14,16 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const FAL_QUEUE_URL = 'https://queue.fal.run'
-// Kling 2.5 Turbo Pro. NOTE: Google Veo 3.1 is the realism leader, but its
-// safety checker hard-blocks animating photorealistic full-body people (even
-// plain gym form demos), and no parameter — max safety_tolerance, auto_fix —
-// gets past it, so Veo is unusable for this content. Kling has no such filter.
-// Overridable by env so the model can be swapped without a code change.
-const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
+// Veo 3.1 with a STYLIZED (non-photorealistic) 3D coach. Veo's safety checker
+// blocks animating photorealistic real-looking people, but a clearly stylized
+// 3D-animated character is not a likeness, so it should pass — unlocking Veo's
+// motion quality. If Veo still blocks it, flip this back to the Kling model
+// (which has no such filter); the stylized coach is an upgrade either way.
+const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/veo3.1/image-to-video'
 const VIDEO_ASPECT_RATIO = Deno.env.get('FAL_VIDEO_ASPECT_RATIO') || '9:16'
-const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '5'
-const VIDEO_DURATION_SECONDS = VIDEO_DURATION.replace(/[^0-9]/g, '') || '5'
+const VIDEO_RESOLUTION = Deno.env.get('FAL_VIDEO_RESOLUTION') || '720p'
+const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '8s'
+const VIDEO_DURATION_SECONDS = VIDEO_DURATION.replace(/[^0-9]/g, '') || '8'
 const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/kling-image/o3/text-to-image'
 // Image-to-image model used to place the coach into each exercise's starting
 // position WITH the right equipment. Image-to-video is hard-anchored to its
@@ -109,7 +110,7 @@ async function falFetch(supabase: SupabaseClient, url: string, init?: RequestIni
 
 // The Fal queue API takes the model input directly as the POST body and
 // returns request_id plus ready-made status_url / response_url. Always use
-// those returned URLs: models with subpaths (like kling-video/v2.5-turbo/pro)
+// those returned URLs: models with subpaths (like veo3.1/image-to-video)
 // do not poll at the same path they were submitted to.
 async function submitFalJob(supabase: SupabaseClient, modelId: string, input: Record<string, unknown>) {
   const submitted = await falFetch(supabase, `${FAL_QUEUE_URL}/${modelId}`, {
@@ -180,10 +181,12 @@ async function getOrCreateCoachReferenceImage(supabase: SupabaseClient): Promise
 
   if (config?.coach_reference_image_url) return config.coach_reference_image_url
 
-  // Elevate HNF brand kit: black + lime accent (#e8ff47) on a dark premium gym.
+  // Stylized 3D-animated coach (NOT photorealistic — this is what lets Veo
+  // animate it without tripping its real-person safety filter). Elevate HNF
+  // brand kit: matte black + lime accent (#e8ff47) on a dark premium gym.
   const imageUrl = await generateImage(supabase, IMAGE_MODEL_ID, {
     prompt:
-      'photorealistic professional photo of a friendly fitness coach, athletic build, standing in a neutral relaxed pose facing the camera, full body visible head to feet, wearing a fitted matte black athletic t-shirt with a subtle lime-yellow accent trim and small lime-yellow chest logo mark, black training shorts with matching lime-yellow accent stripes, clean black training shoes, inside a dark modern premium gym with matte black equipment softly blurred in the background, soft even key lighting with a subtle lime-yellow accent glow, sharp focus, realistic skin texture, natural proportions, no text, no watermark',
+      'stylized 3D animated character of a friendly fitness coach, modern Pixar and DreamWorks style render, appealing athletic build with clean stylized proportions, soft subsurface shading, standing in a neutral relaxed pose facing the camera, full body visible head to feet, wearing a fitted matte black athletic t-shirt with a subtle lime-yellow accent trim and small lime-yellow chest logo mark, black training shorts with matching lime-yellow accent stripes, clean black training shoes, inside a stylized dark modern premium gym with matte black equipment softly blurred in the background, soft even key lighting with a subtle lime-yellow accent glow, sharp clean render, not photorealistic, not live action, no text, no watermark',
     aspect_ratio: '3:4',
     num_images: 1,
   })
@@ -213,11 +216,11 @@ async function generateSetupFrame(
 
 // Fallback prompts when the AI prompt-engineering stage is unavailable.
 function staticSetupPrompt(name: string) {
-  return `The same coach from the reference photo, same outfit and same dark gym, now standing in the exact textbook starting position of the exercise "${name}", holding and gripping every piece of equipment that exercise requires, full body visible head to feet, facing the camera, photorealistic, sharp focus, no text, no watermark.`
+  return `The same stylized 3D animated coach from the reference image, same outfit and same dark gym, now standing in the exact textbook starting position of the exercise "${name}", holding and gripping every piece of equipment that exercise requires, full body visible head to feet, facing the camera, consistent stylized 3D animation, clean render, sharp focus, not photorealistic, no text, no watermark.`
 }
 
 function staticMotionPrompt(name: string) {
-  return `MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement. The coach, already in the starting position shown, performs two slow, controlled repetitions of the exercise "${name}" with textbook-perfect form, keeping hold of the same equipment throughout, torso upright and core braced, feet planted, realistic weight and momentum, athletic fabric shifting naturally, visible steady breathing, soft gym key lighting, one smooth unbroken take. Avoid: extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks.`
+  return `MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement. The stylized 3D animated coach, already in the starting position shown, performs two slow, controlled repetitions of the exercise "${name}" with textbook-perfect form, keeping hold of the same equipment throughout, torso upright and core braced, feet planted, believable weight and momentum, clothing shifting naturally, soft gym key lighting, one smooth unbroken take. Avoid: photorealism, live action, extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks.`
 }
 
 const PROMPT_MODEL = Deno.env.get('EXERCISE_PROMPT_MODEL') || 'gpt-4.1'
@@ -228,8 +231,10 @@ const PROMPT_MODEL = Deno.env.get('EXERCISE_PROMPT_MODEL') || 'gpt-4.1'
 // exercise ever (results are cached), so the added cost is negligible.
 const EXERCISE_DEMO_SYSTEM_PROMPT = `You are a world-class prompt engineer for AI exercise demonstration videos with the biomechanics knowledge of a certified strength and conditioning specialist. The pipeline works in two stages and you write one prompt for each:
 
-STAGE 1 — SETUP FRAME (Kling image-to-image): a reference photo of the coach is edited to place him in the exercise's starting position. Your "setup_image_prompt" drives this edit.
-STAGE 2 — VIDEO (Kling image-to-video): the setup frame becomes the first frame of a short clip. Your "motion_prompt" drives the movement. The video model cannot introduce equipment that is not already visible in the setup frame — the setup frame must contain EVERYTHING the exercise needs. It rewards richly detailed, precisely choreographed prompts; be specific and physical.
+The coach is a STYLIZED 3D-ANIMATED CHARACTER (modern Pixar/DreamWorks style), never photorealistic — keep every prompt consistent with that clean animated look.
+
+STAGE 1 — SETUP FRAME (Kling image-to-image): a reference image of the stylized coach is edited to place him in the exercise's starting position. Your "setup_image_prompt" drives this edit.
+STAGE 2 — VIDEO (Google Veo 3.1 image-to-video): the setup frame becomes the first frame of an 8-second clip. Your "motion_prompt" drives the movement. Veo cannot introduce equipment that is not already visible in the setup frame — the setup frame must contain EVERYTHING the exercise needs. Veo rewards richly detailed, precisely choreographed prompts; be specific and physical.
 
 EXERCISE ACCURACY — HIGHEST PRIORITY RULE FOR BOTH PROMPTS:
 The setup and movement must match the EXACT named exercise variant, never a lookalike. A goblet squat holds one dumbbell vertically at the chest; a front squat racks a barbell on the shoulders; a Romanian deadlift keeps knees nearly fixed while a conventional deadlift does not. A lateral raise holds a dumbbell in EACH hand at the sides. State the precise equipment, grip, stance, and movement path for the named variant. If the exercise uses no equipment, say bodyweight only, hands positioned exactly as the movement requires.
@@ -237,14 +242,14 @@ The setup and movement must match the EXACT named exercise variant, never a look
 SETUP_IMAGE_PROMPT RULES (50-80 words):
 - Begin with: "The same coach from the reference photo, same outfit, same dark gym," — this preserves identity and brand.
 - Then describe the exact textbook STARTING position of the named exercise: stance width, grip, where each piece of equipment is held or positioned, body angles, gaze. Name every piece of equipment explicitly (e.g. "holding one dumbbell in each hand at his sides"). For bench/machine exercises, include the bench or machine and the coach positioned on it.
-- End with: "full body visible head to feet, photorealistic, sharp focus, no text, no watermark."
+- End with: "full body visible head to feet, consistent stylized 3D animation, clean render, sharp focus, not photorealistic, no text, no watermark."
 
 MOTION_PROMPT RULES (90-140 words, richly descriptive):
 - Open with exactly: "MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement." — the entire body stays visible.
 - The first frame ALREADY shows the coach in the starting position holding the equipment. Never re-describe his appearance or introduce new equipment; the movement uses exactly what the frame contains, and he keeps hold of it for the entire clip.
-- Choreograph TWO complete, slow, controlled repetitions across the clip so the movement path is unmistakable. Break each rep into explicit phases with named joint actions AND concrete angles / body landmarks: e.g. "elbows held soft at roughly 15 degrees, arms rising in the scapular plane out to exactly shoulder height until the wrists are level with the shoulders, a brief one-second hold at the top, then lowering under control back to the sides over two seconds." Specify tempo for each phase and the pause at the end range. State the fixed points that must NOT move (torso upright, core braced, feet planted, spine neutral).
+- Choreograph TWO complete, slow, controlled repetitions across the 8 seconds so the movement path is unmistakable. Break each rep into explicit phases with named joint actions AND concrete angles / body landmarks: e.g. "elbows held soft at roughly 15 degrees, arms rising in the scapular plane out to exactly shoulder height until the wrists are level with the shoulders, a brief one-second hold at the top, then lowering under control back to the sides over two seconds." Specify tempo for each phase and the pause at the end range. State the fixed points that must NOT move (torso upright, core braced, feet planted, spine neutral).
 - REALISM PHYSICS — include at least 3, phrased physically: athletic fabric shifting and creasing with each rep; the weight's real mass and momentum, settling with gravity, never floating; visible controlled breathing and core bracing; feet planted with pressure through the whole foot; soft gym key lighting with gentle contact shadows.
-- Close with continuity anchors then an avoid-clause: "...the same coach throughout, equipment gripped continuously, lighting and background constant, one smooth unbroken take. Avoid: extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks."
+- Close with continuity anchors then an avoid-clause: "...the same stylized 3D coach throughout, consistent animated style, equipment gripped continuously, lighting and background constant, one smooth unbroken take. Avoid: photorealism, live action, extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks."
 
 COACH'S FORM TIP — when the request includes one:
 The tip is the app's own coaching instruction for this exercise. Its technique content (setup, body position, movement path, safety checks) is a set of MANDATORY constraints — the setup frame and depicted movement must visibly follow every one of them. However, ignore anything in the tip that is client-specific: injury references, substitution explanations, or personal remarks. The clip is shared by every user of the app, so only universal, textbook form belongs in it.
@@ -344,15 +349,18 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
     // The setup frame carries the equipment into the video's first frame —
     // image-to-video cannot conjure equipment the frame doesn't contain.
     const setupFrameUrl = await generateSetupFrame(supabase, key, setupPrompt, referenceImageUrl)
-    // The motion prompt's trailing "Avoid:" clause carries the negative
-    // constraints, so no separate negative_prompt field is needed.
+    // Veo 3.1 schema: negative constraints live in the motion prompt's
+    // "Avoid:" clause. Max safety_tolerance + auto_fix as belt-and-suspenders
+    // (the stylized 3D coach is the real reason the safety filter should pass).
     const job = await submitFalJob(supabase, VIDEO_MODEL_ID, {
       prompt: motionPrompt,
       image_url: setupFrameUrl,
       duration: VIDEO_DURATION,
+      resolution: VIDEO_RESOLUTION,
       aspect_ratio: VIDEO_ASPECT_RATIO,
       generate_audio: false,
-      cfg_scale: 0.5,
+      safety_tolerance: '6',
+      auto_fix: true,
     })
 
     await supabase
