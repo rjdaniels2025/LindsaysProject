@@ -14,12 +14,22 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const FAL_QUEUE_URL = 'https://queue.fal.run'
-// Cheapest realistic option on Fal: Wan 2.5 image-to-video at 480p. Both are
-// overridable by env so the model can be swapped without a code change.
-const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/wan-25-preview/image-to-video'
-const VIDEO_RESOLUTION = Deno.env.get('FAL_VIDEO_RESOLUTION') || '480p'
-const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '5'
-const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/flux/schnell'
+// Veo 3.1 with a STYLIZED (non-photorealistic) 3D coach. Veo's safety checker
+// blocks animating photorealistic real-looking people, but a clearly stylized
+// 3D-animated character is not a likeness, so it should pass — unlocking Veo's
+// motion quality. If Veo still blocks it, flip this back to the Kling model
+// (which has no such filter); the stylized coach is an upgrade either way.
+const VIDEO_MODEL_ID = Deno.env.get('FAL_VIDEO_MODEL_ID') || 'fal-ai/veo3.1/image-to-video'
+const VIDEO_ASPECT_RATIO = Deno.env.get('FAL_VIDEO_ASPECT_RATIO') || '9:16'
+const VIDEO_RESOLUTION = Deno.env.get('FAL_VIDEO_RESOLUTION') || '720p'
+const VIDEO_DURATION = Deno.env.get('FAL_VIDEO_DURATION') || '8s'
+const VIDEO_DURATION_SECONDS = VIDEO_DURATION.replace(/[^0-9]/g, '') || '8'
+const IMAGE_MODEL_ID = Deno.env.get('FAL_IMAGE_MODEL_ID') || 'fal-ai/kling-image/o3/text-to-image'
+// Image-to-image model used to place the coach into each exercise's starting
+// position WITH the right equipment. Image-to-video is hard-anchored to its
+// start frame: equipment absent from frame one never appears mid-clip, so
+// every exercise gets its own setup frame derived from the coach reference.
+const SETUP_IMAGE_MODEL_ID = Deno.env.get('FAL_SETUP_IMAGE_MODEL_ID') || 'fal-ai/kling-image/o3/image-to-image'
 // Hard cap on how many distinct exercise videos can ever be generated, as a
 // spend guard: each unique exercise costs real money exactly once.
 const MAX_LIBRARY_SIZE = Number(Deno.env.get('EXERCISE_VIDEO_MAX_LIBRARY') || 300)
@@ -100,7 +110,7 @@ async function falFetch(supabase: SupabaseClient, url: string, init?: RequestIni
 
 // The Fal queue API takes the model input directly as the POST body and
 // returns request_id plus ready-made status_url / response_url. Always use
-// those returned URLs: models with subpaths (like wan-25-preview/image-to-video)
+// those returned URLs: models with subpaths (like veo3.1/image-to-video)
 // do not poll at the same path they were submitted to.
 async function submitFalJob(supabase: SupabaseClient, modelId: string, input: Record<string, unknown>) {
   const submitted = await falFetch(supabase, `${FAL_QUEUE_URL}/${modelId}`, {
@@ -145,8 +155,23 @@ async function uploadToBucket(supabase: SupabaseClient, path: string, sourceUrl:
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
 }
 
+// Submits an image job and waits for its result inline. Image generation is
+// fast enough (~5-20s) to poll within one invocation, unlike video.
+async function generateImage(supabase: SupabaseClient, modelId: string, input: Record<string, unknown>): Promise<string> {
+  const job = await submitFalJob(supabase, modelId, input)
+  const deadline = Date.now() + 2 * 60 * 1000
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    if ((await falJobStatus(supabase, job.statusUrl)) === 'COMPLETED') break
+  }
+  const result = await falFetch(supabase, job.responseUrl)
+  const imageUrl = result?.images?.[0]?.url
+  if (!imageUrl) throw new Error('Image generation returned no image.')
+  return imageUrl
+}
+
 // Ensures the one fixed coach reference photo exists (generated once, then
-// reused for every exercise so all clips show the same coach).
+// reused as the identity anchor for every exercise's setup frame).
 async function getOrCreateCoachReferenceImage(supabase: SupabaseClient): Promise<string> {
   const { data: config } = await supabase
     .from('video_generation_config')
@@ -156,30 +181,131 @@ async function getOrCreateCoachReferenceImage(supabase: SupabaseClient): Promise
 
   if (config?.coach_reference_image_url) return config.coach_reference_image_url
 
-  const job = await submitFalJob(supabase, IMAGE_MODEL_ID, {
+  // Stylized 3D GAME-CHARACTER avatar of the coach — an adult, cool, gamer-
+  // appealing hero style (Overwatch / Valorant / Fortnite register), mature
+  // and confident, NOT a kids cartoon. Deliberately kept clearly stylized
+  // (not a realistic "digital human" — that realism makes Veo refuse to
+  // generate) so Veo animates it cleanly. Elevate HNF brand kit: matte black
+  // + lime accent (#e8ff47) on a dark premium gym.
+  const imageUrl = await generateImage(supabase, IMAGE_MODEL_ID, {
     prompt:
-      'professional photo of a friendly fitness coach, athletic build, standing in a neutral relaxed pose facing the camera, plain grey gym studio background, full body visible head to feet, fitted athletic clothing, natural even lighting, photorealistic',
-    image_size: 'portrait_4_3',
+      'stylized 3D game character of an athletic adult male fitness coach, modern AAA hero-shooter art style like Overwatch and Valorant, cool confident mature adult, strong stylized muscular proportions, clean cel-influenced 3D shading with crisp highlights, standing in a neutral relaxed pose facing the camera, full body visible head to feet, wearing a fitted matte black athletic t-shirt with a subtle lime-yellow accent trim and small lime-yellow chest logo mark, black training shorts with matching lime-yellow accent stripes, clean black training shoes, inside a stylized dark modern premium gym with matte black equipment softly blurred in the background, dramatic soft key lighting with a subtle lime-yellow accent glow, sharp clean stylized render, appealing to adults, not childish, not a cartoon for kids, clearly stylized and not photorealistic, no text, no watermark',
+    aspect_ratio: '3:4',
     num_images: 1,
   })
-
-  const deadline = Date.now() + 2 * 60 * 1000
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 3000))
-    if ((await falJobStatus(supabase, job.statusUrl)) === 'COMPLETED') break
-  }
-
-  const result = await falFetch(supabase, job.responseUrl)
-  const imageUrl = result?.images?.[0]?.url
-  if (!imageUrl) throw new Error('Coach reference image generation returned no image.')
 
   const publicUrl = await uploadToBucket(supabase, 'coach-reference.png', imageUrl, 'image/png')
   await supabase.from('video_generation_config').upsert({ id: true, coach_reference_image_url: publicUrl })
   return publicUrl
 }
 
-function exercisePrompt(name: string) {
-  return `The fitness coach from the reference image performs slow, controlled repetitions of the exercise "${name}" with perfect form, in a clean gym, camera locked off, full body always in frame, realistic human movement, no cuts.`
+// Places the coach (identity from the reference photo) into the exercise's
+// exact starting position with the correct equipment already in frame, so the
+// video's first frame contains everything the movement needs.
+async function generateSetupFrame(
+  supabase: SupabaseClient,
+  key: string,
+  setupPrompt: string,
+  coachReferenceUrl: string,
+): Promise<string> {
+  const imageUrl = await generateImage(supabase, SETUP_IMAGE_MODEL_ID, {
+    prompt: setupPrompt,
+    image_urls: [coachReferenceUrl],
+    aspect_ratio: '9:16',
+    num_images: 1,
+  })
+  return uploadToBucket(supabase, `${key.replace(/\s+/g, '-')}-start.png`, imageUrl, 'image/png')
+}
+
+// Fallback prompts when the AI prompt-engineering stage is unavailable.
+function staticSetupPrompt(name: string) {
+  return `The same stylized 3D game-character coach from the reference image, same outfit and same dark gym, now standing in the exact textbook starting position of the exercise "${name}", holding and gripping every piece of equipment that exercise requires, full body visible head to feet, facing the camera, consistent stylized 3D game-character look, clean stylized render, sharp focus, clearly stylized and not photorealistic, not a kids cartoon, no text, no watermark.`
+}
+
+function staticMotionPrompt(name: string) {
+  return `MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement. The stylized 3D game-character coach, already in the starting position shown, performs two slow, controlled repetitions of the exercise "${name}" with textbook-perfect form, keeping hold of the same equipment throughout, torso upright and core braced, feet planted, believable weight and momentum, clothing shifting naturally, soft gym key lighting, one smooth unbroken take. Avoid: photorealism, live action, extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks.`
+}
+
+const PROMPT_MODEL = Deno.env.get('EXERCISE_PROMPT_MODEL') || 'gpt-4.1'
+
+// Two-stage generation: a prompt-engineering model turns the bare exercise
+// name into a biomechanically exact setup-image prompt and a rich, cinematic
+// motion prompt before the video job is submitted. Runs once per unique
+// exercise ever (results are cached), so the added cost is negligible.
+const EXERCISE_DEMO_SYSTEM_PROMPT = `You are a world-class prompt engineer for AI exercise demonstration videos with the biomechanics knowledge of a certified strength and conditioning specialist. The pipeline works in two stages and you write one prompt for each:
+
+The coach is a STYLIZED 3D GAME-CHARACTER AVATAR — an adult, cool, gamer-appealing hero style (Overwatch / Valorant register), mature and confident, NOT a kids cartoon and NOT photorealistic. IMPORTANT: keep it clearly stylized (crisp stylized 3D shading), never a realistic "digital human" — too much realism makes the video model refuse to generate.
+
+STAGE 1 — SETUP FRAME (Kling image-to-image): a reference image of the avatar coach is edited to place him in the exercise's starting position. Your "setup_image_prompt" drives this edit.
+STAGE 2 — VIDEO (Google Veo 3.1 image-to-video): the setup frame becomes the first frame of an 8-second clip. Your "motion_prompt" drives the movement. Veo cannot introduce equipment that is not already visible in the setup frame — the setup frame must contain EVERYTHING the exercise needs. Veo rewards richly detailed, precisely choreographed prompts; be specific and physical.
+
+EXERCISE ACCURACY — HIGHEST PRIORITY RULE FOR BOTH PROMPTS:
+The setup and movement must match the EXACT named exercise variant, never a lookalike. A goblet squat holds one dumbbell vertically at the chest; a front squat racks a barbell on the shoulders; a Romanian deadlift keeps knees nearly fixed while a conventional deadlift does not. A lateral raise holds a dumbbell in EACH hand at the sides. State the precise equipment, grip, stance, and movement path for the named variant. If the exercise uses no equipment, say bodyweight only, hands positioned exactly as the movement requires.
+
+SETUP_IMAGE_PROMPT RULES (50-80 words):
+- Begin with: "The same stylized 3D game-character coach from the reference image, same outfit, same dark gym," — this preserves identity, style, and brand.
+- Then describe the exact textbook STARTING position of the named exercise: stance width, grip, where each piece of equipment is held or positioned, body angles, gaze. Name every piece of equipment explicitly (e.g. "holding one dumbbell in each hand at his sides"). For bench/machine exercises, include the bench or machine and the coach positioned on it.
+- End with: "full body visible head to feet, consistent stylized 3D game-character look, clean stylized render, sharp focus, clearly stylized and not photorealistic, not a kids cartoon, no text, no watermark."
+
+MOTION_PROMPT RULES (90-140 words, richly descriptive):
+- Open with exactly: "MEDIUM WIDE SHOT on a locked tripod, the full body framed head to feet, zero camera movement." — the entire body stays visible.
+- The first frame ALREADY shows the coach in the starting position holding the equipment. Never re-describe his appearance or introduce new equipment; the movement uses exactly what the frame contains, and he keeps hold of it for the entire clip.
+- Choreograph TWO complete, slow, controlled repetitions across the 8 seconds so the movement path is unmistakable. Break each rep into explicit phases with named joint actions AND concrete angles / body landmarks: e.g. "elbows held soft at roughly 15 degrees, arms rising in the scapular plane out to exactly shoulder height until the wrists are level with the shoulders, a brief one-second hold at the top, then lowering under control back to the sides over two seconds." Specify tempo for each phase and the pause at the end range. State the fixed points that must NOT move (torso upright, core braced, feet planted, spine neutral).
+- REALISM PHYSICS — include at least 3, phrased physically: athletic fabric shifting and creasing with each rep; the weight's real mass and momentum, settling with gravity, never floating; visible controlled breathing and core bracing; feet planted with pressure through the whole foot; soft gym key lighting with gentle contact shadows.
+- Close with continuity anchors then an avoid-clause: "...the same stylized 3D game-character coach throughout, consistent stylized style, equipment gripped continuously, lighting and background constant, one smooth unbroken take. Avoid: photorealism, live action, extra or missing limbs, distorted or bending joints, equipment changing shape or floating, a second person, warping face, camera shake, jump cuts, on-screen text or watermarks."
+
+COACH'S FORM TIP — when the request includes one:
+The tip is the app's own coaching instruction for this exercise. Its technique content (setup, body position, movement path, safety checks) is a set of MANDATORY constraints — the setup frame and depicted movement must visibly follow every one of them. However, ignore anything in the tip that is client-specific: injury references, substitution explanations, or personal remarks. The clip is shared by every user of the app, so only universal, textbook form belongs in it.
+
+OUTPUT — STRICT JSON:
+Return ONLY a JSON object: {"setup_image_prompt": "...", "motion_prompt": "..."}. No markdown, no commentary.`
+
+type ExercisePrompts = { setupPrompt: string; motionPrompt: string }
+
+function fallbackPrompts(exerciseName: string): ExercisePrompts {
+  return { setupPrompt: staticSetupPrompt(exerciseName), motionPrompt: staticMotionPrompt(exerciseName) }
+}
+
+async function buildExercisePrompts(exerciseName: string, tip: string): Promise<ExercisePrompts> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY')
+  if (!openaiKey) return fallbackPrompts(exerciseName)
+
+  const tipLine = tip ? `\nCoach's form tip: ${tip}` : ''
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: PROMPT_MODEL,
+        max_tokens: 800,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: EXERCISE_DEMO_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `Exercise: ${exerciseName}\nClip duration: ${VIDEO_DURATION_SECONDS} seconds (choreograph two complete repetitions)${tipLine}\n\nWrite the setup_image_prompt and motion_prompt. Return only the JSON object.`,
+          },
+        ],
+      }),
+    })
+    if (!response.ok) throw new Error(`OpenAI prompt enhancement failed with status ${response.status}.`)
+    const payload = await response.json()
+    const parsed = JSON.parse(payload?.choices?.[0]?.message?.content || '{}')
+    const setupPrompt = String(parsed.setup_image_prompt || '').trim()
+    const motionPrompt = String(parsed.motion_prompt || '').trim()
+    // Guard against empty or runaway outputs; the fallbacks always work. The
+    // motion prompt is intentionally long (two-rep choreography), so allow room.
+    const valid = (s: string) => s.length >= 40 && s.length <= 2000
+    if (!valid(setupPrompt) || !valid(motionPrompt)) return fallbackPrompts(exerciseName)
+    return { setupPrompt, motionPrompt }
+  } catch (err) {
+    console.error('[generate-exercise-video] Prompt enhancement failed, using fallback:', err)
+    return fallbackPrompts(exerciseName)
+  }
 }
 
 function ageMs(createdAt: string) {
@@ -191,7 +317,7 @@ async function markFailed(supabase: SupabaseClient, key: string, message: string
   return jsonResponse({ status: 'failed', error: message })
 }
 
-async function handleRequest(supabase: SupabaseClient, exerciseName: string, key: string) {
+async function handleRequest(supabase: SupabaseClient, exerciseName: string, key: string, tip: string) {
   const { data: existing } = await supabase
     .from('exercise_videos')
     .select('status, video_url')
@@ -222,16 +348,32 @@ async function handleRequest(supabase: SupabaseClient, exerciseName: string, key
   try {
     await ensureBucket(supabase)
     const referenceImageUrl = await getOrCreateCoachReferenceImage(supabase)
+    const { setupPrompt, motionPrompt } = await buildExercisePrompts(exerciseName, tip)
+    // The setup frame carries the equipment into the video's first frame —
+    // image-to-video cannot conjure equipment the frame doesn't contain.
+    const setupFrameUrl = await generateSetupFrame(supabase, key, setupPrompt, referenceImageUrl)
+    // Veo 3.1 schema: negative constraints live in the motion prompt's
+    // "Avoid:" clause. Max safety_tolerance + auto_fix as belt-and-suspenders
+    // (the stylized 3D coach is the real reason the safety filter should pass).
     const job = await submitFalJob(supabase, VIDEO_MODEL_ID, {
-      prompt: exercisePrompt(exerciseName),
-      image_url: referenceImageUrl,
+      prompt: motionPrompt,
+      image_url: setupFrameUrl,
       duration: VIDEO_DURATION,
       resolution: VIDEO_RESOLUTION,
+      aspect_ratio: VIDEO_ASPECT_RATIO,
+      generate_audio: false,
+      safety_tolerance: '6',
+      auto_fix: true,
     })
 
     await supabase
       .from('exercise_videos')
-      .update({ fal_request_id: job.requestId, fal_status_url: job.statusUrl, fal_response_url: job.responseUrl })
+      .update({
+        fal_request_id: job.requestId,
+        fal_status_url: job.statusUrl,
+        fal_response_url: job.responseUrl,
+        generation_prompt: `SETUP: ${setupPrompt}\n\nMOTION: ${motionPrompt}`,
+      })
       .eq('exercise_key', key)
 
     return jsonResponse({ status: 'pending' })
@@ -297,11 +439,14 @@ Deno.serve(async (request) => {
     const body = await request.json()
     const action = body?.action
     const exerciseName = String(body?.name || '').trim().slice(0, 80)
+    // The app's own coaching cue for this exercise; folded into the prompt
+    // engineering stage as mandatory form constraints.
+    const tip = String(body?.description || '').trim().slice(0, 300)
     const key = normalizedKey(exerciseName)
     if (!key) return jsonResponse({ error: 'Missing exercise name.' }, 400)
 
     const supabase = supabaseAdmin()
-    if (action === 'request') return await handleRequest(supabase, exerciseName, key)
+    if (action === 'request') return await handleRequest(supabase, exerciseName, key, tip)
     if (action === 'poll') return await handlePoll(supabase, key)
     return jsonResponse({ error: 'Unknown action.' }, 400)
   } catch (err) {

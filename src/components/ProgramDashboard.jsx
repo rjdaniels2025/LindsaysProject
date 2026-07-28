@@ -842,8 +842,8 @@ function MealPlan({ items }) {
 
 // ─── Exercise demonstration ────────────────────────────────────────────────────
 
-function ExerciseDemoModal({ name, onClose }) {
-  const { url, status } = useAiVideo(name, true)
+function ExerciseDemoModal({ name, cue, onClose }) {
+  const { url, status } = useAiVideo(name, cue, true)
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
@@ -1308,7 +1308,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }
                               </div>
                             )}
 
-                            <button type="button" onClick={() => setDemoExercise(ex.name)}
+                            <button type="button" onClick={() => setDemoExercise({ name: ex.name, cue: ex.cue })}
                               className="mt-3 inline-flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 font-heading text-sm uppercase text-white transition hover:border-accent">
                               <Video size={15} /> View Demonstration
                             </button>
@@ -1444,7 +1444,14 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }
         })}
       </div>
 
-      {demoExercise && <ExerciseDemoModal key={demoExercise} name={demoExercise} onClose={() => setDemoExercise(null)} />}
+      {demoExercise && (
+        <ExerciseDemoModal
+          key={demoExercise.name}
+          name={demoExercise.name}
+          cue={demoExercise.cue}
+          onClose={() => setDemoExercise(null)}
+        />
+      )}
 
     </div>
   )

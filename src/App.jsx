@@ -6,6 +6,7 @@ import Chat from './components/Chat.jsx'
 import Landing from './components/Landing.jsx'
 import Onboarding from './components/Onboarding.jsx'
 import PricingPage from './components/PricingPage.jsx'
+import TrialApplication from './components/TrialApplication.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
 import { waitForProgramImages } from './utils/aiImage.js'
 import { auditProgram } from './utils/programSafety.js'
@@ -66,7 +67,7 @@ function authRedirectUrl() {
   return typeof window !== 'undefined' ? window.location.origin : undefined
 }
 
-const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin']
+const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin', 'apply']
 const VALID_BILLING_OPTIONS = ['pay-in-full', 'monthly', 'biweekly']
 
 function storedBillingOption() {
@@ -1063,6 +1064,10 @@ function App() {
     )
   }
 
+  if (stage === 'apply') {
+    return <TrialApplication onBack={goHome} />
+  }
+
   if (stage === 'admin') {
     if (!adminUnlocked) {
       return (
@@ -1088,6 +1093,7 @@ function App() {
       user={user}
       hasProgram={hasProgramMessage(messages)}
       onStart={() => navigate('assessment')}
+      onApply={() => navigate('apply')}
       onPricing={openPricing}
       onDashboard={() => navigate('chat')}
       onLogin={openLogin}
