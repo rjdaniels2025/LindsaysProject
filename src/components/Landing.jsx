@@ -30,7 +30,7 @@ const coachingPrinciples = [
   },
 ]
 
-export default function Landing({ user, hasProgram, onStart, onPricing, onDashboard, onLogin, onSignOut, onAdmin }) {
+export default function Landing({ user, hasProgram, onStart, onApply, onPricing, onDashboard, onLogin, onSignOut, onAdmin }) {
   const appSettings = useAppSettings()
 
   return (
@@ -39,11 +39,36 @@ export default function Landing({ user, hasProgram, onStart, onPricing, onDashbo
         user={user}
         hasProgram={hasProgram}
         onStart={onStart}
+        onApply={onApply}
         onPricing={onPricing}
         onDashboard={onDashboard}
         onLogin={onLogin}
         onSignOut={onSignOut}
       />
+
+      {/* Free 7-Day Kickstart lead-capture CTA */}
+      <section className="border-y border-accent/30 bg-gradient-to-br from-[#14160a] via-[#0b0b0b] to-[#14160a] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-heading text-sm uppercase text-accent">
+            🔥 Free 7-Day Kickstart
+          </span>
+          <h2 className="font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
+            Try Elevate free for 7 days
+          </h2>
+          <p className="max-w-2xl text-base leading-7 text-body sm:text-lg">
+            Apply for your FREE 7-Day Elevate Kickstart. Tell us your goal and Lindsay will personally reach
+            out to build your macros, meal guide, and workout plan.
+          </p>
+          <button
+            type="button"
+            onClick={onApply}
+            className="group inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-heading text-lg uppercase text-black transition hover:bg-white"
+          >
+            Apply Now
+            <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
+      </section>
 
       {isFoundingOfferActive() ? (
       <section className="relative overflow-hidden border-y border-accent/30 bg-gradient-to-br from-[#14160a] via-[#0b0b0b] to-[#14160a] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">

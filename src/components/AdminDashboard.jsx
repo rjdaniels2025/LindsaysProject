@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import {
-  Users, TrendingUp, UserCheck, CalendarDays,
+  Users, UserCheck, CalendarDays,
   RefreshCw, ArrowLeft, Clock, CheckCircle2,
   XCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Search, X,
 } from 'lucide-react'
@@ -199,8 +199,67 @@ function StatCard({ icon: Icon, label, value, sub }) {
   )
 }
 
+const APPLICATION_STATUSES = ['new', 'contacted', 'enrolled', 'declined']
+
+function ApplicationCard({ application, onStatusChange }) {
+  const [saving, setSaving] = useState(false)
+
+  async function changeStatus(status) {
+    setSaving(true)
+    const { error } = await supabase.rpc('set_trial_application_status', {
+      p_id: application.id,
+      p_status: status,
+    })
+    setSaving(false)
+    if (!error) onStatusChange(application.id, status)
+  }
+
+  return (
+    <div className="rounded-lg border border-line bg-card p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-heading text-2xl uppercase leading-none text-white">{application.name}</p>
+          <p className="mt-1 text-xs text-body">Applied {formatDate(application.created_at)}</p>
+        </div>
+        <select
+          value={application.status}
+          disabled={saving}
+          onChange={(e) => changeStatus(e.target.value)}
+          className="rounded-lg border border-line bg-[#111] px-2 py-1 text-xs uppercase text-white outline-none transition focus:border-accent disabled:opacity-50"
+        >
+          {APPLICATION_STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-3 grid gap-1.5 text-sm">
+        <a href={`mailto:${application.email}`} className="text-accent transition hover:underline">{application.email}</a>
+        {application.phone && (
+          <a href={`tel:${application.phone}`} className="text-white transition hover:text-accent">{application.phone}</a>
+        )}
+      </div>
+
+      <div className="mt-3 grid gap-2 text-sm">
+        {application.fitness_goal && (
+          <p className="text-body"><span className="font-heading uppercase text-white">Goal: </span>{application.fitness_goal}</p>
+        )}
+        {application.biggest_challenge && (
+          <p className="text-body"><span className="font-heading uppercase text-white">Challenge: </span>{application.biggest_challenge}</p>
+        )}
+        <p className="text-body">
+          <span className="font-heading uppercase text-white">Tracked macros: </span>
+          {application.tracked_macros === null ? '—' : application.tracked_macros ? 'Yes' : 'No'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminDashboard({ onBack }) {
   const [clients, setClients] = useState([])
+  const [applications, setApplications] = useState([])
+  const [view, setView] = useState('clients')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -211,28 +270,39 @@ export default function AdminDashboard({ onBack }) {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError('')
 
-    const { data, error: rpcError } = await supabase.rpc('get_admin_dashboard')
+    const [clientsRes, appsRes] = await Promise.all([
+      supabase.rpc('get_admin_dashboard'),
+      supabase.rpc('get_trial_applications'),
+    ])
 
-    if (rpcError) {
-      setError(rpcError.message)
+    if (clientsRes.error) {
+      setError(clientsRes.error.message)
     } else {
-      setClients(data || [])
+      setClients(clientsRes.data || [])
+    }
+    if (!appsRes.error) {
+      setApplications(appsRes.data || [])
     }
 
     isRefresh ? setRefreshing(false) : setLoading(false)
+  }
+
+  function updateApplicationStatus(id, status) {
+    setApplications((current) => current.map((a) => (a.id === id ? { ...a, status } : a)))
   }
 
   useEffect(() => { loadData() }, [])
 
   const totalClients = clients.length
   const activeCount = clients.filter((c) => isActive(c.membership_status)).length
-  const withProgram = clients.filter((c) => hasProgram(c.app_state)).length
   const newThisMonth = clients.filter((c) => {
     if (!c.program_created_at) return false
     const d = new Date(c.program_created_at)
     const now = new Date()
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
+
+  const newApplications = applications.filter((a) => a.status === 'new').length
 
   const query = searchQuery.trim().toLowerCase()
   const filteredClients = query
@@ -288,9 +358,30 @@ export default function AdminDashboard({ onBack }) {
           <StatCard icon={Users} label="Total Clients" value={totalClients} />
           <StatCard icon={UserCheck} label="Active Members" value={activeCount} sub={`${totalClients - activeCount} inactive`} />
           <StatCard icon={CalendarDays} label="New This Month" value={newThisMonth} />
-          <StatCard icon={TrendingUp} label="Programs Running" value={withProgram} />
+          <StatCard icon={FileText} label="New Applications" value={newApplications} sub={`${applications.length} total`} />
         </div>
 
+        {/* Clients / Applications tabs */}
+        <div className="mb-6 inline-flex rounded-lg border border-line bg-card p-1">
+          {[
+            { id: 'clients', label: 'Clients', count: clients.length },
+            { id: 'applications', label: 'Applications', count: applications.length },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setView(tab.id)}
+              className={`rounded-md px-4 py-2 font-heading text-base uppercase transition ${
+                view === tab.id ? 'bg-accent text-black' : 'text-body hover:text-white'
+              }`}
+            >
+              {tab.label} <span className="opacity-70">({tab.count})</span>
+            </button>
+          ))}
+        </div>
+
+        {view === 'clients' && (
+        <>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-heading text-2xl uppercase text-white">
             All Clients
@@ -338,6 +429,32 @@ export default function AdminDashboard({ onBack }) {
               <ClientCard key={client.user_id} client={client} onView={setSelectedClient} />
             ))}
           </div>
+        )}
+        </>
+        )}
+
+        {view === 'applications' && (
+          loading ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="h-40 rounded-lg border border-line bg-card animate-pulse" />
+              ))}
+            </div>
+          ) : applications.length === 0 ? (
+            <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
+              No trial applications yet.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {applications.map((application) => (
+                <ApplicationCard
+                  key={application.id}
+                  application={application}
+                  onStatusChange={updateApplicationStatus}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
     </main>

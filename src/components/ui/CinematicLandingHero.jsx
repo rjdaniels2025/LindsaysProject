@@ -584,6 +584,7 @@ export default function CinematicLandingHero({
   user,
   hasProgram,
   onStart,
+  onApply,
   onPricing,
   onDashboard,
   onLogin,
@@ -830,6 +831,16 @@ export default function CinematicLandingHero({
                 >
                   Start Assessment
                   <ArrowRight size={20} />
+                </button>
+              )}
+              {!hasProgram && onApply && (
+                <button
+                  type="button"
+                  onClick={onApply}
+                  className="elevate-btn-secondary inline-flex min-h-14 items-center justify-center gap-3 rounded-[1.25rem] px-7 py-4 font-heading text-xl uppercase"
+                >
+                  Free 7-Day Trial
+                  <Flame size={20} />
                 </button>
               )}
               <button
