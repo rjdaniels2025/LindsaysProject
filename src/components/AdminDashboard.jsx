@@ -4,8 +4,10 @@ import {
   Users, UserCheck, CalendarDays,
   RefreshCw, ArrowLeft, Clock, CheckCircle2,
   XCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Search, X,
+  Upload, Trash2, Video, Sparkles,
 } from 'lucide-react'
 import AdminClientDetail from './AdminClientDetail.jsx'
+import { ADMIN_PASSCODE } from './AdminPasscode.jsx'
 
 function isActive(status) {
   return status === 'active' || status === 'trialing'
@@ -256,9 +258,214 @@ function ApplicationCard({ application, onStatusChange }) {
   )
 }
 
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024
+
+// Uploads the file straight to Storage using a one-time signed URL. The bytes
+// never pass through an edge function, which could not carry a video this size.
+async function uploadExerciseVideo(exerciseName, file) {
+  if (!file.type.startsWith('video/')) throw new Error('Please choose a video file.')
+  if (file.size > MAX_VIDEO_BYTES) throw new Error('That video is over 100MB. Please trim or compress it.')
+
+  const signed = await supabase.functions.invoke('manage-exercise-video', {
+    body: { action: 'upload-url', exerciseName, passcode: ADMIN_PASSCODE },
+  })
+  if (signed.error || signed.data?.error) throw new Error(signed.data?.error || 'Could not start the upload.')
+
+  const { error: uploadError } = await supabase.storage
+    .from('exercise-videos')
+    .uploadToSignedUrl(signed.data.path, signed.data.token, file, { contentType: file.type })
+  if (uploadError) throw new Error(uploadError.message)
+
+  const finalized = await supabase.functions.invoke('manage-exercise-video', {
+    body: { action: 'finalize', exerciseName, passcode: ADMIN_PASSCODE },
+  })
+  if (finalized.error || finalized.data?.error) throw new Error(finalized.data?.error || 'Could not save the video.')
+}
+
+async function deleteExerciseVideo(exerciseKey) {
+  const res = await supabase.functions.invoke('manage-exercise-video', {
+    body: { action: 'delete', exerciseKey, passcode: ADMIN_PASSCODE },
+  })
+  if (res.error || res.data?.error) throw new Error(res.data?.error || 'Could not remove the video.')
+}
+
+function VideoSourceBadge({ source, status }) {
+  if (status === 'pending') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-medium text-yellow-400">
+        <Clock size={11} /> Generating
+      </span>
+    )
+  }
+  if (status === 'failed') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-medium text-red-400">
+        <XCircle size={11} /> AI failed
+      </span>
+    )
+  }
+  if (source === 'manual') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2.5 py-0.5 text-xs font-medium text-accent">
+        <Video size={11} /> Your video
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-line px-2.5 py-0.5 text-xs font-medium text-body">
+      <Sparkles size={11} /> AI generated
+    </span>
+  )
+}
+
+function VideoCard({ video, onChanged }) {
+  const [busy, setBusy] = useState('')
+  const [error, setError] = useState('')
+
+  async function replace(file) {
+    if (!file) return
+    setError('')
+    setBusy('Uploading…')
+    try {
+      await uploadExerciseVideo(video.exercise_name, file)
+      await onChanged()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function remove() {
+    setError('')
+    setBusy('Removing…')
+    try {
+      await deleteExerciseVideo(video.exercise_key)
+      await onChanged()
+    } catch (err) {
+      setError(err.message)
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-line bg-card p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate font-heading text-xl uppercase leading-tight text-white">
+          {video.exercise_name}
+        </p>
+        <VideoSourceBadge source={video.source} status={video.status} />
+      </div>
+
+      {video.status === 'ready' && video.video_url ? (
+        <video
+          key={video.video_url}
+          src={video.video_url}
+          controls
+          preload="metadata"
+          playsInline
+          className="mt-3 aspect-[9/16] max-h-64 w-full rounded-lg bg-black object-contain"
+        />
+      ) : (
+        <div className="mt-3 grid h-24 place-items-center rounded-lg border border-dashed border-line text-xs text-body">
+          {video.status === 'pending' ? 'AI video in progress…' : 'No video available'}
+        </div>
+      )}
+
+      <p className="mt-2 text-xs text-body">Updated {formatDate(video.updated_at)}</p>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+
+      <div className="mt-3 flex items-center gap-2">
+        <label className={`inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium uppercase text-accent transition hover:bg-accent/20 ${busy ? 'pointer-events-none opacity-50' : ''}`}>
+          <Upload size={13} />
+          {busy || (video.source === 'manual' ? 'Replace' : 'Upload yours')}
+          <input
+            type="file"
+            accept="video/*"
+            className="hidden"
+            disabled={!!busy}
+            onChange={(e) => replace(e.target.files?.[0])}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={remove}
+          disabled={!!busy}
+          title={video.source === 'manual' ? 'Remove and go back to the AI video' : 'Delete so it regenerates'}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line text-body transition hover:border-red-500/40 hover:text-red-400 disabled:opacity-50"
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function NewVideoUpload({ onChanged }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState('')
+
+  async function upload(file) {
+    if (!file) return
+    if (!name.trim()) {
+      setError('Enter the exercise name first.')
+      return
+    }
+    setError('')
+    setDone('')
+    setBusy(true)
+    try {
+      await uploadExerciseVideo(name.trim(), file)
+      setDone(`Saved for “${name.trim()}”.`)
+      setName('')
+      await onChanged()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-lg border border-line bg-card p-4 sm:p-5">
+      <h3 className="font-heading text-xl uppercase text-white">Upload a video for an exercise</h3>
+      <p className="mt-1 text-xs leading-5 text-body">
+        The name must match how the exercise appears in a client&apos;s program (capitalisation and
+        punctuation don&apos;t matter). MP4 plays everywhere — a .MOV from an iPhone may not play for
+        every client. Max 100MB.
+      </p>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setError('') }}
+          placeholder="e.g. Dumbbell Lateral Raise"
+          className="w-full rounded-lg border border-line bg-[#111] px-3 py-2 text-sm text-white placeholder:text-body/50 outline-none transition focus:border-accent"
+        />
+        <label className={`inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-accent px-4 py-2 font-heading text-base uppercase text-black transition hover:bg-white ${busy ? 'pointer-events-none opacity-50' : ''}`}>
+          <Upload size={15} />
+          {busy ? 'Uploading…' : 'Choose video'}
+          <input
+            type="file"
+            accept="video/*"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => upload(e.target.files?.[0])}
+          />
+        </label>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {done && <p className="mt-2 text-xs text-accent">{done}</p>}
+    </div>
+  )
+}
+
 export default function AdminDashboard({ onBack }) {
   const [clients, setClients] = useState([])
   const [applications, setApplications] = useState([])
+  const [videos, setVideos] = useState([])
   const [view, setView] = useState('clients')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -270,9 +477,10 @@ export default function AdminDashboard({ onBack }) {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError('')
 
-    const [clientsRes, appsRes] = await Promise.all([
+    const [clientsRes, appsRes, videosRes] = await Promise.all([
       supabase.rpc('get_admin_dashboard'),
       supabase.rpc('get_trial_applications'),
+      supabase.rpc('list_exercise_videos'),
     ])
 
     if (clientsRes.error) {
@@ -283,8 +491,16 @@ export default function AdminDashboard({ onBack }) {
     if (!appsRes.error) {
       setApplications(appsRes.data || [])
     }
+    if (!videosRes.error) {
+      setVideos(videosRes.data || [])
+    }
 
     isRefresh ? setRefreshing(false) : setLoading(false)
+  }
+
+  async function reloadVideos() {
+    const { data, error: videosError } = await supabase.rpc('list_exercise_videos')
+    if (!videosError) setVideos(data || [])
   }
 
   function updateApplicationStatus(id, status) {
@@ -366,6 +582,7 @@ export default function AdminDashboard({ onBack }) {
           {[
             { id: 'clients', label: 'Clients', count: clients.length },
             { id: 'applications', label: 'Applications', count: applications.length },
+            { id: 'videos', label: 'Videos', count: videos.length },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -455,6 +672,36 @@ export default function AdminDashboard({ onBack }) {
               ))}
             </div>
           )
+        )}
+
+        {view === 'videos' && (
+          <>
+            <NewVideoUpload onChanged={reloadVideos} />
+
+            <h2 className="mb-4 font-heading text-2xl uppercase text-white">
+              Demonstration Library
+              <span className="ml-2 font-heading text-lg text-body">({videos.length})</span>
+            </h2>
+
+            {loading ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="h-64 rounded-lg border border-line bg-card animate-pulse" />
+                ))}
+              </div>
+            ) : videos.length === 0 ? (
+              <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
+                No exercise videos yet. Upload one above, or they appear here once a client views a
+                demonstration.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {videos.map((video) => (
+                  <VideoCard key={video.exercise_key} video={video} onChanged={reloadVideos} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>

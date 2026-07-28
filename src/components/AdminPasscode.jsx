@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Lock, ArrowLeft } from 'lucide-react'
 
-const ADMIN_PASSCODE = 'ILoveJesus123!!'
+// Exported so admin actions that need a server-side check (video uploads) can
+// send it. Note this ships in the client bundle either way — it gates casual
+// access, it is not a secret.
+export const ADMIN_PASSCODE = 'ILoveJesus123!!'
 
 export default function AdminPasscode({ onUnlock, onBack }) {
   const [value, setValue] = useState('')
