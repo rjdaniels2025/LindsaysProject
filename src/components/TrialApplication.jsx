@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Check, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
 const included = [
@@ -49,11 +49,10 @@ function validate(form) {
   return errors
 }
 
-export default function TrialApplication({ onBack }) {
+export default function TrialApplication({ onBack, onAuthenticated }) {
   const [form, setForm] = useState(defaultForm)
   const [touched, setTouched] = useState({})
   const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
   const [serverError, setServerError] = useState('')
 
   const errors = validate(form)
@@ -76,11 +75,13 @@ export default function TrialApplication({ onBack }) {
 
     setSubmitting(true)
     try {
-      // Record the lead first so Lindsay hears about it even if signup fails.
-      const { data, error } = await supabase.functions.invoke('submit-trial-application', {
+      // One call creates the account (already confirmed), starts the 7 days,
+      // records the lead for Lindsay and sends both emails.
+      const { data, error } = await supabase.functions.invoke('start-trial', {
         body: {
           name: form.name,
           email: form.email,
+          password: form.password,
           phone: form.phone,
           fitnessGoal: form.fitnessGoal,
           biggestChallenge: form.biggestChallenge,
@@ -90,65 +91,22 @@ export default function TrialApplication({ onBack }) {
       })
       if (error || data?.error) throw new Error(data?.error || error.message)
 
-      // Tells App.jsx to grant the 7 days once the email is confirmed.
-      try { localStorage.setItem('elevate_trial_intent', '1') } catch { /* storage may be unavailable */ }
-
-      const signUp = await supabase.auth.signUp({
-        email: form.email.trim(),
+      // Deliberately no localStorage profile draft here: a partial draft would
+      // make routeForState treat the assessment as done and generate a program
+      // from three fields. They take the real assessment, same as anyone else.
+      const signIn = await supabase.auth.signInWithPassword({
+        email: form.email.trim().toLowerCase(),
         password: form.password,
-        options: {
-          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-          data: { name: form.name.trim() },
-        },
       })
+      if (signIn.error) throw new Error(signIn.error.message)
 
-      if (signUp.error) {
-        const msg = signUp.error.message
-        throw new Error(
-          /already registered|already exists|user already/i.test(msg)
-            ? 'You already have an account with this email — log in instead.'
-            : msg,
-        )
-      }
-
-      // Supabase returns a user with no identities when the email is already
-      // registered, rather than an error. Treat that the same way.
-      if (Array.isArray(signUp.data.user?.identities) && signUp.data.user.identities.length === 0) {
-        throw new Error('You already have an account with this email — log in instead.')
-      }
-
-      setSubmitted(true)
+      // Hands off to App, which routes them into the assessment exactly as it
+      // does for a paid signup.
+      await onAuthenticated?.()
     } catch (err) {
-      try { localStorage.removeItem('elevate_trial_intent') } catch { /* storage may be unavailable */ }
       setServerError(err.message || 'Something went wrong. Please try again.')
-    } finally {
       setSubmitting(false)
     }
-  }
-
-  if (submitted) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-bg px-4 py-8 text-body">
-        <div className="w-full max-w-md rounded-lg border border-line bg-card p-6 text-center shadow-2xl shadow-black/50 sm:p-8">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-accent text-black">
-            <CheckCircle2 size={30} />
-          </div>
-          <h1 className="mt-5 font-heading text-4xl uppercase leading-none text-white">Check your email</h1>
-          <p className="mt-3 text-body">
-            Thanks {form.name.split(' ')[0] || 'there'}! We sent a confirmation link to{' '}
-            <span className="text-white">{form.email}</span>. Click it and your free 7 days start
-            immediately — you&apos;ll go straight into your assessment and get your program built.
-          </p>
-          <button
-            type="button"
-            onClick={onBack}
-            className="mt-6 min-h-11 w-full rounded-lg border border-line bg-[#111] px-5 font-heading text-lg uppercase text-white transition hover:border-accent"
-          >
-            Back to home
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
