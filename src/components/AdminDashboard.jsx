@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import AdminClientDetail from './AdminClientDetail.jsx'
 import { ADMIN_PASSCODE } from './AdminPasscode.jsx'
+import { membershipAccess } from '../lib/membership.js'
 
 function isActive(status) {
   return status === 'active' || status === 'trialing'
@@ -203,6 +204,49 @@ function StatCard({ icon: Icon, label, value, sub }) {
 
 const APPLICATION_STATUSES = ['new', 'contacted', 'enrolled', 'declined']
 
+// Live account state for an application, derived with the same rule the app
+// itself uses so the dashboard and the member's access never disagree.
+function TrialBadge({ application }) {
+  const access = membershipAccess({
+    status: application.membership_status,
+    current_period_end: application.trial_ends_at,
+  })
+
+  if (!application.membership_status) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-line px-2.5 py-0.5 text-xs font-medium text-body">
+        <Clock size={11} /> No account yet
+      </span>
+    )
+  }
+  if (application.membership_status === 'active') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-400">
+        <CheckCircle2 size={11} /> Paid member
+      </span>
+    )
+  }
+  if (access.trialing) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2.5 py-0.5 text-xs font-medium text-accent">
+        <CheckCircle2 size={11} /> Trial · {access.daysLeft} {access.daysLeft === 1 ? 'day' : 'days'} left
+      </span>
+    )
+  }
+  if (access.expired) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-medium text-red-400">
+        <XCircle size={11} /> Trial ended
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-xs font-medium text-yellow-400">
+      <AlertCircle size={11} /> {application.membership_status}
+    </span>
+  )
+}
+
 function ApplicationCard({ application, onStatusChange }) {
   const [saving, setSaving] = useState(false)
 
@@ -221,7 +265,8 @@ function ApplicationCard({ application, onStatusChange }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-heading text-2xl uppercase leading-none text-white">{application.name}</p>
-          <p className="mt-1 text-xs text-body">Applied {formatDate(application.created_at)}</p>
+          <p className="mt-1 text-xs text-body">Signed up {formatDate(application.created_at)}</p>
+          <div className="mt-2"><TrialBadge application={application} /></div>
         </div>
         <select
           value={application.status}
@@ -518,7 +563,9 @@ export default function AdminDashboard({ onBack }) {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
 
-  const newApplications = applications.filter((a) => a.status === 'new').length
+  const activeTrials = applications.filter(
+    (a) => membershipAccess({ status: a.membership_status, current_period_end: a.trial_ends_at }).trialing,
+  ).length
 
   const query = searchQuery.trim().toLowerCase()
   const filteredClients = query
@@ -574,7 +621,7 @@ export default function AdminDashboard({ onBack }) {
           <StatCard icon={Users} label="Total Clients" value={totalClients} />
           <StatCard icon={UserCheck} label="Active Members" value={activeCount} sub={`${totalClients - activeCount} inactive`} />
           <StatCard icon={CalendarDays} label="New This Month" value={newThisMonth} />
-          <StatCard icon={FileText} label="New Applications" value={newApplications} sub={`${applications.length} total`} />
+          <StatCard icon={FileText} label="Active Trials" value={activeTrials} sub={`${applications.length} signups total`} />
         </div>
 
         {/* Clients / Applications tabs */}

@@ -654,24 +654,6 @@ function App() {
     return summary
   }, [])
 
-  // Someone who signed up through the free-Kickstart funnel gets their 7 days
-  // granted the moment they confirm their email. The flag is set by
-  // TrialApplication at signup and consumed exactly once here.
-  const claimPendingTrial = useCallback(async () => {
-    let pending = false
-    try { pending = localStorage.getItem('elevate_trial_intent') === '1' } catch { /* storage may be unavailable */ }
-    if (!pending) return
-    try { localStorage.removeItem('elevate_trial_intent') } catch { /* storage may be unavailable */ }
-
-    try {
-      await supabase.functions.invoke('start-trial')
-    } catch (err) {
-      // A failed grant must not strand them mid-signup; they land on pricing
-      // and Lindsay still has their application.
-      console.error('Could not start free trial:', err)
-    }
-  }, [])
-
   // ── Auth setup (runs once) ────────────────────────────────────────────────
 
   useEffect(() => {
@@ -762,9 +744,6 @@ function App() {
           isInitializedRef.current = true
           return
         }
-        // Grant the trial before loading, so the membership is already in place
-        // when loadUserData decides where to send them.
-        await claimPendingTrial()
         const summary = restoreSignupDraft(await loadUserData(data.session))
         isInitializedRef.current = true
         routeAfterAuth(summary)
@@ -830,7 +809,7 @@ function App() {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [loadUserData, navigate, routeAfterAuth, restoreSignupDraft, claimPendingTrial])
+  }, [loadUserData, navigate, routeAfterAuth, restoreSignupDraft])
 
   // ── Browser navigation (back/forward) ────────────────────────────────────
 
@@ -1117,7 +1096,12 @@ function App() {
   }
 
   if (stage === 'apply') {
-    return <TrialApplication onBack={goHome} />
+    return (
+      <TrialApplication
+        onBack={goHome}
+        onAuthenticated={() => onAccountAuthenticated({ isSignup: true })}
+      />
+    )
   }
 
   if (stage === 'trial-ended') {
