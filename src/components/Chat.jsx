@@ -87,6 +87,8 @@ export default function Chat({
   onWorkoutLogChange,
   blockNumber,
   membershipActive,
+  trialDaysLeft,
+  onSubscribe,
   onStartNextBlock,
   onUpdateProfile,
   isLoading,
@@ -212,6 +214,8 @@ export default function Chat({
                 onWorkoutLogChange={onWorkoutLogChange}
                 blockNumber={blockNumber}
                 membershipActive={membershipActive}
+                trialDaysLeft={trialDaysLeft}
+                onSubscribe={onSubscribe}
                 onStartNextBlock={onStartNextBlock}
                 onUpdateProfile={onUpdateProfile}
                 isLoading={isLoading}

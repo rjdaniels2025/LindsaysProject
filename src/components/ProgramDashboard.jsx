@@ -1535,7 +1535,35 @@ function ProgressHistory({ history }) {
   )
 }
 
-export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, onStartNextBlock, onUpdateProfile, isLoading }) {
+function TrialCountdown({ daysLeft, onSubscribe }) {
+  if (daysLeft === null || daysLeft === undefined) return null
+  const urgent = daysLeft <= 2
+  return (
+    <div
+      className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+        urgent ? 'border-accent bg-accent/10' : 'border-line bg-card'
+      }`}
+    >
+      <p className="text-sm text-white">
+        <span className="font-heading text-lg uppercase text-accent">
+          {daysLeft === 0 ? 'Last day' : `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`}
+        </span>
+        <span className="ml-2 text-body">of your free Kickstart</span>
+      </p>
+      {onSubscribe ? (
+        <button
+          type="button"
+          onClick={onSubscribe}
+          className="shrink-0 rounded-lg bg-accent px-4 py-2 font-heading text-base uppercase text-black transition hover:bg-white"
+        >
+          Keep my program
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+export default function ProgramDashboard({ message, profile, programCreatedAt, workoutLog, onWorkoutLogChange, blockNumber, membershipActive, trialDaysLeft, onSubscribe, onStartNextBlock, onUpdateProfile, isLoading }) {
   const [activeView, setActiveView] = useState('today')
   const [openWorkoutOnMount, setOpenWorkoutOnMount] = useState(false)
   const contentRef = useRef(null)
@@ -1584,7 +1612,9 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
   const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
 
   return (
-    <article className="mr-auto w-full max-w-5xl [overflow:clip] rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
+    <div className="mr-auto w-full max-w-5xl">
+      <TrialCountdown daysLeft={trialDaysLeft} onSubscribe={onSubscribe} />
+      <article className="w-full [overflow:clip] rounded-lg border border-line bg-card shadow-2xl shadow-black/30">
       {blockComplete && membershipActive ? (
         <div className="border-b border-accent/50 bg-accent/10 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1737,6 +1767,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
           <div className="h-20 lg:hidden" aria-hidden="true" />
         </section>
       </div>
-    </article>
+      </article>
+    </div>
   )
 }
