@@ -1,3 +1,4 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 
 const SYSTEM_PROMPT =
@@ -27,6 +28,37 @@ function authenticatedUserId(request: Request) {
     return payload?.role === 'authenticated' ? String(payload.sub || '') : ''
   } catch {
     return ''
+  }
+}
+
+// Generation costs real money per call, and free trials hand out access with no
+// card, so entitlement is enforced here rather than trusting client routing.
+// Mirrors membershipAccess() in src/lib/membership.js: paid members never
+// expire (current_period_end does not advance after purchase), trials do.
+async function hasActiveMembership(userId: string): Promise<boolean> {
+  const url = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  // Without service-role config we cannot check; stay available rather than
+  // locking every member out of their program.
+  if (!url || !serviceRoleKey) return true
+
+  try {
+    const supabase = createClient(url, serviceRoleKey)
+    const { data, error } = await supabase
+      .from('user_memberships')
+      .select('status, current_period_end')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) return true
+
+    if (data?.status === 'active') return true
+    if (data?.status === 'trialing') {
+      const endsAt = data.current_period_end ? new Date(data.current_period_end).getTime() : 0
+      return endsAt > Date.now()
+    }
+    return false
+  } catch {
+    return true
   }
 }
 
@@ -418,8 +450,13 @@ Deno.serve(async (request: Request) => {
     return jsonResponse({ error: 'Method not allowed.' }, 405)
   }
 
-  if (!authenticatedUserId(request)) {
+  const userId = authenticatedUserId(request)
+  if (!userId) {
     return jsonResponse({ error: 'Sign in before generating a program.' }, 401)
+  }
+
+  if (!(await hasActiveMembership(userId))) {
+    return jsonResponse({ error: 'Your free trial has ended. Subscribe to keep training.' }, 403)
   }
 
   try {

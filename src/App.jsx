@@ -7,10 +7,12 @@ import Landing from './components/Landing.jsx'
 import Onboarding from './components/Onboarding.jsx'
 import PricingPage from './components/PricingPage.jsx'
 import TrialApplication from './components/TrialApplication.jsx'
+import TrialEnded from './components/TrialEnded.jsx'
 import { useProgramService } from './hooks/useProgramService.js'
 import { waitForProgramImages } from './utils/aiImage.js'
 import { auditProgram } from './utils/programSafety.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
+import { membershipAccess } from './lib/membership.js'
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -67,7 +69,7 @@ function authRedirectUrl() {
   return typeof window !== 'undefined' ? window.location.origin : undefined
 }
 
-const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin', 'apply']
+const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin', 'apply', 'trial-ended']
 const VALID_BILLING_OPTIONS = ['pay-in-full', 'monthly', 'biweekly']
 
 function storedBillingOption() {
@@ -133,7 +135,10 @@ function clearUrl() {
 // This only runs on genuine transitions — the "Member Login" button and passive page
 // loads do NOT call it, so a member is never bounced into the assessment just by
 // clicking around or revisiting the site.
-function routeForState({ hasProgram, hasMembership, hasProfile }) {
+function routeForState({ hasProgram, hasMembership, hasProfile, trialExpired }) {
+  // A lapsed trial keeps every byte of its data — it just cannot reach the app
+  // until it subscribes, so it lands on the trial-ended screen instead of chat.
+  if (trialExpired) return 'trial-ended'
   if (hasProgram) return 'chat'
   if (hasMembership) return hasProfile ? 'generate' : 'assessment'
   if (hasProfile) return 'pricing'
@@ -419,6 +424,9 @@ function App() {
   const [error, setError] = useState('')
   const [isPasswordReset, setIsPasswordReset] = useState(false)
   const [hasMembership, setHasMembership] = useState(false)
+  // Full entitlement detail (trialing? days left? expired?) alongside the
+  // boolean, so the countdown and the lock-out screen read from one source.
+  const [access, setAccess] = useState(() => membershipAccess(null))
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
 
   const programService = useProgramService()
@@ -430,8 +438,13 @@ function App() {
   // state, otherwise an auth flow that sets `user` without loading (e.g. password reset)
   // would persist empty profile/messages over the member's saved program.
   const dataLoadedRef = useRef(false)
+  // Read by the hashchange listener, which must not re-subscribe on every
+  // entitlement change.
+  const accessRef = useRef(access)
 
   // ── Navigation ────────────────────────────────────────────────────────────
+
+  useEffect(() => { accessRef.current = access }, [access])
 
   const navigate = useCallback((nextStage, { replace = false } = {}) => {
     setStage(nextStage)
@@ -559,6 +572,7 @@ function App() {
       setWorkoutLog({})
       setBlockNumber(1)
       setHasMembership(false)
+      setAccess(membershipAccess(null))
       dataLoadedRef.current = false
       setIsAuthReady(true)
       return null
@@ -568,12 +582,17 @@ function App() {
     // with empty profile/messages while the query is in flight
     const [programResult, membershipResult] = await Promise.all([
       supabase.from('user_programs').select('display_name, app_state').eq('user_id', nextUser.id).maybeSingle(),
-      supabase.from('user_memberships').select('status').eq('user_id', nextUser.id).maybeSingle(),
+      supabase
+        .from('user_memberships')
+        .select('status, current_period_end')
+        .eq('user_id', nextUser.id)
+        .maybeSingle(),
     ])
 
     if (programResult.error) setError(programResult.error.message)
     const programData = programResult.data
-    const membershipIsActive = membershipResult.data?.status === 'active'
+    const access = membershipAccess(membershipResult.data)
+    const membershipIsActive = access.active
 
     const saved = programData?.app_state || {}
     const loadedProfile = saved.profile || saved.profileDraft || null
@@ -590,6 +609,7 @@ function App() {
     setWorkoutLog(saved.workoutLog && typeof saved.workoutLog === 'object' ? saved.workoutLog : {})
     setBlockNumber(typeof saved.blockNumber === 'number' && saved.blockNumber > 0 ? saved.blockNumber : 1)
     setHasMembership(membershipIsActive)
+    setAccess(access)
     dataLoadedRef.current = true
     setIsAuthReady(true)
 
@@ -598,6 +618,7 @@ function App() {
       profile: loadedProfile,
       hasProfile: !!loadedProfile,
       hasMembership: membershipIsActive,
+      trialExpired: access.expired,
       hasProgram: hasProgramMessage(loadedMessages),
     }
   }, [])
@@ -631,6 +652,24 @@ function App() {
       return { ...summary, profile: storedDraft, hasProfile: true }
     }
     return summary
+  }, [])
+
+  // Someone who signed up through the free-Kickstart funnel gets their 7 days
+  // granted the moment they confirm their email. The flag is set by
+  // TrialApplication at signup and consumed exactly once here.
+  const claimPendingTrial = useCallback(async () => {
+    let pending = false
+    try { pending = localStorage.getItem('elevate_trial_intent') === '1' } catch { /* storage may be unavailable */ }
+    if (!pending) return
+    try { localStorage.removeItem('elevate_trial_intent') } catch { /* storage may be unavailable */ }
+
+    try {
+      await supabase.functions.invoke('start-trial')
+    } catch (err) {
+      // A failed grant must not strand them mid-signup; they land on pricing
+      // and Lindsay still has their application.
+      console.error('Could not start free trial:', err)
+    }
   }, [])
 
   // ── Auth setup (runs once) ────────────────────────────────────────────────
@@ -679,7 +718,7 @@ function App() {
           if (!mounted) break
           const { data: membershipData } = await supabase
             .from('user_memberships')
-            .select('status')
+            .select('status, current_period_end')
             .eq('user_id', userId)
             .maybeSingle()
           if (membershipData?.status === 'active') membershipActive = true
@@ -723,6 +762,9 @@ function App() {
           isInitializedRef.current = true
           return
         }
+        // Grant the trial before loading, so the membership is already in place
+        // when loadUserData decides where to send them.
+        await claimPendingTrial()
         const summary = restoreSignupDraft(await loadUserData(data.session))
         isInitializedRef.current = true
         routeAfterAuth(summary)
@@ -788,13 +830,21 @@ function App() {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [loadUserData, navigate, routeAfterAuth, restoreSignupDraft])
+  }, [loadUserData, navigate, routeAfterAuth, restoreSignupDraft, claimPendingTrial])
 
   // ── Browser navigation (back/forward) ────────────────────────────────────
 
   useEffect(() => {
     function onNavigation() {
       const next = stageFromHash() || 'landing'
+
+      // A lapsed trial cannot re-enter the dashboard by editing the hash. Their
+      // program is still there — it comes straight back when they subscribe.
+      if (next === 'chat' && accessRef.current.expired) {
+        replaceStage('trial-ended')
+        setStage('trial-ended')
+        return
+      }
 
       // The dashboard only makes sense with a program loaded (or one being built).
       // Bounce stale #chat history entries to landing instead of showing an empty shell.
@@ -1006,6 +1056,8 @@ function App() {
         onWorkoutLogChange={setWorkoutLog}
         blockNumber={blockNumber}
         membershipActive={hasMembership}
+        trialDaysLeft={access.trialing ? access.daysLeft : null}
+        onSubscribe={() => navigate('pricing')}
         onStartNextBlock={generateNextBlock}
         onUpdateProfile={updateProfileAndRegenerate}
         isLoading={isLoading}
@@ -1066,6 +1118,17 @@ function App() {
 
   if (stage === 'apply') {
     return <TrialApplication onBack={goHome} />
+  }
+
+  if (stage === 'trial-ended') {
+    return (
+      <TrialEnded
+        name={user?.name}
+        onSubscribe={() => navigate('pricing')}
+        onSignOut={signOut}
+        onHome={goHome}
+      />
+    )
   }
 
   if (stage === 'admin') {
