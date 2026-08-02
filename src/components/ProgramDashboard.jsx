@@ -130,12 +130,150 @@ function hasExerciseDetail(line) {
   return /\bsets?\b|\breps?\b|\brest\b|\btempo\b|\bcue\b|\brpe\b|\brir\b/i.test(line)
 }
 
-function readSets(line) {
-  return readDetail(line, 'sets') || line.match(/(\d+)\s+sets?/i)?.[1] || '3'
+// readDetail treats the colon as optional, so on a prose line like
+// "3 sets of 10 reps each side" the bare word "reps" matches and it returns
+// "each side. Rest 45 seconds". For sets/reps we require a real "Label:" field.
+function readLabeledDetail(line, label) {
+  const escapedLabels = DETAIL_LABELS.map((field) => field.replace(/\s+/g, '\\s+')).join('|')
+  const pattern = new RegExp(
+    `\\b${label}\\s*:\\s*(.*?)(?=\\s*,\\s*(?:${escapedLabels})\\s*:|\\s+(?:${escapedLabels})\\s*:|$)`,
+    'i',
+  )
+  return line.match(pattern)?.[1]?.trim().replace(/[,.]\s*$/, '')
 }
 
-function readReps(line) {
-  return readDetail(line, 'reps') || line.match(/(\d+\s*(to|,)\s*\d+|\d+)\s+reps?/i)?.[1]?.replace(/\s*,\s*/g, ' to ') || 'Follow plan'
+// Rest/tempo/cue text is full of numbers ("Rest 90 to 120 seconds") that would
+// otherwise be misread as a rep count, so those segments are removed first.
+function stripNonRepSegments(line) {
+  return String(line || '')
+    .replace(/\bcue\s*:[\s\S]*$/i, ' ')
+    .replace(/\brest\b[^.]*/gi, ' ')
+    .replace(/\btempo\b[^.]*/gi, ' ')
+    .replace(/\brpe\b[^.]*/gi, ' ')
+}
+
+// Normalises to just the spec — a count or duration plus an optional
+// per-side qualifier. Coaching prose ("10 to 12 with moderate weight") is
+// dropped so the number stays glanceable on the workout screen.
+function tidyReps(raw) {
+  const normalised = String(raw || '')
+    .replace(/\s*(?:-|–|—)\s*/g, ' to ')
+    .replace(/\breps?\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const spec = normalised.match(
+    /^(\d+\s*(?:to\s*\d+)?)\s*(seconds?|secs?|minutes?|mins?)?\s*((?:each|per)\s+(?:side|leg|arm|hand))?/i,
+  )
+  if (!spec || !spec[1]) return ''
+
+  return [
+    spec[1].replace(/\s+/g, ' ').trim(),
+    spec[2] ? spec[2].toLowerCase().replace(/^secs?$/, 'seconds').replace(/^mins?$/, 'minutes') : '',
+    spec[3] ? spec[3].toLowerCase() : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+// Pulls a rep or duration spec out of free-form coaching prose. The program is
+// AI-written, so the same thing gets phrased several ways:
+//   "4 sets of 10 to 12 reps"  → "10 to 12"
+//   "3 sets of 30 to 45 seconds" → "30 to 45 seconds"
+//   "10 reps each side"        → "10 each side"
+function repsFromPhrase(text) {
+  const clean = stripNonRepSegments(text)
+  if (!clean) return ''
+
+  const setsOf = clean.match(/sets?\s+of\s+(\d[^.,;]*)/i)
+  if (setsOf) return tidyReps(setsOf[1])
+
+  const withReps = clean.match(/(\d+\s*(?:to|-|–|,)\s*\d+|\d+)\s*reps?\b([^.,;]*)/i)
+  if (withReps) return tidyReps(`${withReps[1]} ${withReps[2] || ''}`)
+
+  const timed = clean.match(/(\d+\s*(?:to|-|–)\s*\d+|\d+)\s*(seconds?|secs?|minutes?|mins?)\b/i)
+  if (timed) return tidyReps(`${timed[1]} ${timed[2]}`)
+
+  return ''
+}
+
+function setsFromPhrase(text) {
+  const m = stripNonRepSegments(text).match(/(\d+(?:\s*(?:to|-|–)\s*\d+)?)\s+sets?\b/i)
+  return m ? m[1].replace(/\s*(?:-|–)\s*/g, ' to ') : ''
+}
+
+// Many programs define the main lifts once as a week-by-week table
+// ("Week 1: 4 sets of 10 to 12 reps, RPE 7") and then have each big lift say
+// "use the weekly main lift rep plan". Reading that table lets those exercises
+// show real numbers for the week the member is actually on.
+function readWeeklyRepPlan(content) {
+  const plan = {}
+  for (const raw of String(content || '').split('\n')) {
+    const m = raw.trim().match(/^week\s*(\d+)\s*[:,-]\s*(.+)$/i)
+    if (!m) continue
+    const week = Number(m[1])
+    const reps = repsFromPhrase(m[2])
+    if (!week || !reps || plan[week]) continue
+    plan[week] = { reps, sets: setsFromPhrase(m[2]) }
+  }
+  return plan
+}
+
+// Some exercises carry the whole progression inline:
+// "Week 1, 3 sets of 10 to 12. Week 2, 3 sets of 8 to 10. ..."
+// Show only the week the member is on.
+function repsForWeekInLine(line, week) {
+  if (!week) return ''
+  const match = String(line || '').match(new RegExp(`week\\s*${week}\\b\\s*[:,-]?\\s*([^.]*)`, 'i'))
+  return match ? repsFromPhrase(match[1]) : ''
+}
+
+function referencesEarlierExercise(line) {
+  return /\bsame\s+(?:reps?|sets?|as)\b|\bas\s+above\b/i.test(String(line || ''))
+}
+
+// Always resolves to something concrete — a rep range, a duration, or the
+// week's planned reps. Never a vague cross-reference the member has to go
+// hunting for.
+function readReps(line, context = {}) {
+  const { week, weeklyPlan, previousReps } = context
+
+  const explicit = readLabeledDetail(line, 'reps')
+  if (explicit && /\d/.test(explicit)) return tidyReps(explicit)
+
+  const forThisWeek = repsForWeekInLine(line, week)
+  if (forThisWeek) return forThisWeek
+
+  const inline = repsFromPhrase(line)
+  if (inline) return inline
+
+  // "Same reps as the incline press" — inherit rather than send them looking.
+  if (referencesEarlierExercise(line) && previousReps) return previousReps
+
+  const planned = weeklyPlan?.[week] || weeklyPlan?.[Object.keys(weeklyPlan || {})[0]]
+  if (planned?.reps) return planned.reps
+
+  if (previousReps) return previousReps
+  return '8 to 12'
+}
+
+function readSetsWithContext(line, context = {}) {
+  const { week, weeklyPlan, previousSets } = context
+  const explicit = readLabeledDetail(line, 'sets')
+  if (explicit && /\d/.test(explicit)) return explicit.trim()
+
+  const forThisWeek = String(line || '').match(new RegExp(`week\\s*${week}\\b\\s*[:,-]?\\s*([^.]*)`, 'i'))
+  const weekSets = forThisWeek ? setsFromPhrase(forThisWeek[1]) : ''
+  if (weekSets) return weekSets
+
+  const inline = setsFromPhrase(line)
+  if (inline) return inline
+
+  // A superset partner that says "same reps as above" shares its partner's sets.
+  if (referencesEarlierExercise(line) && previousSets) return previousSets
+
+  const planned = weeklyPlan?.[week] || weeklyPlan?.[Object.keys(weeklyPlan || {})[0]]
+  return planned?.sets || '3'
 }
 
 function readRest(line) {
@@ -202,7 +340,7 @@ function exerciseName(line, index) {
   return `Exercise ${index + 1}`
 }
 
-function parseExercises(details) {
+function parseExercises(details, context = {}) {
   const detailsArr = Array.isArray(details)
     ? details
     : typeof details === 'string'
@@ -213,19 +351,27 @@ function parseExercises(details) {
     ? usableDetails
     : detailsArr.slice(0, 6).length
       ? detailsArr.slice(0, 6)
-      : ['Exercise: Sets: 3, Reps: Follow plan, Rest: 60 seconds, Tempo: Controlled, Cue: Move with control.']
+      : ['Exercise: Sets: 3, Reps: 8 to 12, Rest: 60 seconds, Tempo: Controlled, Cue: Move with control.']
+
+  // Carried forward so "same reps as above" resolves to real numbers.
+  let previousReps = ''
+  let previousSets = ''
 
   return source.map((detail, index) => {
     const rawName = exerciseName(detail, index)
     const label = supersetLabel(rawName)
     const name = cleanExerciseName(rawName)
+    const reps = readReps(detail, { ...context, previousReps })
+    const sets = readSetsWithContext(detail, { ...context, previousSets })
+    previousReps = reps
+    previousSets = sets
     return {
       id: `${index}-${detail.slice(0, 24)}`,
       name,
       supersetLabel: label,
       warmupSets: readWarmupSets(detail),
-      sets: readSets(detail),
-      reps: readReps(detail),
+      sets,
+      reps,
       weight: readWeight(detail),
       rest: readRest(detail),
       tempo: readTempo(detail),
@@ -946,7 +1092,7 @@ function allSessionsDone(completedWorkouts, total) {
 //
 // enterGroup() always initialises warm-ups for EVERY group, not just the first.
 
-function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }) {
+function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, repContext }) {
   // ── Persisted state ──────────────────────────────────────────────────────
   const initialCompleted = Array.isArray(log.completedWorkouts) ? log.completedWorkouts : []
   const [workoutIdx, setWorkoutIdx] = useState(() => firstIncompleteWorkout(initialCompleted, workouts.length))
@@ -993,7 +1139,16 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false }
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const activeWorkout = workouts[workoutIdx] || workouts[0]
-  const exercises = useMemo(() => parseExercises(activeWorkout?.details || []), [activeWorkout?.details])
+  // The tracker's own `week` is the live source of truth for which week's reps
+  // to show, so it overrides whatever the parent captured at render time.
+  const resolvedRepContext = useMemo(
+    () => ({ ...repContext, week: week || repContext?.week }),
+    [repContext, week],
+  )
+  const exercises = useMemo(
+    () => parseExercises(activeWorkout?.details || [], resolvedRepContext),
+    [activeWorkout?.details, resolvedRepContext],
+  )
   const groups = useMemo(() => groupExercises(exercises), [exercises])
   const currentGroup = groups[groupIdx] || null
   const isSuperset = currentGroup?.type === 'superset'
@@ -1585,6 +1740,13 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
   }
   const weekNum = clampWeek(workoutLog?.week)
 
+  // Built from the whole program so exercises that defer to the week-by-week
+  // main lift table ("use the weekly main lift rep plan") can show real numbers.
+  const repContext = useMemo(
+    () => ({ week: weekNum, weeklyPlan: readWeeklyRepPlan(message.content) }),
+    [message.content, weekNum],
+  )
+
   const sections = useMemo(
     () => ({
       today: compactLines(extractSection(message.content, ['session', 'day 1', 'workout a', 'upper', 'lower']), 6),
@@ -1748,6 +1910,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               log={workoutLog}
               onLogChange={onWorkoutLogChange}
               openOnMount={openWorkoutOnMount}
+              repContext={repContext}
             />
           ) : null}
           {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
