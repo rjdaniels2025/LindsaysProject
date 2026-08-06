@@ -100,6 +100,14 @@ function ClientCard({ client, onView }) {
               {client.display_name || 'Unknown Client'}
             </p>
             <p className="mt-1 text-xs text-body">Joined {formatDate(client.program_created_at)}</p>
+            {client.email ? (
+              <a
+                href={`mailto:${client.email}`}
+                className="mt-1 block truncate text-xs text-accent transition hover:underline"
+              >
+                {client.email}
+              </a>
+            ) : null}
           </div>
           <StatusBadge status={client.membership_status} />
         </div>
@@ -198,6 +206,76 @@ function StatCard({ icon: Icon, label, value, sub }) {
           {sub && <p className="mt-0.5 text-xs text-body">{sub}</p>}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Someone who paid (or started a trial) but has no program is owed the thing
+// they signed up for — generation is browser-driven, so an interrupted attempt
+// leaves them with nothing and no prompt to come back.
+function needsProgram(client) {
+  return isActive(client.membership_status) && !hasProgram(client.app_state)
+}
+
+// Finished the assessment but never subscribed — a warm lead sitting at the
+// checkout, invisible among everyone else in the client list.
+function neverSubscribed(client) {
+  return !client.membership_status && !hasProgram(client.app_state)
+}
+
+function profileSummary(appState) {
+  const p = appState?.profile || appState?.profileDraft
+  if (!p) return []
+  const goals = Array.isArray(p.primaryGoal) ? p.primaryGoal : p.primaryGoal ? [p.primaryGoal] : []
+  return [
+    p.age && p.gender ? `${p.age}, ${p.gender}` : p.age || p.gender,
+    p.weightLbs ? `${p.weightLbs} lbs` : null,
+    p.experience,
+    p.daysPerWeek ? `${p.daysPerWeek} days/week` : null,
+    Array.isArray(p.equipment) ? p.equipment.join(', ') : p.equipment,
+    goals.length ? goals.slice(0, 3).join(', ') : null,
+    p.limitations ? `Limitations: ${p.limitations}` : null,
+  ].filter(Boolean)
+}
+
+function FollowUpCard({ client, tone, reason }) {
+  const urgent = tone === 'urgent'
+  return (
+    <div className={`rounded-lg border bg-card p-4 sm:p-5 ${urgent ? 'border-red-500/40' : 'border-line'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-heading text-2xl uppercase leading-none text-white">
+            {client.display_name || 'Unknown'}
+          </p>
+          <p className="mt-1 text-xs text-body">Joined {formatDate(client.program_created_at)}</p>
+        </div>
+        <StatusBadge status={client.membership_status} />
+      </div>
+
+      <p
+        className={`mt-3 rounded-lg px-3 py-2 text-xs leading-5 ${
+          urgent ? 'bg-red-500/10 text-red-300' : 'bg-accent/10 text-accent'
+        }`}
+      >
+        {reason}
+      </p>
+
+      {client.email ? (
+        <a
+          href={`mailto:${client.email}`}
+          className="mt-3 block truncate text-sm text-accent transition hover:underline"
+        >
+          {client.email}
+        </a>
+      ) : (
+        <p className="mt-3 text-sm text-body">No email on file</p>
+      )}
+
+      <ul className="mt-3 grid gap-1 text-xs leading-5 text-body">
+        {profileSummary(client.app_state).map((item) => (
+          <li key={item} className="truncate">{item}</li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -563,6 +641,10 @@ export default function AdminDashboard({ onBack }) {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
 
+  const stuckMembers = clients.filter(needsProgram)
+  const unconvertedLeads = clients.filter(neverSubscribed)
+  const followUpCount = stuckMembers.length + unconvertedLeads.length
+
   const activeTrials = applications.filter(
     (a) => membershipAccess({ status: a.membership_status, current_period_end: a.trial_ends_at }).trialing,
   ).length
@@ -572,7 +654,8 @@ export default function AdminDashboard({ onBack }) {
     ? clients.filter((c) => {
         const name = (c.display_name || c.app_state?.profile?.name || '').toLowerCase()
         const plan = (c.plan_id || '').toLowerCase()
-        return name.includes(query) || plan.includes(query)
+        const email = (c.email || '').toLowerCase()
+        return name.includes(query) || plan.includes(query) || email.includes(query)
       })
     : clients
 
@@ -629,6 +712,7 @@ export default function AdminDashboard({ onBack }) {
           {[
             { id: 'clients', label: 'Clients', count: clients.length },
             { id: 'applications', label: 'Applications', count: applications.length },
+            { id: 'followup', label: 'Follow Up', count: followUpCount },
             { id: 'videos', label: 'Videos', count: videos.length },
           ].map((tab) => (
             <button
@@ -657,7 +741,7 @@ export default function AdminDashboard({ onBack }) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search clients by name or plan..."
+              placeholder="Search clients by name, email or plan..."
               className="w-full rounded-lg border border-line bg-card py-2 pl-9 pr-9 text-sm text-white placeholder:text-body/50 outline-none transition focus:border-accent"
             />
             {searchQuery && (
@@ -718,6 +802,70 @@ export default function AdminDashboard({ onBack }) {
                 />
               ))}
             </div>
+          )
+        )}
+
+        {view === 'followup' && (
+          loading ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="h-48 rounded-lg border border-line bg-card animate-pulse" />
+              ))}
+            </div>
+          ) : followUpCount === 0 ? (
+            <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
+              Nobody needs chasing right now — every member has a program and every
+              assessment turned into a signup.
+            </div>
+          ) : (
+            <>
+              {stuckMembers.length > 0 && (
+                <section className="mb-8">
+                  <h2 className="font-heading text-2xl uppercase text-white">
+                    Paying but no program
+                    <span className="ml-2 font-heading text-lg text-body">({stuckMembers.length})</span>
+                  </h2>
+                  <p className="mb-4 mt-1 text-sm leading-6 text-body">
+                    These members are on an active plan or trial but never got a program.
+                    Ask them to open the site and leave it open for a few minutes — it
+                    rebuilds itself.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {stuckMembers.map((client) => (
+                      <FollowUpCard
+                        key={client.user_id}
+                        client={client}
+                        tone="urgent"
+                        reason="Paid or trialing, but no program was ever built."
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {unconvertedLeads.length > 0 && (
+                <section>
+                  <h2 className="font-heading text-2xl uppercase text-white">
+                    Finished assessment, never subscribed
+                    <span className="ml-2 font-heading text-lg text-body">({unconvertedLeads.length})</span>
+                  </h2>
+                  <p className="mb-4 mt-1 text-sm leading-6 text-body">
+                    They completed the whole assessment and stopped at the payment page.
+                    The free 7-day Kickstart is an easy way back in.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {unconvertedLeads.map((client) => (
+                      <FollowUpCard
+                        key={client.user_id}
+                        client={client}
+                        tone="lead"
+                        reason="Completed the assessment but never subscribed."
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
           )
         )}
 
