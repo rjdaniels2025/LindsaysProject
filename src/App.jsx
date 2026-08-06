@@ -481,7 +481,18 @@ function App() {
       await waitForProgramImages(text)
       setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])
     } catch (err) {
-      setError(err.message || 'Unable to generate the program.')
+      const reason = err.message || 'Unable to generate the program.'
+      setError(reason)
+      // Record the failure instead of leaving the "Lindsay is generating your
+      // program now" placeholder saved. Without this the member comes back to a
+      // message that is no longer true, with a spinner and nothing to act on.
+      setMessages([
+        makeMessage(
+          'assistant',
+          `## We could not finish building ${targetProfile.name}'s program\n\n${reason}\n\nYour assessment is saved, so nothing is lost.`,
+          { type: 'status', failed: true, failedAt: new Date().toISOString() },
+        ),
+      ])
     } finally {
       setIsLoading(false)
     }
@@ -520,7 +531,15 @@ function App() {
       await waitForProgramImages(text)
       setMessages([makeMessage('assistant', text, { type: 'program', safetyFlags })])
     } catch (err) {
-      setError(err.message || 'Unable to generate the next block.')
+      const reason = err.message || 'Unable to generate the next block.'
+      setError(reason)
+      setMessages([
+        makeMessage(
+          'assistant',
+          `## We could not finish building ${targetProfile.name}'s block ${nextBlock}\n\n${reason}\n\nYour logged progress is saved, so nothing is lost.`,
+          { type: 'status', failed: true, failedAt: new Date().toISOString() },
+        ),
+      ])
     } finally {
       setIsLoading(false)
     }

@@ -116,6 +116,12 @@ export default function Chat({
     .find((message) => message.role === 'assistant' && !['program', 'status'].includes(message.meta?.type))
   const statusCopy = statusMessage?.content?.replace(/^#+\s*/gm, '') ||
     `${user?.name || 'Your'} answers are being turned into workouts, recovery steps, and progress goals.`
+
+  // A failed generation is now recorded on the saved message. `error` only
+  // lives in memory, so without this a member returning after a failure would
+  // see the spinner and no way to act. An interrupted (rather than failed)
+  // attempt needs nothing here — loading the page restarts generation.
+  const generationStalled = !isLoading && !programMessage && !!statusMessage?.meta?.failed
   const planDates = useMemo(() => {
     if (!programCreatedAt || !programEndsAt) return ''
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -227,21 +233,23 @@ export default function Chat({
                   <span className="font-heading text-sm uppercase">Building Your Plan</span>
                 </div>
                 <h2 className="font-heading text-3xl uppercase leading-none text-white sm:text-5xl">
-                  Lindsay is making your plan
+                  {generationStalled ? 'Your plan needs another go' : 'Lindsay is making your plan'}
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-body sm:text-base">
                   {statusCopy}
                 </p>
-                {error && !isLoading ? (
+                {(error || generationStalled) && !isLoading ? (
                   <div className="mt-6 space-y-3">
-                    <p className="rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
+                    {error ? (
+                      <p className="rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
+                    ) : null}
                     {onRetry ? (
                       <button
                         type="button"
                         onClick={onRetry}
                         className="min-h-11 rounded-lg bg-accent px-5 font-heading text-lg uppercase text-black transition hover:bg-white"
                       >
-                        Try Again
+                        {error ? 'Try Again' : 'Build My Plan'}
                       </button>
                     ) : null}
                   </div>
