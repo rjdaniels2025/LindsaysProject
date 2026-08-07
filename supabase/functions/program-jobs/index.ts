@@ -98,7 +98,40 @@ const RULES = [
   },
 ]
 
-const EXERCISE_LINE = /^([A-Za-z][\w\s()/-]{2,40}?)\s*:\s*Sets\s*:/i
+// Exercise lines come in several shapes depending on how the model wrote the
+// program:
+//   "Goblet Box Squat: Warmup: 25 lbs x 10, Sets: 4, Reps: 10 to 12, ..."
+//   "1. High box squat to comfortable depth: Week 1, 4 sets of 10. ..."
+//   "Superset A1 Dumbbell Squeeze Press: Warmup: none, Sets: 3, ..."
+// This once required "Sets:" to follow the exercise name immediately, which
+// matched none of them — so the audit silently never flagged anything for
+// anybody. Identify the exercise the same way the dashboard does instead:
+// a line carrying training detail, named by the text before its first colon.
+const DETAIL_HINT = /\bsets?\b|\breps?\b|\brest\b|\btempo\b|\bcue\b|\brpe\b|\brir\b/i
+const NOT_AN_EXERCISE = /^(workout|session|day|week|warm ?up|cool ?down|note|focus|rest|progression|goal|tip|meal|nutrition)\b/i
+
+function exerciseNameFrom(line: string) {
+  // Exercise lines always name the movement before a colon; prose guidance
+  // ("Sets and reps stay the same for all 4 weeks.") does not.
+  if (!line.includes(':')) return ''
+  const stripped = line
+    .replace(/^[,\s]+/, '')
+    .replace(/^\d+[.)]\s*/, '')
+    .replace(/^superset\s*[A-Z]?\d?\s*[,:]?\s*/i, '')
+    .trim()
+  const name = stripped.split(':')[0]?.trim()
+  if (!name || name.length < 3 || name.length > 60) return ''
+  if (!/[A-Za-z]/.test(name)) return ''
+  if (NOT_AN_EXERCISE.test(name)) return ''
+  return name
+}
+
+// The program text has already been through sanitizeCopy, which turns every
+// hyphen into ", " — so "Push-Up" arrives as "Push, Up" and a pattern like
+// /push ?up/ would never match it. Match against a comma-flattened name.
+function matchable(name: string) {
+  return name.replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 function auditProgram(text: string, limitations: unknown) {
   const lim = String(limitations || '').trim()
@@ -110,12 +143,13 @@ function auditProgram(text: string, limitations: unknown) {
   const flags: Array<{ exercise: string; limitation: string; suggestion: string }> = []
   const seen = new Set<string>()
   for (const rawLine of String(text || '').split('\n')) {
-    const line = rawLine.replace(/^,\s*/, '').trim()
-    const match = line.match(EXERCISE_LINE)
-    if (!match) continue
-    const name = match[1].trim()
+    const line = rawLine.trim()
+    if (!DETAIL_HINT.test(line)) continue
+    const name = exerciseNameFrom(line)
+    if (!name) continue
+    const testable = matchable(name)
     for (const rule of active) {
-      if (rule.risky.test(name)) {
+      if (rule.risky.test(testable)) {
         const key = `${name.toLowerCase()}|${rule.label}`
         if (seen.has(key)) continue
         seen.add(key)
