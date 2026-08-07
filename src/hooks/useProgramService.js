@@ -36,9 +36,24 @@ async function invokeForText(action, body = {}) {
   return data.text
 }
 
+// Hands the job to the server so it gets finished and saved even if this tab
+// closes before generation completes. Best effort: a member whose tab stays
+// open must not lose their program because the handoff failed.
+async function registerJob(jobId, blockNumber) {
+  try {
+    await supabase.functions.invoke('program-jobs', {
+      body: { action: 'register', jobId, blockNumber },
+    })
+  } catch (err) {
+    console.error('Could not register the program job for server-side completion:', err)
+  }
+}
+
 async function generateProgram(profile, options = {}) {
   const start = await invoke('startProgram', { profile, options })
   if (!start?.id) throw new Error('Could not start program generation.')
+
+  await registerJob(start.id, options.blockNumber || 1)
 
   const deadline = Date.now() + POLL_TIMEOUT_MS
   while (Date.now() < deadline) {
