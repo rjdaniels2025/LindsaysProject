@@ -1,5 +1,5 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, Handshake, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
 import { transformationImage } from '../assets/transformationImage.js'
@@ -10,6 +10,14 @@ const foundingOfferPerks = [
   'Simple Workout Plans',
   'Lifestyle Coaching',
   'Ongoing Support',
+]
+
+const PARTNER_SERVICES = [
+  'Physiotherapy',
+  'Chiropractic Care',
+  'Registered Massage Therapy (RMT)',
+  'Acupuncture',
+  'Fascial Stretch Therapy (FST)',
 ]
 
 const coachingPrinciples = [
@@ -258,6 +266,66 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                 <BadgeDollarSign size={20} />
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trusted partner — Wellness Bliss Physiotherapy */}
+      <section className="relative overflow-hidden border-t border-white/10 bg-[#0b0b0b] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.08),transparent_26rem),radial-gradient(circle_at_10%_90%,rgba(232,255,71,0.06),transparent_24rem)]" />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
+          <div className="mx-auto w-full max-w-xs lg:mx-0">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-black p-6 shadow-2xl shadow-black/60">
+              <img
+                src="/wellness-bliss-physio.jpeg"
+                alt="Wellness Bliss Physiotherapy logo"
+                loading="lazy"
+                className="mx-auto w-full max-w-[240px] object-contain"
+              />
+            </div>
+          </div>
+
+          {/* min-w-0 lets this grid column shrink: "Physiotherapy" is one
+              unbreakable word, and without it the column takes the word's full
+              width and the section clips it on phones. */}
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+              <Handshake size={15} />
+              <span className="font-heading text-sm uppercase">Trusted Partner</span>
+            </div>
+            <h2 className="mt-5 break-words font-heading text-[2rem] uppercase leading-none text-white sm:text-5xl lg:text-6xl">
+              Wellness Bliss Physiotherapy
+            </h2>
+            <div className="mt-6 space-y-4 text-base leading-8 text-body sm:text-lg">
+              <p>
+                At Elevate Health &amp; Fitness, we believe that fitness, recovery, and overall wellness go
+                hand in hand. That&apos;s why we&apos;re proud to partner with Wellness Bliss Physiotherapy, a
+                trusted provider dedicated to helping individuals move better, recover faster, and live
+                healthier lives.
+              </p>
+              <p>
+                Their experienced team offers a wide range of services, including Physiotherapy, Chiropractic
+                Care, Registered Massage Therapy (RMT), Acupuncture, and Fascial Stretch Therapy (FST).
+                Whether you&apos;re recovering from an injury, managing pain, improving mobility, or enhancing
+                athletic performance, Wellness Bliss Physiotherapy provides personalized care to help you
+                achieve your goals.
+              </p>
+              <p>
+                Together, we&apos;re committed to supporting your health journey, from rehabilitation and
+                recovery to strength, performance, and long-term wellness.
+              </p>
+            </div>
+
+            <ul className="mt-6 flex flex-wrap gap-2">
+              {PARTNER_SERVICES.map((service) => (
+                <li
+                  key={service}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-body"
+                >
+                  {service}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
