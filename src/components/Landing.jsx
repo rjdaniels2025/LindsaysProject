@@ -1,5 +1,5 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, Handshake, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
 import { transformationImage } from '../assets/transformationImage.js'
@@ -326,6 +326,18 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                 </li>
               ))}
             </ul>
+
+            {/* Outlined rather than solid: a partner link should not outrank
+                Lindsay's own trial and signup calls to action on this page. */}
+            <a
+              href="https://wellnessblissphysio.ca/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-accent/70 bg-black/35 px-6 font-heading text-xl uppercase text-white transition hover:border-accent hover:bg-accent/10 sm:w-auto"
+            >
+              Visit Wellness Bliss
+              <ExternalLink size={20} />
+            </a>
           </div>
         </div>
       </section>
