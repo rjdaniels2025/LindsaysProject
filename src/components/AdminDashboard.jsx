@@ -381,23 +381,47 @@ function ApplicationCard({ application, onStatusChange }) {
   )
 }
 
-const MAX_VIDEO_BYTES = 100 * 1024 * 1024
+// Supabase's free plan caps a single file at 50MB. Anything larger is rejected
+// before it reaches storage, and that rejection carries no CORS headers, so the
+// browser only reports "Failed to fetch". Enforcing the real ceiling here means
+// an impossible upload is refused instantly with a message that says why.
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024
+
+function formatMb(bytes) {
+  return `${Math.round(bytes / (1024 * 1024))}MB`
+}
 
 // Uploads the file straight to Storage using a one-time signed URL. The bytes
 // never pass through an edge function, which could not carry a video this size.
 async function uploadExerciseVideo(exerciseName, file) {
   if (!file.type.startsWith('video/')) throw new Error('Please choose a video file.')
-  if (file.size > MAX_VIDEO_BYTES) throw new Error('That video is over 100MB. Please trim or compress it.')
+  if (file.size > MAX_VIDEO_BYTES) {
+    throw new Error(
+      `That video is ${formatMb(file.size)} and the limit is ${formatMb(MAX_VIDEO_BYTES)}. ` +
+      'Record or export it at 720p and keep the clip to about 15 to 20 seconds, which usually lands well under 20MB.',
+    )
+  }
 
   const signed = await supabase.functions.invoke('manage-exercise-video', {
     body: { action: 'upload-url', exerciseName, passcode: ADMIN_PASSCODE },
   })
   if (signed.error || signed.data?.error) throw new Error(signed.data?.error || 'Could not start the upload.')
 
-  const { error: uploadError } = await supabase.storage
+  // A network-level failure can come back either as a returned error or as a
+  // thrown TypeError. Handle both, and say what was being sent — so if this
+  // ever fails again the message carries the facts instead of "Failed to fetch".
+  const uploadError = await supabase.storage
     .from('exercise-videos')
     .uploadToSignedUrl(signed.data.path, signed.data.token, file, { contentType: file.type })
-  if (uploadError) throw new Error(uploadError.message)
+    .then((result) => result.error)
+    .catch((err) => err)
+
+  if (uploadError) {
+    const detail = uploadError.message || String(uploadError)
+    throw new Error(
+      `Upload failed for a ${formatMb(file.size)} ${file.type || 'video'} file: ${detail}`,
+    )
+  }
 
   const finalized = await supabase.functions.invoke('manage-exercise-video', {
     body: { action: 'finalize', exerciseName, passcode: ADMIN_PASSCODE },
@@ -557,7 +581,12 @@ function NewVideoUpload({ onChanged }) {
       <p className="mt-1 text-xs leading-5 text-body">
         The name must match how the exercise appears in a client&apos;s program (capitalisation and
         punctuation don&apos;t matter). MP4 plays everywhere — a .MOV from an iPhone may not play for
-        every client. Max 100MB.
+        every client.
+      </p>
+      <p className="mt-2 text-xs leading-5 text-body">
+        <span className="text-white">Max 50MB.</span> A 15 to 20 second clip recorded at 720p is
+        normally under 20MB. Longer or 4K footage will be too big — trim it or drop the resolution
+        before uploading.
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <input
