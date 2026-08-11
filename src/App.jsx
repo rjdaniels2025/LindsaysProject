@@ -70,6 +70,37 @@ function authRedirectUrl() {
 }
 
 const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin', 'apply', 'trial-ended']
+
+// The coach's passcode unlock used to live only in component state, so every
+// refresh — or any reopen of the tab — dropped her back to the passcode screen.
+// Held in sessionStorage so it survives reloads and navigation but still clears
+// when the tab closes, since the dashboard shows client names and emails.
+const ADMIN_UNLOCK_KEY = 'elevate_admin_unlocked_until'
+const ADMIN_UNLOCK_MS = 8 * 60 * 60 * 1000
+
+function readAdminUnlock() {
+  if (typeof window === 'undefined') return false
+  try {
+    const until = Number(sessionStorage.getItem(ADMIN_UNLOCK_KEY))
+    return Number.isFinite(until) && until > Date.now()
+  } catch {
+    return false
+  }
+}
+
+function writeAdminUnlock(unlocked) {
+  if (typeof window === 'undefined') return
+  try {
+    if (unlocked) sessionStorage.setItem(ADMIN_UNLOCK_KEY, String(Date.now() + ADMIN_UNLOCK_MS))
+    else sessionStorage.removeItem(ADMIN_UNLOCK_KEY)
+  } catch {
+    // Storage can be unavailable in private browsing; the unlock just won't persist.
+  }
+}
+
+// Evaluated once at module load rather than during render, so restoring the
+// unlock never reads storage or the clock while React is rendering.
+const initialAdminUnlocked = readAdminUnlock()
 const VALID_BILLING_OPTIONS = ['pay-in-full', 'monthly', 'biweekly']
 
 function storedBillingOption() {
@@ -406,7 +437,7 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
 function App() {
   // ── Core data ──
   const [user, setUser] = useState(null)
-  const [adminUnlocked, setAdminUnlocked] = useState(false)
+  const [adminUnlocked, setAdminUnlocked] = useState(initialAdminUnlocked)
   const [profile, setProfile] = useState(null)
   const [messages, setMessages] = useState([])
   const [programCreatedAt, setProgramCreatedAt] = useState(null)
@@ -445,6 +476,10 @@ function App() {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   useEffect(() => { accessRef.current = access }, [access])
+
+  // Read by the auth listener, which must not re-subscribe on every navigation.
+  const stageRef = useRef(stage)
+  useEffect(() => { stageRef.current = stage }, [stage])
 
   const navigate = useCallback((nextStage, { replace = false } = {}) => {
     setStage(nextStage)
@@ -805,15 +840,22 @@ function App() {
       // Ignore events fired while init() is still resolving the initial session.
       if (!isInitializedRef.current) return
 
+      // The coach dashboard has its own passcode and reads through RPCs granted
+      // to anon, so it never depended on a member session. Routing away on these
+      // events was throwing the coach out of the dashboard mid-use whenever a
+      // token refresh lapsed — the "keeps getting logged out" report.
+      const inAdmin = stageRef.current === 'admin'
+
       if (event === 'SIGNED_OUT') {
         await loadUserData(null)
-        navigate('landing', { replace: true })
+        if (!inAdmin) navigate('landing', { replace: true })
         return
       }
 
       // Fired after a successful password change — reload and route to their dashboard.
       if (event === 'USER_UPDATED') {
-        routeAfterAuth(await loadUserData(session))
+        const summary = await loadUserData(session)
+        if (!inAdmin) routeAfterAuth(summary)
         return
       }
 
@@ -1138,7 +1180,7 @@ function App() {
     if (!adminUnlocked) {
       return (
         <AdminPasscode
-          onUnlock={() => setAdminUnlocked(true)}
+          onUnlock={() => { writeAdminUnlock(true); setAdminUnlocked(true) }}
           onBack={goHome}
         />
       )
@@ -1146,6 +1188,7 @@ function App() {
     return (
       <AdminDashboard
         onBack={() => {
+          writeAdminUnlock(false)
           setAdminUnlocked(false)
           goHome()
         }}
