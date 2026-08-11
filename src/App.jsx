@@ -71,17 +71,28 @@ function authRedirectUrl() {
 
 const VALID_STAGES = ['landing', 'assessment', 'account', 'pricing', 'chat', 'admin', 'apply', 'trial-ended']
 
-// The coach's passcode unlock used to live only in component state, so every
-// refresh — or any reopen of the tab — dropped her back to the passcode screen.
-// Held in sessionStorage so it survives reloads and navigation but still clears
-// when the tab closes, since the dashboard shows client names and emails.
+// The coach's passcode unlock. This first lived only in component state, so
+// every refresh dropped her back to the passcode screen, then in sessionStorage
+// so it would still clear when the tab closed — the dashboard shows client
+// names and emails.
+//
+// That tab-close boundary does not survive a phone. iOS Safari and Android
+// Chrome discard background tabs, taking sessionStorage with them, so switching
+// apps and coming back landed her on the passcode screen again — which is
+// exactly what she reported. localStorage survives tab eviction and browser
+// restarts, which is the whole point.
+//
+// The trade-off is real and accepted: the unlock now outlives the browser, so
+// the phone's own lock screen is the boundary rather than the tab's lifetime.
+// The passcode ships in the client bundle anyway (see AdminPasscode), so it
+// gates casual access and never claimed to be more. Exit still clears it.
 const ADMIN_UNLOCK_KEY = 'elevate_admin_unlocked_until'
-const ADMIN_UNLOCK_MS = 8 * 60 * 60 * 1000
+const ADMIN_UNLOCK_MS = 30 * 24 * 60 * 60 * 1000
 
 function readAdminUnlock() {
   if (typeof window === 'undefined') return false
   try {
-    const until = Number(sessionStorage.getItem(ADMIN_UNLOCK_KEY))
+    const until = Number(localStorage.getItem(ADMIN_UNLOCK_KEY))
     return Number.isFinite(until) && until > Date.now()
   } catch {
     return false
@@ -91,8 +102,8 @@ function readAdminUnlock() {
 function writeAdminUnlock(unlocked) {
   if (typeof window === 'undefined') return
   try {
-    if (unlocked) sessionStorage.setItem(ADMIN_UNLOCK_KEY, String(Date.now() + ADMIN_UNLOCK_MS))
-    else sessionStorage.removeItem(ADMIN_UNLOCK_KEY)
+    if (unlocked) localStorage.setItem(ADMIN_UNLOCK_KEY, String(Date.now() + ADMIN_UNLOCK_MS))
+    else localStorage.removeItem(ADMIN_UNLOCK_KEY)
   } catch {
     // Storage can be unavailable in private browsing; the unlock just won't persist.
   }
@@ -480,6 +491,14 @@ function App() {
   // Read by the auth listener, which must not re-subscribe on every navigation.
   const stageRef = useRef(stage)
   useEffect(() => { stageRef.current = stage }, [stage])
+
+  // Re-stamp the unlock on every visit to the dashboard, so the window slides
+  // forward with use. Stamping only at passcode entry would start a clock that
+  // never renewed, and she would be asked again 30 days later mid-use for no
+  // reason she could see.
+  useEffect(() => {
+    if (stage === 'admin' && adminUnlocked) writeAdminUnlock(true)
+  }, [stage, adminUnlocked])
 
   const navigate = useCallback((nextStage, { replace = false } = {}) => {
     setStage(nextStage)
