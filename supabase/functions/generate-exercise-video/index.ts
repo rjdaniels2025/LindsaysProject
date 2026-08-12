@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { exerciseKey as normalizedKey } from '../_shared/exerciseKey.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,12 +40,6 @@ const BUCKET = 'exercise-videos'
 const SUBMIT_STALL_MS = 3 * 60 * 1000
 // Give up on a generation entirely after this long so users are never stuck.
 const GENERATION_TIMEOUT_MS = 20 * 60 * 1000
-
-// Same normalization as generate-image's exercise matching, so free-text names
-// like "Goblet Squat" and "goblet squat!" share one cache entry.
-function normalizedKey(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
-}
 
 function authenticatedUserId(request: Request) {
   const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')

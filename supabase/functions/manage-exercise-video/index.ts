@@ -1,13 +1,8 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { exerciseKey as normalizedKey } from '../_shared/exerciseKey.ts'
 
 const BUCKET = 'exercise-videos'
-
-// Same normalization as generate-exercise-video, so a manually uploaded video
-// lands on the exact cache key the member-facing player looks up.
-function normalizedKey(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
-}
 
 function storagePath(key: string) {
   return `${key.replace(/\s+/g, '-')}.mp4`
@@ -94,6 +89,42 @@ async function handleFinalize(supabase: SupabaseClient, exerciseName: string, ke
   return jsonResponse({ video: data })
 }
 
+// Points an already-uploaded video at a different exercise. Needed because a
+// video whose name never matched any program is invisible to everyone, and the
+// difference is often one only the coach can settle — "Cable Kickbacks" could
+// be the glute one or the triceps one, and guessing wrong would show a client
+// the wrong movement. The stored video_url is absolute, so the file stays where
+// it is and only the row's identity changes.
+async function handleRelink(supabase: SupabaseClient, fromKey: string, exerciseName: string, toKey: string) {
+  const { data: existing } = await supabase
+    .from('exercise_videos')
+    .select('exercise_key, source')
+    .eq('exercise_key', toKey)
+    .maybeSingle()
+
+  if (existing && existing.exercise_key !== fromKey) {
+    if (existing.source === 'manual') {
+      return jsonResponse(
+        { error: `“${exerciseName}” already has one of your videos. Remove that one first.` },
+        409,
+      )
+    }
+    // Only an AI row is in the way, and a coach video supersedes it.
+    await supabase.from('exercise_videos').delete().eq('exercise_key', toKey)
+  }
+
+  const { data, error } = await supabase
+    .from('exercise_videos')
+    .update({ exercise_key: toKey, exercise_name: exerciseName, updated_at: new Date().toISOString() })
+    .eq('exercise_key', fromKey)
+    .select()
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return jsonResponse({ error: 'That video no longer exists.' }, 404)
+
+  return jsonResponse({ video: data })
+}
+
 // Removes the cached video entirely. The next member to open that exercise
 // triggers a fresh AI generation, so this doubles as "revert to AI".
 async function handleDelete(supabase: SupabaseClient, key: string) {
@@ -135,6 +166,13 @@ Deno.serve(async (request) => {
     if (!exerciseName) return jsonResponse({ error: 'Please enter an exercise name.' }, 400)
     const key = normalizedKey(exerciseName)
     if (!key) return jsonResponse({ error: 'That exercise name is not usable.' }, 400)
+
+    if (action === 'relink') {
+      const fromKey = normalizedKey(String(body.fromKey || ''))
+      if (!fromKey) return jsonResponse({ error: 'Missing the video to relink.' }, 400)
+      if (fromKey === key) return jsonResponse({ error: 'That video is already on this exercise.' }, 400)
+      return await handleRelink(supabase, fromKey, exerciseName, key)
+    }
 
     if (action === 'upload-url') return await handleUploadUrl(supabase, key)
     if (action === 'finalize') return await handleFinalize(supabase, exerciseName, key)

@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import {
   Users, UserCheck, CalendarDays,
   RefreshCw, ArrowLeft, Clock, CheckCircle2,
   XCircle, AlertCircle, ChevronDown, ChevronUp, FileText, Search, X,
-  Upload, Trash2, Video, Sparkles,
+  Upload, Trash2, Video, Sparkles, AlertTriangle, Link as LinkIcon,
 } from 'lucide-react'
 import AdminClientDetail from './AdminClientDetail.jsx'
 import { ADMIN_PASSCODE } from './AdminPasscode.jsx'
@@ -436,6 +436,70 @@ async function deleteExerciseVideo(exerciseKey) {
   if (res.error || res.data?.error) throw new Error(res.data?.error || 'Could not remove the video.')
 }
 
+// Moves an existing video onto a different exercise, for the uploads whose name
+// never matched anything a client actually has.
+async function relinkExerciseVideo(fromKey, exerciseName) {
+  const res = await supabase.functions.invoke('manage-exercise-video', {
+    body: { action: 'relink', fromKey, exerciseName, passcode: ADMIN_PASSCODE },
+  })
+  if (res.error || res.data?.error) throw new Error(res.data?.error || 'Could not relink the video.')
+}
+
+// Mirrors supabase/functions/_shared/exerciseKey.ts. Kept in step so the form
+// can tell her whether a name will connect BEFORE she spends an upload on it —
+// the server is still the authority, this only previews the answer.
+const SPELLING_ALIASES = {
+  dumbell: 'dumbbell',
+  dumbells: 'dumbbell',
+  dumbbells: 'dumbbell',
+  barbells: 'barbell',
+  bicep: 'biceps',
+  tricep: 'triceps',
+}
+const NOT_PLURAL = new Set([
+  'press', 'cross', 'triceps', 'biceps', 'abs', 'lats',
+  'glutes', 'calves', 'hamstrings', 'quads', 'plus',
+])
+
+function singularize(token) {
+  if (NOT_PLURAL.has(token)) return token
+  if (token.length > 3 && token.endsWith('ies')) return `${token.slice(0, -3)}y`
+  if (token.length > 3 && token.endsWith('ses')) return token.slice(0, -2)
+  if (token.length > 3 && token.endsWith('s')) return token.slice(0, -1)
+  return token
+}
+
+function exerciseKeyOf(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map((token) => singularize(SPELLING_ALIASES[token] || token))
+    .join(' ')
+}
+
+// Ranks program exercises by how many of the typed name's words they share, so
+// an unmatched video can offer real candidates instead of a blank shrug. Used
+// only to suggest — the coach picks, nothing is auto-applied, because a close
+// name can still be the wrong movement ("Cable Kickbacks" fits both the glute
+// and the triceps version).
+function suggestExercises(name, programExercises, limit = 4) {
+  const wanted = exerciseKeyOf(name).split(' ').filter(Boolean)
+  if (!wanted.length) return []
+  return programExercises
+    .map((ex) => {
+      const tokens = ex.exercise_key.split(' ')
+      const shared = wanted.filter((w) => tokens.some((t) => t === w || t.startsWith(w) || w.startsWith(t))).length
+      return { ...ex, shared, score: shared / Math.max(wanted.length, tokens.length) }
+    })
+    .filter((ex) => ex.shared >= 2 || (ex.shared === 1 && wanted.length === 1))
+    .sort((a, b) => b.score - a.score || b.client_count - a.client_count)
+    .slice(0, limit)
+}
+
 function VideoSourceBadge({ source, status }) {
   if (status === 'pending') {
     return (
@@ -465,9 +529,39 @@ function VideoSourceBadge({ source, status }) {
   )
 }
 
-function VideoCard({ video, onChanged }) {
+function VideoCard({ video, onChanged, programExercises = [], match = null }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [relinking, setRelinking] = useState(false)
+  const [relinkQuery, setRelinkQuery] = useState('')
+
+  const isManual = video.source === 'manual'
+  const suggestions = useMemo(
+    () => (match ? [] : suggestExercises(video.exercise_name, programExercises)),
+    [match, video.exercise_name, programExercises],
+  )
+  const relinkOptions = useMemo(() => {
+    const typed = relinkQuery.trim().toLowerCase()
+    if (!typed) return suggestions
+    return programExercises
+      .filter((ex) => ex.exercise_name.toLowerCase().includes(typed))
+      .slice(0, 6)
+  }, [relinkQuery, suggestions, programExercises])
+
+  async function relink(exerciseName) {
+    setError('')
+    setBusy('Connecting…')
+    try {
+      await relinkExerciseVideo(video.exercise_key, exerciseName)
+      setRelinking(false)
+      setRelinkQuery('')
+      await onChanged()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy('')
+    }
+  }
 
   async function replace(file) {
     if (!file) return
@@ -519,6 +613,79 @@ function VideoCard({ video, onChanged }) {
         </div>
       )}
 
+      {/* Whether this video actually reaches anyone. Uploads used to fail this
+          silently: the name had to match a client's program exactly and there
+          was nothing anywhere that said whether it did. */}
+      {match ? (
+        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent">
+          <CheckCircle2 size={12} />
+          Showing on {match.exercise_name} · {match.client_count}{' '}
+          {match.client_count === 1 ? 'client' : 'clients'}
+        </p>
+      ) : isManual ? (
+        <div className="mt-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2.5">
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-400">
+            <AlertTriangle size={12} />
+            Not connected — no client sees this
+          </p>
+          {!relinking ? (
+            <>
+              {suggestions.length > 0 && (
+                <p className="mt-1 text-xs leading-5 text-body">
+                  Closest matches: {suggestions.map((s) => s.exercise_name).join(', ')}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setRelinking(true)}
+                disabled={!!busy}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-yellow-500/40 px-2.5 py-1 text-xs font-medium uppercase text-yellow-400 transition hover:bg-yellow-500/10 disabled:opacity-50"
+              >
+                <LinkIcon size={12} />
+                {busy || 'Connect to an exercise'}
+              </button>
+            </>
+          ) : (
+            <div className="mt-2">
+              <input
+                type="text"
+                value={relinkQuery}
+                onChange={(e) => setRelinkQuery(e.target.value)}
+                placeholder="Search your clients' exercises…"
+                className="w-full rounded-lg border border-line bg-[#111] px-2.5 py-1.5 text-xs text-white placeholder:text-body/50 outline-none focus:border-accent"
+              />
+              <div className="mt-1.5 flex flex-col gap-1">
+                {relinkOptions.length === 0 ? (
+                  <p className="text-xs text-body">No exercise matches that.</p>
+                ) : (
+                  relinkOptions.map((ex) => (
+                    <button
+                      key={ex.exercise_key}
+                      type="button"
+                      onClick={() => relink(ex.exercise_name)}
+                      disabled={!!busy}
+                      className="rounded-lg border border-line px-2.5 py-1.5 text-left text-xs text-white transition hover:border-accent disabled:opacity-50"
+                    >
+                      {ex.exercise_name}
+                      <span className="ml-1.5 text-body">
+                        · {ex.client_count} {ex.client_count === 1 ? 'client' : 'clients'}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setRelinking(false); setRelinkQuery('') }}
+                className="mt-1.5 text-xs uppercase text-body transition hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <p className="mt-2 text-xs text-body">Updated {formatDate(video.updated_at)}</p>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
@@ -548,11 +715,28 @@ function VideoCard({ video, onChanged }) {
   )
 }
 
-function NewVideoUpload({ onChanged }) {
+function NewVideoUpload({ onChanged, programExercises = [] }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
+
+  const typed = name.trim()
+  // Does this name resolve to an exercise a client actually has? Answered as
+  // she types, because the alternative — finding out never — is what left ten
+  // of her first twelve uploads invisible.
+  const exactMatch = useMemo(() => {
+    if (!typed) return null
+    const key = exerciseKeyOf(typed)
+    return programExercises.find((ex) => ex.exercise_key === key) || null
+  }, [typed, programExercises])
+
+  const options = useMemo(() => {
+    if (!typed || exactMatch) return []
+    const lower = typed.toLowerCase()
+    const contains = programExercises.filter((ex) => ex.exercise_name.toLowerCase().includes(lower))
+    return (contains.length ? contains : suggestExercises(typed, programExercises, 6)).slice(0, 6)
+  }, [typed, exactMatch, programExercises])
 
   async function upload(file) {
     if (!file) return
@@ -579,9 +763,9 @@ function NewVideoUpload({ onChanged }) {
     <div className="mb-6 rounded-lg border border-line bg-card p-4 sm:p-5">
       <h3 className="font-heading text-xl uppercase text-white">Upload a video for an exercise</h3>
       <p className="mt-1 text-xs leading-5 text-body">
-        The name must match how the exercise appears in a client&apos;s program (capitalisation and
-        punctuation don&apos;t matter). MP4 plays everywhere — a .MOV from an iPhone may not play for
-        every client.
+        Start typing and pick the exercise from your clients&apos; programs — that guarantees the
+        video reaches them. MP4 plays everywhere; a .MOV from an iPhone may not play for every
+        client.
       </p>
       <p className="mt-2 text-xs leading-5 text-body">
         <span className="text-white">Max 50MB.</span> A 15 to 20 second clip recorded at 720p is
@@ -608,6 +792,41 @@ function NewVideoUpload({ onChanged }) {
           />
         </label>
       </div>
+      {typed && (
+        exactMatch ? (
+          <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent">
+            <CheckCircle2 size={12} />
+            Matches {exactMatch.exercise_name} — {exactMatch.client_count}{' '}
+            {exactMatch.client_count === 1 ? 'client has' : 'clients have'} this exercise.
+          </p>
+        ) : (
+          <div className="mt-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2.5">
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-400">
+              <AlertTriangle size={12} />
+              No client&apos;s program uses this name yet
+            </p>
+            <p className="mt-1 text-xs leading-5 text-body">
+              You can still upload it, but it won&apos;t appear for anyone until an exercise with
+              this name shows up in a program.
+            </p>
+            {options.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {options.map((ex) => (
+                  <button
+                    key={ex.exercise_key}
+                    type="button"
+                    onClick={() => { setName(ex.exercise_name); setError('') }}
+                    className="rounded-full border border-line px-2.5 py-1 text-xs text-white transition hover:border-accent"
+                  >
+                    {ex.exercise_name}
+                    <span className="ml-1 text-body">· {ex.client_count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      )}
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       {done && <p className="mt-2 text-xs text-accent">{done}</p>}
     </div>
@@ -618,6 +837,9 @@ export default function AdminDashboard({ onBack }) {
   const [clients, setClients] = useState([])
   const [applications, setApplications] = useState([])
   const [videos, setVideos] = useState([])
+  // Every exercise that actually appears in a client's program. A video only
+  // reaches a member if its name resolves to one of these.
+  const [programExercises, setProgramExercises] = useState([])
   const [view, setView] = useState('clients')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -629,10 +851,11 @@ export default function AdminDashboard({ onBack }) {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError('')
 
-    const [clientsRes, appsRes, videosRes] = await Promise.all([
+    const [clientsRes, appsRes, videosRes, exercisesRes] = await Promise.all([
       supabase.rpc('get_admin_dashboard'),
       supabase.rpc('get_trial_applications'),
       supabase.rpc('list_exercise_videos'),
+      supabase.rpc('list_program_exercises'),
     ])
 
     if (clientsRes.error) {
@@ -645,6 +868,9 @@ export default function AdminDashboard({ onBack }) {
     }
     if (!videosRes.error) {
       setVideos(videosRes.data || [])
+    }
+    if (!exercisesRes.error) {
+      setProgramExercises(exercisesRes.data || [])
     }
 
     isRefresh ? setRefreshing(false) : setLoading(false)
@@ -660,6 +886,16 @@ export default function AdminDashboard({ onBack }) {
   }
 
   useEffect(() => { loadData() }, [])
+
+  const exerciseByKey = useMemo(
+    () => new Map(programExercises.map((ex) => [ex.exercise_key, ex])),
+    [programExercises],
+  )
+  // Only the coach's own uploads are worth chasing. An AI row that matches
+  // nothing is just a stale cache entry, not work she needs to do.
+  const unconnectedCount = videos.filter(
+    (v) => v.source === 'manual' && !exerciseByKey.has(v.exercise_key),
+  ).length
 
   const totalClients = clients.length
   const activeCount = clients.filter((c) => isActive(c.membership_status)).length
@@ -900,12 +1136,26 @@ export default function AdminDashboard({ onBack }) {
 
         {view === 'videos' && (
           <>
-            <NewVideoUpload onChanged={reloadVideos} />
+            <NewVideoUpload onChanged={reloadVideos} programExercises={programExercises} />
 
             <h2 className="mb-4 font-heading text-2xl uppercase text-white">
               Demonstration Library
               <span className="ml-2 font-heading text-lg text-body">({videos.length})</span>
             </h2>
+
+            {unconnectedCount > 0 && (
+              <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
+                <p className="font-heading text-lg uppercase text-yellow-400">
+                  {unconnectedCount} {unconnectedCount === 1 ? 'video is' : 'videos are'} not
+                  connected to an exercise
+                </p>
+                <p className="mt-1 text-xs leading-5 text-body">
+                  A video only reaches a client when its name matches an exercise in their program.
+                  These don&apos;t match anything yet, so nobody can see them. Each one below shows
+                  the closest exercises — pick the right one to connect it.
+                </p>
+              </div>
+            )}
 
             {loading ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -921,7 +1171,13 @@ export default function AdminDashboard({ onBack }) {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {videos.map((video) => (
-                  <VideoCard key={video.exercise_key} video={video} onChanged={reloadVideos} />
+                  <VideoCard
+                    key={video.exercise_key}
+                    video={video}
+                    onChanged={reloadVideos}
+                    programExercises={programExercises}
+                    match={exerciseByKey.get(video.exercise_key) || null}
+                  />
                 ))}
               </div>
             )}
