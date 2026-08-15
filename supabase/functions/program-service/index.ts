@@ -246,7 +246,39 @@ function nutritionGuidance(profile: Record<string, unknown>) {
   return `- These daily nutrition targets were calculated specifically for this client from their bodyweight, height, age, gender, and ${profile.daysPerWeek} training days per week, set to ${dir}. Use these EXACT numbers on the Calorie Target, Protein Target, Carb Target, Fat Target, and Water Target lines, and build all twelve meal options plus the snack, pre workout, and post workout so the full day adds up to them: Calorie Target ${t.calories} calories per day, Protein Target ${t.proteinG} grams per day, Carb Target ${t.carbsG} grams per day, Fat Target ${t.fatG} grams per day, Water Target ${t.waterLiters} liters per day. Briefly give the reason behind each target.`
 }
 
-function programPrompt(profile: Record<string, unknown>, { blockNumber = 1, progress = '', checkins = '' } = {}) {
+// Exercise names the coach has filmed a demonstration for, including the extra
+// names each video covers. Programs invent their own wording, so the same
+// machine arrives as "Seated leg curl" for one client and "Seated hamstring
+// curl" for another, and her clip only ever reached the first. Feeding the
+// library back in stops the drift at the source.
+//
+// Best effort on purpose: if this fails, generation proceeds without it. A
+// missing preference is a cosmetic loss, a blocked program is not.
+async function filmedExerciseNames(): Promise<string[]> {
+  const url = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!url || !serviceRoleKey) return []
+
+  try {
+    const supabase = createClient(url, serviceRoleKey)
+    const [videos, links] = await Promise.all([
+      supabase.from('exercise_videos').select('exercise_name').eq('source', 'manual').eq('status', 'ready'),
+      supabase.from('exercise_video_links').select('exercise_name'),
+    ])
+    const names = [
+      ...(videos.data || []).map((r: { exercise_name: string }) => r.exercise_name),
+      ...(links.data || []).map((r: { exercise_name: string }) => r.exercise_name),
+    ]
+    return [...new Set(names.filter(Boolean))].slice(0, 120)
+  } catch {
+    return []
+  }
+}
+
+function programPrompt(
+  profile: Record<string, unknown>,
+  { blockNumber = 1, progress = '', checkins = '', filmedExercises = [] as string[] } = {},
+) {
   const periodization = selectPeriodization(profile.experience)
   return `Generate a personalized science-based 4-week training block for this client. This is block ${blockNumber}. The periodization scheme is ${periodization.name}.${progress ? `\n\nProgress logged in the previous block (apply sensible progressive overload based on these real numbers — increase loads where the client clearly handled it): ${progress}` : ''}${checkins ? `\n\nWeekly check-ins from the previous block (use these to understand recovery, effort, and sticking points): ${checkins}` : ''}
 
@@ -265,7 +297,8 @@ Client profile:
 ${profile.desiredWeightLbs ? `- Weight goal: Reach ${profile.desiredWeightLbs} lbs from current ${profile.weightLbs} lbs (${Number(profile.weightLbs) > Number(profile.desiredWeightLbs) ? `lose ${Number(profile.weightLbs) - Number(profile.desiredWeightLbs)} lbs` : `gain ${Number(profile.desiredWeightLbs) - Number(profile.weightLbs)} lbs`})` : ''}
 
 Include:
-${injuryRules(profile.limitations)}
+${injuryRules(profile.limitations)}${filmedExercises.length ? `
+- Preferred exercise names: the coach has filmed her own demonstration for the movements listed here. When the plan already calls for one of these movements, write its name exactly as it appears in this list, matching the wording and spelling: ${filmedExercises.join('; ')}. This rule is about naming only. Never choose an exercise from this list over one that suits the client better, and never let it change the exercise selection, ordering, or the injury rules above.` : ''}
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
 - Use clear plain headings exactly named: Today First, Workouts, Meal Plan, Four Week Progression, Recovery, Track Progress, Why This Works
 - Periodization: ${periodization.instruction}
@@ -466,8 +499,9 @@ Deno.serve(async (request: Request) => {
 
     if (action === 'startProgram') {
       if (!body.profile) return jsonResponse({ error: 'Missing profile.' }, 400)
+      const filmedExercises = await filmedExerciseNames()
       const started = await startProgramGeneration([
-        { role: 'user', content: programPrompt(body.profile, body.options || {}) },
+        { role: 'user', content: programPrompt(body.profile, { ...(body.options || {}), filmedExercises }) },
       ])
       if (started.error) return jsonResponse({ error: started.error }, started.status || 500)
       return jsonResponse({ id: started.id, status: started.status })
@@ -480,8 +514,9 @@ Deno.serve(async (request: Request) => {
     } else if (action === 'generateProgram') {
       // Legacy synchronous path, kept for compatibility. New clients use startProgram/pollProgram.
       if (!body.profile) return jsonResponse({ error: 'Missing profile.' }, 400)
+      const filmedExercises = await filmedExerciseNames()
       result = await callProgramService([
-        { role: 'user', content: programPrompt(body.profile, body.options || {}) },
+        { role: 'user', content: programPrompt(body.profile, { ...(body.options || {}), filmedExercises }) },
       ])
     } else if (action === 'sendMessage') {
       result = await callProgramService([
