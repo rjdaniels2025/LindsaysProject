@@ -63,6 +63,10 @@ async function handleFinalize(supabase: SupabaseClient, exerciseName: string, ke
   const publicUrl = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
   const versionedUrl = `${publicUrl}?v=${Date.now()}`
 
+  // Uploading a video for a name that was covered by another video's link means
+  // she now has the real thing; the borrowed clip should step aside.
+  await supabase.from('exercise_video_links').delete().eq('exercise_key', key)
+
   const { data, error } = await supabase
     .from('exercise_videos')
     .upsert(
@@ -113,6 +117,10 @@ async function handleRelink(supabase: SupabaseClient, fromKey: string, exerciseN
     await supabase.from('exercise_videos').delete().eq('exercise_key', toKey)
   }
 
+  // A video of its own outranks a link, so drop any link on the name being
+  // claimed rather than leaving a shadow entry that can never win.
+  await supabase.from('exercise_video_links').delete().eq('exercise_key', toKey)
+
   const { data, error } = await supabase
     .from('exercise_videos')
     .update({ exercise_key: toKey, exercise_name: exerciseName, updated_at: new Date().toISOString() })
@@ -123,6 +131,51 @@ async function handleRelink(supabase: SupabaseClient, fromKey: string, exerciseN
   if (!data) return jsonResponse({ error: 'That video no longer exists.' }, 404)
 
   return jsonResponse({ video: data })
+}
+
+// Adds another exercise name that this video demonstrates. A video could only
+// ever answer to one name, so the same movement written differently in two
+// programs needed two separate recordings — or went without.
+async function handleLink(supabase: SupabaseClient, fromKey: string, exerciseName: string, toKey: string) {
+  const { data: video } = await supabase
+    .from('exercise_videos')
+    .select('id')
+    .eq('exercise_key', fromKey)
+    .maybeSingle()
+  if (!video) return jsonResponse({ error: 'That video no longer exists.' }, 404)
+
+  // An exercise resolves to at most one video, so say which one already owns it
+  // rather than letting the primary key surface as a raw constraint error.
+  const { data: takenByVideo } = await supabase
+    .from('exercise_videos')
+    .select('exercise_name')
+    .eq('exercise_key', toKey)
+    .maybeSingle()
+  if (takenByVideo) {
+    return jsonResponse({ error: `“${exerciseName}” is already its own video.` }, 409)
+  }
+
+  const { data: takenByLink } = await supabase
+    .from('exercise_video_links')
+    .select('video_id')
+    .eq('exercise_key', toKey)
+    .maybeSingle()
+  if (takenByLink && takenByLink.video_id !== video.id) {
+    return jsonResponse({ error: `“${exerciseName}” is already covered by another video.` }, 409)
+  }
+
+  const { error } = await supabase
+    .from('exercise_video_links')
+    .upsert({ exercise_key: toKey, video_id: video.id, exercise_name: exerciseName }, { onConflict: 'exercise_key' })
+  if (error) throw new Error(error.message)
+
+  return jsonResponse({ success: true })
+}
+
+async function handleUnlink(supabase: SupabaseClient, key: string) {
+  const { error } = await supabase.from('exercise_video_links').delete().eq('exercise_key', key)
+  if (error) throw new Error(error.message)
+  return jsonResponse({ success: true })
 }
 
 // Removes the cached video entirely. The next member to open that exercise
@@ -162,16 +215,24 @@ Deno.serve(async (request) => {
       return await handleDelete(supabase, key)
     }
 
+    if (action === 'unlink') {
+      const key = normalizedKey(String(body.exerciseKey || body.exerciseName || ''))
+      if (!key) return jsonResponse({ error: 'Missing exercise.' }, 400)
+      return await handleUnlink(supabase, key)
+    }
+
     const exerciseName = String(body.exerciseName || '').trim().slice(0, 120)
     if (!exerciseName) return jsonResponse({ error: 'Please enter an exercise name.' }, 400)
     const key = normalizedKey(exerciseName)
     if (!key) return jsonResponse({ error: 'That exercise name is not usable.' }, 400)
 
-    if (action === 'relink') {
+    if (action === 'relink' || action === 'link') {
       const fromKey = normalizedKey(String(body.fromKey || ''))
-      if (!fromKey) return jsonResponse({ error: 'Missing the video to relink.' }, 400)
+      if (!fromKey) return jsonResponse({ error: 'Missing the video.' }, 400)
       if (fromKey === key) return jsonResponse({ error: 'That video is already on this exercise.' }, 400)
-      return await handleRelink(supabase, fromKey, exerciseName, key)
+      return action === 'link'
+        ? await handleLink(supabase, fromKey, exerciseName, key)
+        : await handleRelink(supabase, fromKey, exerciseName, key)
     }
 
     if (action === 'upload-url') return await handleUploadUrl(supabase, key)

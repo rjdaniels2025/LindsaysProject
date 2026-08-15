@@ -445,6 +445,22 @@ async function relinkExerciseVideo(fromKey, exerciseName) {
   if (res.error || res.data?.error) throw new Error(res.data?.error || 'Could not relink the video.')
 }
 
+// Adds another exercise the same video demonstrates, so one recording covers
+// every way the programs happen to name that movement.
+async function linkExerciseVideo(fromKey, exerciseName) {
+  const res = await supabase.functions.invoke('manage-exercise-video', {
+    body: { action: 'link', fromKey, exerciseName, passcode: ADMIN_PASSCODE },
+  })
+  if (res.error || res.data?.error) throw new Error(res.data?.error || 'Could not add that exercise.')
+}
+
+async function unlinkExerciseVideo(exerciseKey) {
+  const res = await supabase.functions.invoke('manage-exercise-video', {
+    body: { action: 'unlink', exerciseKey, passcode: ADMIN_PASSCODE },
+  })
+  if (res.error || res.data?.error) throw new Error(res.data?.error || 'Could not remove that exercise.')
+}
+
 // Mirrors supabase/functions/_shared/exerciseKey.ts. Kept in step so the form
 // can tell her whether a name will connect BEFORE she spends an upload on it —
 // the server is still the authority, this only previews the answer.
@@ -529,13 +545,107 @@ function VideoSourceBadge({ source, status }) {
   )
 }
 
-function VideoCard({ video, onChanged, programExercises = [], match = null }) {
+// The same movement is written several ways across programs — "Seated leg curl"
+// for one client and "Seated hamstring curl" for another. Rather than ask her to
+// film the same machine twice, one video can answer to several names. Which
+// names mean the same movement is her call: the candidate list happily offers
+// both "Cable Glute Kickback" and "Cable Triceps Kickback", and only she knows
+// which one she filmed.
+function CoveredExercises({ links, options, open, setOpen, query, setQuery, onAdd, onRemove, busy }) {
+  return (
+    <div className="mt-1.5">
+      {links.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {links.map((link) => (
+            <span
+              key={link.exercise_key}
+              className="inline-flex items-center gap-1 rounded-full border border-accent/25 bg-accent/5 py-0.5 pl-2.5 pr-1 text-xs text-accent"
+            >
+              {link.exercise_name}
+              <span className="text-body">· {link.client_count}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(link.exercise_key)}
+                disabled={!!busy}
+                title={`Stop showing this video on ${link.exercise_name}`}
+                className="grid h-4 w-4 place-items-center rounded-full text-body transition hover:text-red-400 disabled:opacity-50"
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          disabled={!!busy}
+          className="mt-1.5 inline-flex items-center gap-1.5 text-xs uppercase text-body transition hover:text-accent disabled:opacity-50"
+        >
+          <LinkIcon size={11} />
+          {busy || 'Also covers…'}
+        </button>
+      ) : (
+        <div className="mt-1.5 rounded-lg border border-line p-2.5">
+          <p className="text-xs leading-5 text-body">
+            Other exercises this same video demonstrates. Only pick names that are genuinely the
+            same movement.
+          </p>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search your clients' exercises…"
+            className="mt-1.5 w-full rounded-lg border border-line bg-[#111] px-2.5 py-1.5 text-xs text-white placeholder:text-body/50 outline-none focus:border-accent"
+          />
+          <div className="mt-1.5 flex flex-col gap-1">
+            {options.length === 0 ? (
+              <p className="text-xs text-body">Nothing else to add.</p>
+            ) : (
+              options.map((ex) => (
+                <button
+                  key={ex.exercise_key}
+                  type="button"
+                  onClick={() => onAdd(ex.exercise_name)}
+                  disabled={!!busy}
+                  className="rounded-lg border border-line px-2.5 py-1.5 text-left text-xs text-white transition hover:border-accent disabled:opacity-50"
+                >
+                  {ex.exercise_name}
+                  <span className="ml-1.5 text-body">
+                    · {ex.client_count} {ex.client_count === 1 ? 'client' : 'clients'}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); setQuery('') }}
+            className="mt-1.5 text-xs uppercase text-body transition hover:text-white"
+          >
+            Done
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VideoCard({ video, onChanged, programExercises = [], match = null, links = [], takenKeys = new Set() }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [relinking, setRelinking] = useState(false)
   const [relinkQuery, setRelinkQuery] = useState('')
+  const [covering, setCovering] = useState(false)
+  const [coverQuery, setCoverQuery] = useState('')
 
   const isManual = video.source === 'manual'
+  // Reached-by count across this video's own exercise and every extra name it
+  // covers, so the payoff of adding one is visible on the card.
+  const reach = (match?.client_count || 0) + links.reduce((sum, l) => sum + l.client_count, 0)
+
   const suggestions = useMemo(
     () => (match ? [] : suggestExercises(video.exercise_name, programExercises)),
     [match, video.exercise_name, programExercises],
@@ -548,19 +658,45 @@ function VideoCard({ video, onChanged, programExercises = [], match = null }) {
       .slice(0, 6)
   }, [relinkQuery, suggestions, programExercises])
 
-  async function relink(exerciseName) {
+  // Candidates for "also covers": exclude this video's own exercise and any
+  // name already spoken for, so she is never offered a choice that will 409.
+  const coverOptions = useMemo(() => {
+    const typed = coverQuery.trim().toLowerCase()
+    const pool = typed
+      ? programExercises.filter((ex) => ex.exercise_name.toLowerCase().includes(typed))
+      : suggestExercises(video.exercise_name, programExercises, 8)
+    return pool
+      .filter((ex) => ex.exercise_key !== video.exercise_key && !takenKeys.has(ex.exercise_key))
+      .slice(0, 8)
+  }, [coverQuery, video.exercise_name, video.exercise_key, programExercises, takenKeys])
+
+  async function run(label, action) {
     setError('')
-    setBusy('Connecting…')
+    setBusy(label)
     try {
-      await relinkExerciseVideo(video.exercise_key, exerciseName)
-      setRelinking(false)
-      setRelinkQuery('')
+      await action()
       await onChanged()
     } catch (err) {
       setError(err.message)
     } finally {
       setBusy('')
     }
+  }
+
+  async function relink(exerciseName) {
+    await run('Connecting…', async () => {
+      await relinkExerciseVideo(video.exercise_key, exerciseName)
+      setRelinking(false)
+      setRelinkQuery('')
+    })
+  }
+
+  async function addCover(exerciseName) {
+    await run('Adding…', () => linkExerciseVideo(video.exercise_key, exerciseName))
+  }
+
+  async function removeCover(exerciseKey) {
+    await run('Removing…', () => unlinkExerciseVideo(exerciseKey))
   }
 
   async function replace(file) {
@@ -617,11 +753,24 @@ function VideoCard({ video, onChanged, programExercises = [], match = null }) {
           silently: the name had to match a client's program exactly and there
           was nothing anywhere that said whether it did. */}
       {match ? (
-        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent">
-          <CheckCircle2 size={12} />
-          Showing on {match.exercise_name} · {match.client_count}{' '}
-          {match.client_count === 1 ? 'client' : 'clients'}
-        </p>
+        <div className="mt-2">
+          <p className="inline-flex items-center gap-1.5 text-xs text-accent">
+            <CheckCircle2 size={12} />
+            Showing on {match.exercise_name} · reaching {reach}{' '}
+            {reach === 1 ? 'client' : 'clients'}
+          </p>
+          {isManual && <CoveredExercises
+            links={links}
+            options={coverOptions}
+            open={covering}
+            setOpen={setCovering}
+            query={coverQuery}
+            setQuery={setCoverQuery}
+            onAdd={addCover}
+            onRemove={removeCover}
+            busy={busy}
+          />}
+        </div>
       ) : isManual ? (
         <div className="mt-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2.5">
           <p className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-400">
@@ -840,6 +989,8 @@ export default function AdminDashboard({ onBack }) {
   // Every exercise that actually appears in a client's program. A video only
   // reaches a member if its name resolves to one of these.
   const [programExercises, setProgramExercises] = useState([])
+  // Extra exercise names each video also demonstrates.
+  const [videoLinks, setVideoLinks] = useState([])
   const [view, setView] = useState('clients')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -851,11 +1002,12 @@ export default function AdminDashboard({ onBack }) {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError('')
 
-    const [clientsRes, appsRes, videosRes, exercisesRes] = await Promise.all([
+    const [clientsRes, appsRes, videosRes, exercisesRes, linksRes] = await Promise.all([
       supabase.rpc('get_admin_dashboard'),
       supabase.rpc('get_trial_applications'),
       supabase.rpc('list_exercise_videos'),
       supabase.rpc('list_program_exercises'),
+      supabase.rpc('list_exercise_video_links'),
     ])
 
     if (clientsRes.error) {
@@ -872,13 +1024,20 @@ export default function AdminDashboard({ onBack }) {
     if (!exercisesRes.error) {
       setProgramExercises(exercisesRes.data || [])
     }
+    if (!linksRes.error) {
+      setVideoLinks(linksRes.data || [])
+    }
 
     isRefresh ? setRefreshing(false) : setLoading(false)
   }
 
   async function reloadVideos() {
-    const { data, error: videosError } = await supabase.rpc('list_exercise_videos')
-    if (!videosError) setVideos(data || [])
+    const [videosRes, linksRes] = await Promise.all([
+      supabase.rpc('list_exercise_videos'),
+      supabase.rpc('list_exercise_video_links'),
+    ])
+    if (!videosRes.error) setVideos(videosRes.data || [])
+    if (!linksRes.error) setVideoLinks(linksRes.data || [])
   }
 
   function updateApplicationStatus(id, status) {
@@ -891,10 +1050,33 @@ export default function AdminDashboard({ onBack }) {
     () => new Map(programExercises.map((ex) => [ex.exercise_key, ex])),
     [programExercises],
   )
+  // The extra exercises each video covers, resolved to the program entry so the
+  // card can show who actually gets it.
+  const linksByVideo = useMemo(() => {
+    const map = new Map()
+    for (const link of videoLinks) {
+      const ex = exerciseByKey.get(link.exercise_key)
+      const list = map.get(link.video_id) || []
+      list.push({
+        exercise_key: link.exercise_key,
+        exercise_name: ex?.exercise_name || link.exercise_name,
+        client_count: ex?.client_count || 0,
+      })
+      map.set(link.video_id, list)
+    }
+    return map
+  }, [videoLinks, exerciseByKey])
+
+  // A video reaches someone if its own name matches a program exercise or any
+  // of the extra names it covers does.
+  const linkedKeys = useMemo(() => new Set(videoLinks.map((l) => l.exercise_key)), [videoLinks])
+
   // Only the coach's own uploads are worth chasing. An AI row that matches
   // nothing is just a stale cache entry, not work she needs to do.
   const unconnectedCount = videos.filter(
-    (v) => v.source === 'manual' && !exerciseByKey.has(v.exercise_key),
+    (v) => v.source === 'manual' &&
+      !exerciseByKey.has(v.exercise_key) &&
+      !(linksByVideo.get(v.id) || []).some((l) => l.client_count > 0),
   ).length
 
   const totalClients = clients.length
@@ -1177,6 +1359,8 @@ export default function AdminDashboard({ onBack }) {
                     onChanged={reloadVideos}
                     programExercises={programExercises}
                     match={exerciseByKey.get(video.exercise_key) || null}
+                    links={linksByVideo.get(video.id) || []}
+                    takenKeys={linkedKeys}
                   />
                 ))}
               </div>
