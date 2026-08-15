@@ -11,7 +11,6 @@ import {
   Gauge,
   HeartPulse,
   LineChart,
-  Lock,
   Play,
   Repeat,
   RotateCcw,
@@ -593,6 +592,72 @@ function parseWorkouts(content, fallbackItems) {
     .filter((workout) => workout.details.length)
 }
 
+// What a session actually trains, so the week reads as "Push / Lower Body /
+// Pull" rather than three numbered boxes. That label is the thing a member is
+// choosing between when they decide what to hit today.
+//
+// The generator writes it into the heading — "Workout One (Push)" — but older
+// programs, which real clients are still training on, only say "Workout Two".
+// Those fall back to reading the exercises. A missing label is fine; a wrong
+// one would send someone into the wrong session, so anything unclear returns
+// null and the card simply shows no chip.
+const FOCUS_KEYWORDS = [
+  { focus: 'Push', pattern: /\b(bench|chest|pec|shoulder|overhead|press|triceps|tricep|dip|fly|lateral raise|push ?up)\b/i },
+  { focus: 'Pull', pattern: /\b(row|pulldown|pull ?up|chin ?up|lat|biceps|bicep|curl|face pull|rear delt|shrug|deadlift)\b/i },
+  // Romanian deadlifts are a hamstring movement, so they are named here as well
+  // as under Pull's generic "deadlift" — otherwise a hip thrust and an RDL tie
+  // one apiece and an obvious lower body day ends up with no label at all.
+  { focus: 'Legs', pattern: /\b(squat|leg|glute|hamstring|quad|calf|calves|lunge|hip thrust|step ?up|adduction|abduction|romanian deadlift|rdl)\b/i },
+]
+
+function focusFromTitle(title) {
+  const inside = String(title || '').match(/\(([^)]+)\)/)?.[1]?.trim()
+  if (!inside) return null
+  if (/lower|leg/i.test(inside)) return 'Lower Body'
+  if (/push/i.test(inside)) return 'Push'
+  if (/pull/i.test(inside)) return 'Pull'
+  if (/upper/i.test(inside)) return 'Upper Body'
+  if (/full/i.test(inside)) return 'Full Body'
+  // Anything else the coach's plan calls it is still a real label; keep it.
+  return inside.length <= 24 ? inside : null
+}
+
+function focusFromExercises(details) {
+  const names = (Array.isArray(details) ? details : [])
+    .map((line) => String(line).split(':')[0]?.trim() || '')
+    .filter(Boolean)
+  if (!names.length) return null
+
+  // Each exercise votes once per category. Counting keyword hits instead would
+  // let "Barbell Bench Press" score Push twice and outvote a whole other
+  // movement on its own.
+  const scores = FOCUS_KEYWORDS.map(({ focus, pattern }) => ({
+    focus,
+    score: names.filter((name) => pattern.test(name)).length,
+  })).sort((a, b) => b.score - a.score)
+
+  // Needs a clear winner: something matched, and it beats the runner-up.
+  // A session split evenly between push and pull movements has no honest
+  // one-word answer, so it gets none.
+  if (!scores[0].score || scores[0].score === scores[1].score) return null
+  return scores[0].focus === 'Legs' ? 'Lower Body' : scores[0].focus
+}
+
+function workoutFocus(workout) {
+  return focusFromTitle(workout?.title) || focusFromExercises(workout?.details)
+}
+
+// Two sessions that work the same muscles back to back is the one thing the
+// programming deliberately avoids, so "Push" and "Upper Body" count as a repeat
+// of each other while "Push" and "Lower Body" do not.
+function sameFocusFamily(a, b) {
+  if (!a || !b) return false
+  if (a === b) return true
+  const upper = (f) => /push|pull|upper/i.test(f)
+  const lower = (f) => /lower|leg/i.test(f)
+  return (upper(a) && upper(b)) || (lower(a) && lower(b))
+}
+
 // ─── UI components ─────────────────────────────────────────────────────────────
 
 function FocusCard({ icon: Icon, label, value }) {
@@ -1107,6 +1172,10 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
   })
   const [exerciseWeights, setExerciseWeights] = useState(() => log.exerciseWeights || {})
   const [history, setHistory] = useState(() => (Array.isArray(log.history) ? log.history : []))
+  // When each session was finished. Needed because completedWorkouts carries no
+  // timestamps, and now that sessions can be done in any order, "what did you
+  // train last" is no longer answerable from the order of the list.
+  const [sessionLog, setSessionLog] = useState(() => (Array.isArray(log.sessionLog) ? log.sessionLog : []))
   const [week, setWeek] = useState(() => clampWeek(log.week))
 
   // ── Session navigation ───────────────────────────────────────────────────
@@ -1134,11 +1203,31 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
     const completedSets = Object.fromEntries(
       Object.entries(rounds).map(([k, n]) => [k, Array.from({ length: n }, (_, i) => i)])
     )
-    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week })
-  }, [completedWorkouts, rounds, exerciseWeights, history, week, onLogChange])
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week, sessionLog })
+  }, [completedWorkouts, rounds, exerciseWeights, history, week, sessionLog, onLogChange])
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const activeWorkout = workouts[workoutIdx] || workouts[0]
+
+  const focusByIndex = useMemo(() => workouts.map((w) => workoutFocus(w)), [workouts])
+  // The plan's own next session. Still the default and still badged, it just no
+  // longer stops anyone opening a different one.
+  const recommendedIdx = firstIncompleteWorkout(completedWorkouts, workouts.length)
+  const recommendedFocus = focusByIndex[recommendedIdx] || null
+
+  // What was trained most recently, for the back to back note. completedWorkouts
+  // holds no order or timestamps and history is only written when weights were
+  // logged, so neither can answer this; sessionLog is appended on completion.
+  //
+  // Deliberately "your last session" rather than an elapsed-time window: a week
+  // is only three to five sessions and all of them must be finished to move on,
+  // so the previous session is the relevant comparison, and phrasing it this way
+  // keeps the clock out of render entirely.
+  const lastFocus = useMemo(() => {
+    const last = sessionLog[sessionLog.length - 1]
+    const focus = last ? focusByIndex[last.index] : null
+    return focus ? { focus } : null
+  }, [sessionLog, focusByIndex])
   // The tracker's own `week` is the live source of truth for which week's reps
   // to show, so it overrides whatever the parent captured at render time.
   const resolvedRepContext = useMemo(
@@ -1217,7 +1306,14 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
     setRound(0)
     setStep(0)
     setWarmupIdx(0)
-    if (clearRounds) setRounds({})
+    // Clear only this session's own sets. This used to wipe every recorded
+    // round, which barely mattered while sessions unlocked one at a time, but
+    // now that any of them can be opened, glancing at another session would
+    // have thrown away the sets already logged in the one being trained.
+    if (clearRounds) {
+      const mine = new Set(exercises.map((ex) => ex.id))
+      setRounds((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !mine.has(id))))
+    }
     pendingPhaseRef.current = 'active'
   }
 
@@ -1305,8 +1401,12 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
       .filter(({ weight }) => weight)
       .map(({ ex, weight }) => ({ id: ex.id, name: ex.name, weight, workout: activeWorkout.title, date: stamp }))
     if (entries.length) setHistory((prev) => [...prev, ...entries])
-    setCompletedWorkouts((prev) => [...new Set([...prev, workoutIdx])])
-    setWorkoutIdx((prev) => Math.min(prev + 1, workouts.length - 1))
+    const nextCompleted = [...new Set([...completedWorkouts, workoutIdx])]
+    setCompletedWorkouts(nextCompleted)
+    setSessionLog((prev) => [...prev.filter((s) => s.index !== workoutIdx), { index: workoutIdx, at: stamp }])
+    // Sessions can be done in any order now, so the next one to land on is the
+    // first still outstanding, not simply the next number along.
+    setWorkoutIdx(firstIncompleteWorkout(nextCompleted, workouts.length))
     resetSession(true)
   }
 
@@ -1549,8 +1649,13 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
         {workouts.map((workout, index) => {
           const isCurrent = index === workoutIdx
           const isDone = completedWorkouts.includes(index)
-          const isLocked = !isDone && index > workoutIdx
           const inProgress = isCurrent && phase !== 'preview'
+          // Sessions used to unlock strictly in order, so someone who wanted
+          // legs today because the benches were taken simply could not. The
+          // plan's own next session is still marked, but any of them can start.
+          const isRecommended = index === recommendedIdx && !isDone
+          const focus = focusByIndex[index]
+          const repeatsRecentFocus = !isDone && sameFocusFamily(focus, lastFocus?.focus)
           return (
             <div key={`${workout.title}-${index}`}
               className={`rounded-lg border p-4 transition ${
@@ -1560,15 +1665,38 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
                 <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-heading text-sm ${
                   isDone ? 'bg-accent text-black' : isCurrent ? 'border-2 border-accent text-accent' : 'bg-line text-body'
                 }`}>
-                  {isDone ? <CheckCircle2 size={16} /> : isLocked ? <Lock size={15} /> : index + 1}
+                  {isDone ? <CheckCircle2 size={16} /> : index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={`break-words font-heading text-xl uppercase leading-none ${isDone ? 'text-body/60' : 'text-white'}`}>
-                    {workout.title}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={`break-words font-heading text-xl uppercase leading-none ${isDone ? 'text-body/60' : 'text-white'}`}>
+                      {workout.title}
+                    </p>
+                    {/* The label is what a member is actually choosing between. */}
+                    {focus && (
+                      <span className="rounded-full border border-line bg-[#161616] px-2 py-0.5 font-heading text-xs uppercase tracking-wide text-body">
+                        {focus}
+                      </span>
+                    )}
+                    {isRecommended && (
+                      <span className="rounded-full bg-accent/15 px-2 py-0.5 font-heading text-xs uppercase tracking-wide text-accent">
+                        Recommended today
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-sm text-body">
-                    {isDone ? 'Completed' : isCurrent ? (inProgress ? 'In progress' : 'Up next') : 'Locked'}
+                    {isDone ? 'Completed' : inProgress ? 'In progress' : 'Ready when you are'}
                   </p>
+                  {/* Nothing is blocked; the programming alternates upper and
+                      lower on purpose, so say so once and let them decide. */}
+                  {repeatsRecentFocus && (
+                    <p className="mt-1 text-xs leading-5 text-yellow-400/90">
+                      You trained {lastFocus.focus.toLowerCase()} in your last session.
+                      {recommendedFocus && !sameFocusFamily(recommendedFocus, lastFocus.focus)
+                        ? ` ${recommendedFocus} is the better pick today.`
+                        : ' Giving those muscles another day helps them recover.'}
+                    </p>
+                  )}
                   {inProgress && (
                     <div className="mt-2 flex items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
@@ -1579,20 +1707,21 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
                     </div>
                   )}
                 </div>
-                {!isLocked && (
-                  <button type="button"
-                    onClick={() => {
-                      if (index !== workoutIdx) { setWorkoutIdx(index); resetSession(true) }
-                      setModalOpen(true)
-                    }}
-                    className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-heading text-base uppercase transition ${
-                      isCurrent && !isDone
-                        ? 'bg-accent text-black hover:brightness-95'
-                        : 'border border-line bg-card text-white hover:border-accent'
-                    }`}>
-                    {inProgress ? <><Play size={15} /> Continue</> : isDone ? 'Review' : <><Play size={15} /> Start</>}
-                  </button>
-                )}
+                <button type="button"
+                  onClick={() => {
+                    // Position resets, sets do not: opening another session to
+                    // look at it must not discard what has already been logged
+                    // in this one, now that switching around is the point.
+                    if (index !== workoutIdx) { setWorkoutIdx(index); resetSession(false) }
+                    setModalOpen(true)
+                  }}
+                  className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-heading text-base uppercase transition ${
+                    isCurrent && !isDone
+                      ? 'bg-accent text-black hover:brightness-95'
+                      : 'border border-line bg-card text-white hover:border-accent'
+                  }`}>
+                  {inProgress ? <><Play size={15} /> Continue</> : isDone ? 'Review' : <><Play size={15} /> Start</>}
+                </button>
               </div>
             </div>
           )
