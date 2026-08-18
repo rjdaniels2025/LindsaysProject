@@ -13,6 +13,8 @@ import { waitForProgramImages } from './utils/aiImage.js'
 import { auditProgram } from './utils/programSafety.js'
 import { isSupabaseConfigured, supabase } from './lib/supabase.js'
 import { membershipAccess } from './lib/membership.js'
+import { billingChargeAmount } from './lib/pricing.js'
+import { track, trackPageView } from './lib/pixel.js'
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -317,11 +319,15 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       }
 
       if (result.data.session) {
+        if (isCreating) track('CompleteRegistration')
         onAuthenticated?.({ isSignup: isCreating })
         return
       }
 
       if (isCreating) {
+        // The account exists at this point; only the email confirmation is
+        // outstanding, so this is the registration either way.
+        track('CompleteRegistration')
         setPassword('')
         setMode('login')
         setMessage(`Check ${trimmedEmail} to confirm your account, then log in here.`)
@@ -491,6 +497,21 @@ function App() {
   // Read by the auth listener, which must not re-subscribe on every navigation.
   const stageRef = useRef(stage)
   useEffect(() => { stageRef.current = stage }, [stage])
+
+  // Nothing here reloads the page, so without this Meta would record a single
+  // landing page hit per visitor and none of the funnel. The snippet in
+  // index.html already sent the first one, hence the mount skip. Admin is the
+  // coach's own dashboard, not a visitor step, so it stays out of the numbers.
+  const pixelMounted = useRef(false)
+  useEffect(() => {
+    const firstRender = !pixelMounted.current
+    pixelMounted.current = true
+    if (stage === 'admin') return
+    // Only the PageView is skipped on the first render; ViewContent still needs
+    // to fire for someone landing straight on the pricing link from an ad.
+    if (!firstRender) trackPageView()
+    if (stage === 'pricing') track('ViewContent')
+  }, [stage])
 
   // Re-stamp the unlock on every visit to the dashboard, so the window slides
   // forward with use. Stamping only at passcode entry would start a clock that
@@ -781,6 +802,13 @@ function App() {
         }
         if (!mounted) return
         setIsVerifyingPayment(false)
+        // Reported only once the webhook has actually marked the membership
+        // active, so a bounce off the Stripe page cannot report revenue that
+        // was never collected. clearUrl() ran before the poll, so a refresh
+        // does not land here again and cannot double count.
+        if (membershipActive) {
+          track('Purchase', { value: billingChargeAmount(storedBillingOption()), currency: 'CAD' })
+        }
         const summary = await loadUserData(sessionData.session)
         isInitializedRef.current = true
         routeAfterAuth(summary)
@@ -994,6 +1022,10 @@ function App() {
 
   function completeAssessment(completedProfile) {
     setError('')
+    // The assessment is the biggest drop-off before payment and was invisible.
+    // The event is sent bare on purpose: completedProfile holds injuries and
+    // medical limitations, and none of that goes to Meta.
+    track('SubmitApplication')
     setProfile(completedProfile)
     profileRef.current = completedProfile
     setProfileDraft(completedProfile)
@@ -1084,8 +1116,12 @@ function App() {
         body: { billing },
       })
       if (fnError) { setError(await functionErrorMessage(fnError)); return }
-      if (fnData?.url) window.location.href = fnData.url
-      else setError('No checkout URL returned. Please try again.')
+      if (fnData?.url) {
+        track('InitiateCheckout', { value: billingChargeAmount(billing), currency: 'CAD' })
+        window.location.href = fnData.url
+      } else {
+        setError('No checkout URL returned. Please try again.')
+      }
     } catch (err) {
       setError(err.message || 'Unable to start checkout.')
     } finally {

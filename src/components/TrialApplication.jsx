@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
+import { track } from '../lib/pixel.js'
 
 const included = [
   'Personalized macro targets',
@@ -90,6 +91,12 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
         },
       })
       if (error || data?.error) throw new Error(data?.error || error.message)
+
+      // The free funnel's conversion. Lead is what ad reporting is usually read
+      // against; StartTrial is Meta's own event for this, so campaigns can
+      // optimise for it directly. Sent with no name, email, or phone.
+      track('Lead')
+      track('StartTrial')
 
       // Deliberately no localStorage profile draft here: a partial draft would
       // make routeForState treat the assessment as done and generate a program
