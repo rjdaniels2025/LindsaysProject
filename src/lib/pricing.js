@@ -62,3 +62,15 @@ export function billingChargeAmount(billingId, now = new Date()) {
   const amount = Number.parseFloat(String(option.price).replace(/[^0-9.]/g, ''))
   return Number.isFinite(amount) && amount > 0 ? amount : null
 }
+
+// Renders an amount the way the billing table does, so a discounted figure sits
+// beside the list price without looking like it came from somewhere else.
+export function formatMoney(amount) {
+  if (!Number.isFinite(amount)) return null
+  const rounded = Math.round(amount * 100) / 100
+  const whole = Number.isInteger(rounded)
+  return `$${rounded.toLocaleString('en-US', {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`
+}

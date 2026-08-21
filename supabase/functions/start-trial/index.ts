@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { escapeHtml, sendEmail } from '../_shared/email.ts'
 
 const TRIAL_DAYS = Number(Deno.env.get('FREE_TRIAL_DAYS') || 7)
 // The trial grants the same plan a paying member gets — it is the identical
@@ -7,39 +8,8 @@ const TRIAL_DAYS = Number(Deno.env.get('FREE_TRIAL_DAYS') || 7)
 const TRIAL_PLAN_ID = 'transformation'
 const TRIAL_BILLING = 'trial'
 
-const COACH_FALLBACK_EMAIL = 'Lindsay@elevatehnf.com'
-const FROM_ADDRESS = 'Elevate HNF <Lindsay@elevatehnf.com>'
-
 function clean(value: unknown, max = 500) {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
-}
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-async function sendEmail(to: string, subject: string, html: string, replyTo?: string) {
-  const resendKey = Deno.env.get('RESEND_API_KEY')
-  if (!resendKey) {
-    console.log('[start-trial] RESEND_API_KEY not set — skipping email.')
-    return
-  }
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM_ADDRESS, to: [to], reply_to: replyTo, subject, html }),
-    })
-    if (!res.ok) {
-      console.error('[start-trial] Resend error', res.status, await res.text().catch(() => ''))
-    }
-  } catch (err) {
-    console.error('[start-trial] Email failed:', err)
-  }
 }
 
 // Nothing to click — the account is already active. This exists so the member
@@ -59,28 +29,7 @@ async function sendWelcomeEmail(to: string, name: string, endsAt: Date) {
       automatically, and no card is on file.</p>
       <p>Just log back in any time to pick up where you left off.</p>
     </div>`,
-  )
-}
-
-async function notifyCoach(supabase: SupabaseClient, fields: Record<string, string>) {
-  const { data: settings } = await supabase.from('app_settings').select('contact_email').maybeSingle()
-  const coachEmail = clean(settings?.contact_email, 200) || COACH_FALLBACK_EMAIL
-
-  const rows = Object.entries(fields)
-    .map(([label, val]) =>
-      `<tr><td style="padding:4px 12px 4px 0;font-weight:bold">${escapeHtml(label)}</td><td style="padding:4px 0">${escapeHtml(val || '—')}</td></tr>`)
-    .join('')
-
-  await sendEmail(
-    coachEmail,
-    `New free trial started: ${fields.Name || 'Unknown'}`,
-    `<div style="font-family:sans-serif;color:#111">
-      <h2>New Free Kickstart Signup</h2>
-      <p>They already have full access — their 7 days started just now.</p>
-      <table style="border-collapse:collapse">${rows}</table>
-      <p style="margin-top:16px;color:#555">You can see them in the Applications tab of your dashboard.</p>
-    </div>`,
-    fields.Email || undefined,
+    { tag: 'start-trial' },
   )
 }
 
@@ -174,16 +123,9 @@ Deno.serve(async (request) => {
     if (applicationError) console.error('[start-trial] Application row failed:', applicationError)
 
     // Emails are best-effort and run only once the account is safely created.
+    // The coach's own notification comes from the signup trigger, which covers
+    // paid signups too; sending it here as well would email her twice.
     await sendWelcomeEmail(email, name, periodEnd)
-    await notifyCoach(supabase, {
-      Name: name,
-      Email: email,
-      Phone: phone,
-      'Fitness goal': fitnessGoal,
-      'Biggest challenge': biggestChallenge,
-      'Tracked macros before': trackedMacros === null ? '' : trackedMacros ? 'Yes' : 'No',
-      'Trial ends': periodEnd.toDateString(),
-    })
 
     return jsonResponse({ success: true, trialEndsAt: periodEnd.toISOString() })
   } catch (err) {

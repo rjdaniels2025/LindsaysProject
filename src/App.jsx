@@ -1113,7 +1113,9 @@ function App() {
       }
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke('create-checkout-session', {
-        body: { billing },
+        // The code travels, the percentage does not: the server re-reads the
+        // row so what is charged cannot be set by the browser.
+        body: { billing, code: coupon?.code || undefined },
       })
       if (fnError) { setError(await functionErrorMessage(fnError)); return }
       if (fnData?.url) {

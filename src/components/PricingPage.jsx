@@ -2,7 +2,7 @@ import { ArrowLeft, CheckCircle2, ShieldCheck, Tag, X } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
-import { getBillingOptions } from '../lib/pricing.js'
+import { billingChargeAmount, formatMoney, getBillingOptions } from '../lib/pricing.js'
 
 const features = [
   'Personalized workout guidance',
@@ -36,6 +36,7 @@ export default function PricingPage({
 
   const [couponInput, setCouponInput] = useState('')
   const [couponStatus, setCouponStatus] = useState('idle') // 'idle' | 'checking' | 'valid' | 'invalid'
+  const [couponMessage, setCouponMessage] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(() => {
     try {
       const stored = localStorage.getItem('elevate_coupon')
@@ -45,6 +46,13 @@ export default function PricingPage({
   })
 
   const isFree = appliedCoupon?.discount_percent === 100
+  // A partial code used to render "30% off applied" while the page still showed
+  // — and Stripe still charged — the full price. Show what will actually be
+  // taken, from the same table the checkout is built from.
+  const discountPercent = appliedCoupon && !isFree ? appliedCoupon.discount_percent : 0
+  const discountedPrice = discountPercent
+    ? formatMoney(billingChargeAmount(billing) * (1 - discountPercent / 100))
+    : null
   const actionLabel = requiresAssessment
     ? 'Start Assessment'
     : isFree
@@ -55,18 +63,37 @@ export default function PricingPage({
     const code = couponInput.trim().toUpperCase()
     if (!code) return
     setCouponStatus('checking')
-    const { data } = await supabase
-      .from('discount_codes')
-      .select('code, plan_id, billing, discount_percent')
-      .eq('code', code)
-      .eq('is_active', true)
-      .maybeSingle()
-    if (!data) { setCouponStatus('invalid'); return }
-    setAppliedCoupon(data)
-    setCouponStatus('valid')
+    setCouponMessage('')
+
+    // Date-aware: a seasonal code has a window, and the server decides whether
+    // now is inside it. Reading discount_codes directly would ignore that.
+    const { data } = await supabase.rpc('active_discount_code', { lookup_code: code }).maybeSingle()
+    if (data) {
+      setAppliedCoupon(data)
+      setCouponStatus('valid')
+      return
+    }
+
+    // Say why. A September code tried in August is not the same thing as a
+    // typo, and "invalid code" for a real code is a support message waiting to
+    // happen.
+    const { data: known } = await supabase.rpc('discount_code_window', { lookup_code: code }).maybeSingle()
+    if (known?.valid_from || known?.valid_until) {
+      const fmt = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+      const from = known.valid_from ? fmt(known.valid_from) : null
+      // valid_until is exclusive, so the last usable day is the day before.
+      const until = known.valid_until ? fmt(new Date(new Date(known.valid_until).getTime() - 86400000)) : null
+      setCouponMessage(
+        from && until ? `${code} is valid ${from} to ${until}.`
+          : from ? `${code} starts on ${from}.`
+          : `${code} expired after ${until}.`,
+      )
+    }
+    setCouponStatus('invalid')
   }
 
   function removeCoupon() {
+    setCouponMessage('')
     setAppliedCoupon(null)
     setCouponInput('')
     setCouponStatus('idle')
@@ -168,11 +195,11 @@ export default function PricingPage({
                   </>
                 ) : (
                   <span className="text-accent">
-                    {selected.price}
+                    {discountedPrice || selected.price}
                     <span className="font-body text-base normal-case text-body"> {selected.cadence}</span>
-                    {selected.originalPrice ? (
+                    {(discountedPrice || selected.originalPrice) ? (
                       <span className="ml-2 font-body text-base normal-case text-body/50 line-through">
-                        {selected.originalPrice}
+                        {discountedPrice ? selected.price : selected.originalPrice}
                       </span>
                     ) : null}
                   </span>
@@ -237,7 +264,11 @@ export default function PricingPage({
               </div>
             )}
             {couponStatus === 'invalid' ? (
-              <p className="mt-1.5 text-xs text-red-300">Invalid or expired coupon code.</p>
+              <p className="mt-1.5 text-xs text-red-300">
+                {/* A real code outside its dates says so; only a genuinely
+                    unknown code falls back to the generic line. */}
+                {couponMessage || 'Invalid or expired coupon code.'}
+              </p>
             ) : null}
           </div>
         </section>
