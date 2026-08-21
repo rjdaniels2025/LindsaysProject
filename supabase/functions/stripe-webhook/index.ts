@@ -87,6 +87,16 @@ Deno.serve(async (request) => {
           }, { onConflict: 'user_id' })
 
         if (error) throw new Error(error.message)
+
+        // uses_count was only ever incremented by redeem-coupon, which handles
+        // the 100% codes. A percentage code goes through Stripe instead, so
+        // without this a promotion would report zero redemptions no matter how
+        // many people used it.
+        const discountCode = session.metadata?.discount_code
+        if (discountCode) {
+          const { error: usesError } = await supabase.rpc('increment_discount_use', { used_code: discountCode })
+          if (usesError) console.error('[stripe-webhook] Could not count discount use:', usesError.message)
+        }
       }
     }
 
