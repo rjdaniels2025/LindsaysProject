@@ -122,6 +122,100 @@ function PillGroup({ options, value, onChange, columns = 'sm:grid-cols-2', multi
   )
 }
 
+// Height was a free-text box, and what people typed was read wrong often
+// enough to matter: "5.4" meaning five foot four was parsed as 5.4 inches and
+// produced a 250 calorie daily target for a real client. Calories come from
+// this number via Mifflin-St Jeor, so the input has to be exact rather than
+// interpreted. Pickers make the bad value unreachable.
+//
+// The stored value stays a string like 5'4", so everything that already reads
+// profile.height keeps working untouched.
+const FEET_OPTIONS = [4, 5, 6, 7]
+const INCH_OPTIONS = Array.from({ length: 12 }, (_, i) => i)
+
+function formatHeight(feet, inches) {
+  if (!feet) return ''
+  return `${feet}'${inches || 0}"`
+}
+
+function parseStoredHeight(value) {
+  const m = String(value || '').match(/^(\d)'(\d{1,2})"$/)
+  if (m) return { feet: m[1], inches: m[2], cm: '' }
+  const cm = String(value || '').match(/^(\d{2,3})\s*cm$/i)
+  if (cm) return { feet: '', inches: '', cm: cm[1] }
+  return { feet: '', inches: '', cm: '' }
+}
+
+function HeightPicker({ value, onChange, hasError }) {
+  const parsed = parseStoredHeight(value)
+  const [metric, setMetric] = useState(Boolean(parsed.cm))
+  const [feet, setFeet] = useState(parsed.feet)
+  const [inches, setInches] = useState(parsed.inches)
+  const [cm, setCm] = useState(parsed.cm)
+
+  function pickImperial(nextFeet, nextInches) {
+    setFeet(nextFeet)
+    setInches(nextInches)
+    onChange(formatHeight(nextFeet, nextInches))
+  }
+
+  function pickMetric(nextCm) {
+    setCm(nextCm)
+    const n = Number(nextCm)
+    onChange(Number.isFinite(n) && n >= 120 && n <= 230 ? `${Math.round(n)}cm` : '')
+  }
+
+  return (
+    <div>
+      {metric ? (
+        <input
+          type="number"
+          inputMode="numeric"
+          min="120"
+          max="230"
+          className={inputClass(hasError)}
+          value={cm}
+          onChange={(event) => pickMetric(event.target.value)}
+          placeholder="170"
+        />
+      ) : (
+        <div className="flex gap-2">
+          <select
+            className={inputClass(hasError)}
+            value={feet}
+            onChange={(event) => pickImperial(event.target.value, inches || '0')}
+          >
+            <option value="">Feet</option>
+            {FEET_OPTIONS.map((f) => <option key={f} value={f}>{f} ft</option>)}
+          </select>
+          <select
+            className={inputClass(hasError)}
+            value={inches}
+            onChange={(event) => pickImperial(feet, event.target.value)}
+            disabled={!feet}
+          >
+            <option value="">Inches</option>
+            {INCH_OPTIONS.map((i) => <option key={i} value={i}>{i} in</option>)}
+          </select>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          const next = !metric
+          setMetric(next)
+          onChange('')
+          if (next) setCm('')
+          else { setFeet(''); setInches('') }
+        }}
+        className="mt-2 text-sm text-body underline transition hover:text-accent"
+      >
+        {metric ? 'Use feet and inches' : 'Use centimetres'}
+      </button>
+    </div>
+  )
+}
+
 function inputClass(hasError) {
   return `w-full rounded-lg border bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent ${
     hasError ? 'border-red-400' : 'border-line'
@@ -280,11 +374,10 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                 />
               </Field>
               <Field label="Height" error={touched.height && errors.height}>
-                <input
-                  className={inputClass(touched.height && errors.height)}
+                <HeightPicker
                   value={profile.height}
-                  onChange={(event) => setValue('height', event.target.value)}
-                  placeholder="5'8&quot;"
+                  onChange={(next) => setValue('height', next)}
+                  hasError={touched.height && errors.height}
                 />
               </Field>
             </section>

@@ -67,25 +67,81 @@ function num(value: unknown) {
   return Number.isFinite(n) ? n : null
 }
 
+// Height feeds Mifflin-St Jeor, so a misread here is not cosmetic: it lands
+// directly on somebody's daily calorie target.
+//
+// The box was free text and this read several ordinary entries wrong. "5.4"
+// meaning five foot four was taken as 5.4 INCHES and became 14cm, which put a
+// 70 year old client's plan at 250 calories a day. "5 3" became 53 inches.
+// "5\"2" matched the inches branch on the straight quote and became 5 inches.
+// The curly quotes people's phones actually produce matched nothing at all.
+//
+// The form now uses pickers so this cannot recur, but profiles were already
+// saved this way and anything else calling the service still sends free text.
+//
+// Guiding rule: never return a number that is not a believable human height.
+// Returning null makes nutritionGuidance fall back to letting the model
+// estimate, which is far better than confidently wrong arithmetic.
+const MIN_HEIGHT_CM = 120
+const MAX_HEIGHT_CM = 230
+
+function plausibleCm(cm: number | null) {
+  if (cm === null || !Number.isFinite(cm)) return null
+  const rounded = Math.round(cm)
+  return rounded >= MIN_HEIGHT_CM && rounded <= MAX_HEIGHT_CM ? rounded : null
+}
+
 function heightCm(raw: unknown) {
-  const s = String(raw ?? '').toLowerCase().trim()
+  // Normalise the quotes phones produce, so ’ and ” are read like ' and ".
+  const s = String(raw ?? '')
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u02bc\u00b4`]/g, "'")
+    .replace(/[\u201c\u201d\u2033]/g, '"')
+    .trim()
   if (!s) return null
 
   const cm = s.match(/(\d+(?:\.\d+)?)\s*cm/)
-  if (cm) return Math.round(parseFloat(cm[1]))
+  if (cm) return plausibleCm(parseFloat(cm[1]))
 
-  const feetInches = s.match(/(\d+)\s*(?:'|’|ft|feet|foot)\s*(\d+(?:\.\d+)?)?/)
+  const metres = s.match(/^(\d)\.(\d{2})\s*m$/)
+  if (metres) return plausibleCm(parseFloat(`${metres[1]}.${metres[2]}`) * 100)
+
+  // Feet with an explicit marker: 5'8, 5' 8", 5 ft 8, 5 foot 6 inches.
+  const feetInches = s.match(/(\d+)\s*(?:'|ft|feet|foot)\s*(\d+(?:\.\d+)?)?/)
   if (feetInches) {
     const ft = parseInt(feetInches[1], 10)
     const inches = feetInches[2] ? parseFloat(feetInches[2]) : 0
-    return Math.round((ft * 12 + inches) * 2.54)
+    return plausibleCm((ft * 12 + inches) * 2.54)
+  }
+
+  // 5"2 — the double quote belongs on the inches, but people put it after the
+  // feet. Read it as feet and inches, which is unambiguously what they meant.
+  const feetThenInches = s.match(/^(\d)\s*"\s*(\d{1,2})$/)
+  if (feetThenInches) {
+    return plausibleCm((parseInt(feetThenInches[1], 10) * 12 + parseInt(feetThenInches[2], 10)) * 2.54)
+  }
+
+  // "5.4" and "5 3" and "5-3": a single digit 4 to 7 followed by an inches
+  // value is feet and inches. Nobody is 5.4 inches tall, and every real entry
+  // of this shape in the database meant feet.
+  const looseFeet = s.match(/^([4-7])\s*[.,\s-]\s*(\d{1,2})\s*(?:in|inch|inches|")?$/)
+  if (looseFeet) {
+    const inches = parseInt(looseFeet[2], 10)
+    if (inches <= 11) {
+      return plausibleCm((parseInt(looseFeet[1], 10) * 12 + inches) * 2.54)
+    }
   }
 
   const inchesOnly = s.match(/(\d+(?:\.\d+)?)\s*(?:in|inch|inches|")/)
-  if (inchesOnly) return Math.round(parseFloat(inchesOnly[1]) * 2.54)
+  if (inchesOnly) return plausibleCm(parseFloat(inchesOnly[1]) * 2.54)
 
   const bare = num(s)
-  if (bare) return bare < 96 ? Math.round(bare * 2.54) : Math.round(bare)
+  if (bare) {
+    // A bare number is centimetres if it reads like centimetres, inches if it
+    // reads like inches, and nothing at all otherwise. 5 is neither.
+    if (bare >= MIN_HEIGHT_CM) return plausibleCm(bare)
+    if (bare >= 48 && bare < 96) return plausibleCm(bare * 2.54)
+  }
   return null
 }
 
@@ -111,6 +167,12 @@ function goalDirection(profile: Record<string, unknown>) {
   return 'maintain'
 }
 
+// Widely used clinical lower bounds for an unsupervised diet. Not a target,
+// a backstop: if the arithmetic ever lands below these, something upstream is
+// wrong and nobody should be told to eat less than this.
+const MIN_DAILY_CALORIES_FEMALE = 1200
+const MIN_DAILY_CALORIES_MALE = 1500
+
 function nutritionTargets(profile: Record<string, unknown>) {
   const weightLbs = num(profile.weightLbs)
   const age = num(profile.age)
@@ -124,7 +186,14 @@ function nutritionTargets(profile: Record<string, unknown>) {
 
   const direction = goalDirection(profile)
   let calories = direction === 'cut' ? tdee * 0.8 : direction === 'bulk' ? tdee * 1.12 : tdee
-  calories = Math.max(calories, bmr)
+
+  // Two floors, because the first one was not enough on its own.
+  //
+  // Flooring at BMR sounds safe until the height that produced the BMR is
+  // wrong: a 14cm height gives a BMR of 189, so the floor happily allowed 230
+  // calories a day. The absolute floor holds no matter what the inputs did,
+  // and is the guard that would have caught every bad plan we found.
+  calories = Math.max(calories, bmr, isFemale ? MIN_DAILY_CALORIES_FEMALE : MIN_DAILY_CALORIES_MALE)
 
   const proteinG = Math.round(weightLbs * (direction === 'cut' ? 1.0 : 0.9))
   const fatG = Math.round(weightLbs * 0.35)
