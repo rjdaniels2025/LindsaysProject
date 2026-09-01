@@ -83,7 +83,10 @@ Deno.serve(async (request) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { name },
+      // The phone rides in metadata as well as on the application row, so it
+      // reaches app_state.profile.phone by the same route as a paid signup.
+      // Stored only here, never on auth.users.phone, which drives SMS auth.
+      user_metadata: { name, phone },
     })
 
     if (createError || !created?.user) {

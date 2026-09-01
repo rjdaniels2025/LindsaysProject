@@ -108,6 +108,14 @@ function ClientCard({ client, onView }) {
                 {client.email}
               </a>
             ) : null}
+            {profile?.phone ? (
+              <a
+                href={`tel:${profile.phone}`}
+                className="mt-1 block truncate text-xs text-accent transition hover:underline"
+              >
+                {profile.phone}
+              </a>
+            ) : null}
           </div>
           <StatusBadge status={client.membership_status} />
         </div>
@@ -240,6 +248,7 @@ function profileSummary(appState) {
 
 function FollowUpCard({ client, tone, reason }) {
   const urgent = tone === 'urgent'
+  const followUpPhone = client.app_state?.profile?.phone || client.app_state?.profileDraft?.phone
   return (
     <div className={`rounded-lg border bg-card p-4 sm:p-5 ${urgent ? 'border-red-500/40' : 'border-line'}`}>
       <div className="flex items-start justify-between gap-3">
@@ -270,6 +279,15 @@ function FollowUpCard({ client, tone, reason }) {
       ) : (
         <p className="mt-3 text-sm text-body">No email on file</p>
       )}
+
+      {followUpPhone ? (
+        <a
+          href={`tel:${followUpPhone}`}
+          className="mt-1 block truncate text-sm text-accent transition hover:underline"
+        >
+          {followUpPhone}
+        </a>
+      ) : null}
 
       <ul className="mt-3 grid gap-1 text-xs leading-5 text-body">
         {profileSummary(client.app_state).map((item) => (
