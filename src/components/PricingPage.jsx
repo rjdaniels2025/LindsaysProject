@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { billingChargeAmount, formatMoney, getBillingOptions } from '../lib/pricing.js'
+import { useActivePromo } from '../hooks/useActivePromo.js'
+import { PROMO_CODE, PROMO_NAME, promoLastDay } from '../lib/promo.js'
 
 const features = [
   'Personalized workout guidance',
@@ -34,6 +36,7 @@ export default function PricingPage({
   const billingOptions = getBillingOptions(isFoundingOfferActive())
   const selected = billingOptions.find((o) => o.id === billing)
 
+  const activePromo = useActivePromo(PROMO_CODE)
   const [couponInput, setCouponInput] = useState('')
   const [couponStatus, setCouponStatus] = useState('idle') // 'idle' | 'checking' | 'valid' | 'invalid'
   const [couponMessage, setCouponMessage] = useState('')
@@ -59,9 +62,10 @@ export default function PricingPage({
     ? 'Claim Free Access'
     : 'Continue to Checkout'
 
-  async function applyCoupon() {
-    const code = couponInput.trim().toUpperCase()
+  async function applyCoupon(rawCode = couponInput) {
+    const code = String(rawCode).trim().toUpperCase()
     if (!code) return
+    setCouponInput(code)
     setCouponStatus('checking')
     setCouponMessage('')
 
@@ -233,6 +237,29 @@ export default function PricingPage({
           </div>
 
           <div className="mt-4 border-t border-line pt-4">
+            {activePromo && !appliedCoupon ? (
+              <button
+                type="button"
+                onClick={() => applyCoupon(activePromo.code)}
+                disabled={couponStatus === 'checking'}
+                className="mb-3 flex w-full items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-left transition hover:border-accent disabled:opacity-50"
+              >
+                <span className="min-w-0">
+                  <span className="block font-heading text-base uppercase text-accent">
+                    {PROMO_NAME} — {activePromo.discount_percent}% off
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-5 text-body">
+                    Code {activePromo.code}
+                    {promoLastDay(activePromo.valid_until)
+                      ? `, through ${promoLastDay(activePromo.valid_until)}`
+                      : ''}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-lg border border-accent/60 px-3 py-1.5 font-heading text-sm uppercase text-accent">
+                  Apply
+                </span>
+              </button>
+            ) : null}
             {appliedCoupon ? (
               <div className="flex items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-4 py-2.5">
                 <div className="flex items-center gap-2 text-sm">
@@ -255,7 +282,7 @@ export default function PricingPage({
                 />
                 <button
                   type="button"
-                  onClick={applyCoupon}
+                  onClick={() => applyCoupon()}
                   disabled={!couponInput.trim() || couponStatus === 'checking'}
                   className="rounded-lg border border-line bg-[#111] px-4 font-heading text-sm uppercase text-white transition hover:border-accent disabled:opacity-50"
                 >

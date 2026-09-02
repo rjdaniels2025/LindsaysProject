@@ -64,6 +64,10 @@ function userFromSession(session) {
     id: u.id,
     email: u.email,
     name: u.user_metadata?.name || u.email?.split('@')[0] || 'Member',
+    // Captured at signup on both paths so the coach can actually reach people.
+    // It rides through to app_state.profile.phone rather than living only on
+    // the auth record, which nothing on the dashboard reads.
+    phone: u.user_metadata?.phone || '',
   }
 }
 
@@ -231,6 +235,7 @@ function MissingSupabaseGate({ onHome }) {
 function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPasswordReset, backLabel, initialMode = 'login' }) {
   const [mode, setMode] = useState(isPasswordReset ? 'reset' : initialMode)
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -273,7 +278,7 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       return
     }
 
-    if (!email.trim() || !password || (isCreating && !name.trim())) {
+    if (!email.trim() || !password || (isCreating && (!name.trim() || !phone.trim()))) {
       setError('Complete every required field.')
       return
     }
@@ -289,7 +294,13 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
         ? await supabase.auth.signUp({
             email: trimmedEmail,
             password,
-            options: { emailRedirectTo: authRedirectUrl(), data: { name: name.trim() } },
+            // Stored as user metadata beside the name, deliberately not on
+            // auth.users.phone: that column drives Supabase's SMS auth and
+            // carries uniqueness and verification rules we do not want here.
+            options: {
+              emailRedirectTo: authRedirectUrl(),
+              data: { name: name.trim(), phone: phone.trim() },
+            },
           })
         : await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
 
@@ -369,6 +380,20 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
               className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
               placeholder="Your name"
               autoComplete="name"
+            />
+          </label>
+        ) : null}
+        {isCreating ? (
+          <label className="mt-6 block">
+            <span className="mb-2 block font-heading text-lg uppercase text-white">Phone number</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full rounded-lg border border-line bg-[#111] px-4 py-3 text-white outline-none transition placeholder:text-[#666] focus:border-accent"
+              placeholder="(555) 123-4567"
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
             />
           </label>
         ) : null}
@@ -1020,12 +1045,22 @@ function App() {
     // Routing is handled by the USER_UPDATED auth event fired after updateUser
   }
 
-  function completeAssessment(completedProfile) {
+  function completeAssessment(rawProfile) {
     setError('')
     // The assessment is the biggest drop-off before payment and was invisible.
     // The event is sent bare on purpose: completedProfile holds injuries and
     // medical limitations, and none of that goes to Meta.
     track('SubmitApplication')
+
+    // The phone is asked for once, at signup, and carried here rather than
+    // asked again. Both signup paths put it in user metadata, so this single
+    // merge covers trial and paid alike and lands it on the client record the
+    // coach actually reads. Anything already on the profile wins, so a value
+    // corrected later is never overwritten by the original.
+    const completedProfile = rawProfile?.phone?.trim() || !user?.phone
+      ? rawProfile
+      : { ...rawProfile, phone: user.phone }
+
     setProfile(completedProfile)
     profileRef.current = completedProfile
     setProfileDraft(completedProfile)

@@ -1,4 +1,5 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
+import PromoBanner from './PromoBanner.jsx'
 import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
@@ -43,6 +44,7 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
 
   return (
     <main className="min-h-screen bg-bg text-body">
+      <PromoBanner onPricing={onPricing} />
       <CinematicLandingHero
         user={user}
         hasProgram={hasProgram}

@@ -104,6 +104,20 @@ function HistoryTable({ history }) {
   )
 }
 
+// Phone renders as a tel: link so the coach can call from her phone, and without
+// the capitalize the other details carry — it is digits, not a word.
+function ContactDetail({ label, value, href }) {
+  if (!value) return null
+  return (
+    <div>
+      <span className="text-xs font-medium uppercase text-body/60 tracking-wider">{label}</span>
+      <p className="mt-0.5 truncate text-sm">
+        <a href={href} className="text-accent transition hover:underline">{value}</a>
+      </p>
+    </div>
+  )
+}
+
 function Detail({ label, value }) {
   if (!value) return null
   return (
@@ -213,6 +227,8 @@ export default function AdminClientDetail({ client, onBack }) {
         <section>
           <h2 className="mb-3 font-heading text-xl uppercase text-white">Client Profile</h2>
           <div className="grid grid-cols-2 gap-4 rounded-lg border border-line bg-card p-4 sm:grid-cols-3 sm:p-5">
+            <ContactDetail label="Email" value={client.email} href={`mailto:${client.email}`} />
+            <ContactDetail label="Phone" value={profile.phone} href={`tel:${profile.phone}`} />
             <Detail label="Age" value={profile.age} />
             <Detail label="Gender" value={profile.gender} />
             <Detail label="Height" value={profile.height} />
