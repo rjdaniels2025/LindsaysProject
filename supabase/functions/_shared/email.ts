@@ -11,7 +11,15 @@
 // it now says so at error level and reports back, so a caller can record the
 // failure rather than assume delivery.
 
-export const FROM_ADDRESS = Deno.env.get('EMAIL_FROM') || 'Elevate HNF <Lindsay@elevatehnf.com>'
+// The sender must be on a domain verified in the Resend account holding the API
+// key. What is verified is the subdomain support.elevatehnf.com, not the bare
+// domain, and sending from Lindsay@elevatehnf.com is what made every send fail
+// with "domain is not verified" — the key was never the problem.
+//
+// That mailbox does not receive mail, so every send sets a reply-to that does.
+// Verifying the root domain later makes Lindsay@elevatehnf.com usable again; a
+// single EMAIL_FROM secret switches it with no deploy.
+export const FROM_ADDRESS = Deno.env.get('EMAIL_FROM') || 'Elevate HNF <Lindsay@support.elevatehnf.com>'
 export const COACH_FALLBACK_EMAIL = 'Lindsay@elevatehnf.com'
 
 export function escapeHtml(s: string) {

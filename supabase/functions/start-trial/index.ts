@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
-import { escapeHtml, sendEmail } from '../_shared/email.ts'
+import { COACH_FALLBACK_EMAIL, escapeHtml, sendEmail } from '../_shared/email.ts'
 
 const TRIAL_DAYS = Number(Deno.env.get('FREE_TRIAL_DAYS') || 7)
 // The trial grants the same plan a paying member gets — it is the identical
@@ -29,7 +29,9 @@ async function sendWelcomeEmail(to: string, name: string, endsAt: Date) {
       automatically, and no card is on file.</p>
       <p>Just log back in any time to pick up where you left off.</p>
     </div>`,
-    { tag: 'start-trial' },
+    // The From address is an unattended mailbox on the sending subdomain, so a
+    // member who simply hits reply has to land somewhere Lindsay reads.
+    { tag: 'start-trial', replyTo: COACH_FALLBACK_EMAIL },
   )
 }
 
