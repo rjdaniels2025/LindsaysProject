@@ -136,7 +136,7 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
             Apply for your FREE 7-Day Elevate Kickstart
           </h1>
           <p className="mt-3 text-sm leading-6 text-body">
-            Create your account and get full access for 7 days — the same program, dashboard and
+            Create your account and get full access for 7 days, with the same program, dashboard and
             coaching a paying member gets. No card required, and it doesn&apos;t auto-charge.
           </p>
         </div>
@@ -262,7 +262,7 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
             {submitting ? 'Creating your account…' : 'Start my free 7 days'}
           </button>
           <p className="text-center text-xs leading-5 text-body">
-            No payment details needed. Your trial simply ends after 7 days — nothing is charged
+            No payment details needed. Your trial simply ends after 7 days, and nothing is charged
             automatically.
           </p>
         </form>

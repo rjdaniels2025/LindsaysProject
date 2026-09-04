@@ -1457,7 +1457,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
               <p className="mt-2 font-heading text-3xl text-white">
                 {currentWarmupSet.weight} lbs <span className="text-xl font-normal text-body">× {currentWarmupSet.reps} reps</span>
               </p>
-              <p className="mt-1 text-sm text-body">Light and controlled — prime the movement.</p>
+              <p className="mt-1 text-sm text-body">Light and controlled. Prime the movement.</p>
               <button type="button" onClick={doneWarmup}
                 className="mt-3 w-full rounded-lg bg-amber-400/20 py-3 font-heading text-lg uppercase text-amber-200 transition hover:bg-amber-400/30">
                 {warmupIdx < warmupSets.length - 1 ? 'Next Warm-up Set' : 'Start Working Sets'}
@@ -1541,7 +1541,7 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
                           <div key={ex.id} className={ei > 0 ? 'mt-5 border-t border-line pt-5' : ''}>
                             {group.type === 'superset' && (
                               <p className="mb-2 font-heading text-xs uppercase text-accent">
-                                {group.label}{ei + 1} — {ei === 0 ? 'go first, then immediately' : 'go second, then rest'}
+                                {group.label}{ei + 1}: {ei === 0 ? 'go first, then immediately' : 'go second, then rest'}
                               </p>
                             )}
                             <p className="font-heading text-xl uppercase text-white">{ex.name}</p>
@@ -1944,7 +1944,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
                 {safetyFlags.map((flag, index) => (
                   <li key={index} className="text-sm leading-6 text-white">
                     <span className="font-bold">{flag.exercise}</span>{' '}
-                    <span className="text-body">({flag.limitation}) — {flag.suggestion}.</span>
+                    <span className="text-body">({flag.limitation}): {flag.suggestion}.</span>
                   </li>
                 ))}
               </ul>

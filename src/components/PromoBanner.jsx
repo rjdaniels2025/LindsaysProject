@@ -37,7 +37,7 @@ export default function PromoBanner({ onPricing }) {
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1 pr-8 text-center">
         <Tag size={15} className="shrink-0 text-accent" />
         <span className="font-heading text-base uppercase text-accent sm:text-lg">
-          {PROMO_NAME} — {promo.discount_percent}% off
+          {PROMO_NAME}: {promo.discount_percent}% off
         </span>
         <span className="text-xs leading-5 text-body sm:text-sm">
           Use code <span className="font-heading uppercase text-white">{promo.code}</span>

@@ -45,7 +45,7 @@ export function getBillingOptions(foundingActive) {
           price: FOUNDING_PAY_IN_FULL_PRICE,
           originalPrice: option.price,
           badge: 'Founding Offer',
-          highlight: 'Save $500 — ends June 30',
+          highlight: 'Save $500, ends June 30',
           description: 'Founding-client launch price. One payment, full 6-month access.',
         }
       : option,

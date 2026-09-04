@@ -33,7 +33,7 @@ function monthProgress(programCreatedAt, programEndsAt) {
 }
 
 function formatDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -60,7 +60,7 @@ function StatusBadge({ status }) {
 }
 
 function PlanBadge({ planId, billing }) {
-  if (!planId) return <span className="text-xs text-body">—</span>
+  if (!planId) return <span className="text-xs text-body">-</span>
   const label = planId.charAt(0).toUpperCase() + planId.slice(1)
   const billingLabel = billing === 'annual' ? 'Annual' : 'Monthly'
   return (
@@ -179,9 +179,9 @@ function ClientCard({ client, onView }) {
               )}
             </>
           ) : (
-            <p className="text-xs text-body">No profile info — assessment not completed.</p>
+            <p className="text-xs text-body">No profile info. Assessment not completed.</p>
           )}
-          <Detail label="App Stage" value={stage || '—'} />
+          <Detail label="App Stage" value={stage || '-'} />
           {client.current_period_end && (
             <Detail label="Membership Renews" value={formatDate(client.current_period_end)} />
           )}
@@ -392,7 +392,7 @@ function ApplicationCard({ application, onStatusChange }) {
         )}
         <p className="text-body">
           <span className="font-heading uppercase text-white">Tracked macros: </span>
-          {application.tracked_macros === null ? '—' : application.tracked_macros ? 'Yes' : 'No'}
+          {application.tracked_macros === null ? '-' : application.tracked_macros ? 'Yes' : 'No'}
         </p>
       </div>
     </div>
@@ -793,7 +793,7 @@ function VideoCard({ video, onChanged, programExercises = [], match = null, link
         <div className="mt-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-2.5">
           <p className="inline-flex items-center gap-1.5 text-xs font-medium text-yellow-400">
             <AlertTriangle size={12} />
-            Not connected — no client sees this
+            Not connected. No client sees this
           </p>
           {!relinking ? (
             <>
@@ -930,13 +930,13 @@ function NewVideoUpload({ onChanged, programExercises = [] }) {
     <div className="mb-6 rounded-lg border border-line bg-card p-4 sm:p-5">
       <h3 className="font-heading text-xl uppercase text-white">Upload a video for an exercise</h3>
       <p className="mt-1 text-xs leading-5 text-body">
-        Start typing and pick the exercise from your clients&apos; programs — that guarantees the
+        Start typing and pick the exercise from your clients&apos; programs. That guarantees the
         video reaches them. MP4 plays everywhere; a .MOV from an iPhone may not play for every
         client.
       </p>
       <p className="mt-2 text-xs leading-5 text-body">
         <span className="text-white">Max 50MB.</span> A 15 to 20 second clip recorded at 720p is
-        normally under 20MB. Longer or 4K footage will be too big — trim it or drop the resolution
+        normally under 20MB. Longer or 4K footage will be too big, so trim it or drop the resolution
         before uploading.
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -963,7 +963,7 @@ function NewVideoUpload({ onChanged, programExercises = [] }) {
         exactMatch ? (
           <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent">
             <CheckCircle2 size={12} />
-            Matches {exactMatch.exercise_name} — {exactMatch.client_count}{' '}
+            Matches {exactMatch.exercise_name}, {exactMatch.client_count}{' '}
             {exactMatch.client_count === 1 ? 'client has' : 'clients have'} this exercise.
           </p>
         ) : (
@@ -1279,7 +1279,7 @@ export default function AdminDashboard({ onBack }) {
             </div>
           ) : followUpCount === 0 ? (
             <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
-              Nobody needs chasing right now — every member has a program and every
+              Nobody needs chasing right now. Every member has a program and every
               assessment turned into a signup.
             </div>
           ) : (
@@ -1292,7 +1292,7 @@ export default function AdminDashboard({ onBack }) {
                   </h2>
                   <p className="mb-4 mt-1 text-sm leading-6 text-body">
                     These members are on an active plan or trial but never got a program.
-                    Ask them to open the site and leave it open for a few minutes — it
+                    Ask them to open the site and leave it open for a few minutes, and it
                     rebuilds itself.
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -1352,7 +1352,7 @@ export default function AdminDashboard({ onBack }) {
                 <p className="mt-1 text-xs leading-5 text-body">
                   A video only reaches a client when its name matches an exercise in their program.
                   These don&apos;t match anything yet, so nobody can see them. Each one below shows
-                  the closest exercises — pick the right one to connect it.
+                  the closest exercises. Pick the right one to connect it.
                 </p>
               </div>
             )}

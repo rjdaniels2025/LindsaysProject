@@ -20,7 +20,7 @@ export default function TrialEnded({ name, onSubscribe, onSignOut, onHome }) {
           Your 7 days are up
         </h1>
         <p className="mt-3 text-sm leading-6 text-body">
-          {name ? `${name.split(' ')[0]}, your` : 'Your'} free Kickstart has ended — but nothing has
+          {name ? `${name.split(' ')[0]}, your` : 'Your'} free Kickstart has ended, but nothing has
           been deleted. Everything is waiting exactly where you left it.
         </p>
 

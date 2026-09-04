@@ -370,7 +370,7 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                   max="700"
                   value={profile.desiredWeightLbs}
                   onChange={(event) => setValue('desiredWeightLbs', event.target.value)}
-                  placeholder="Optional — e.g. 145"
+                  placeholder="Optional, e.g. 145"
                 />
               </Field>
               <Field label="Height" error={touched.height && errors.height}>
@@ -426,7 +426,7 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                 </div>
               </Field>
               <Field label="Equipment Access" error={touched.equipment && errors.equipment}>
-                <p className="mb-3 text-sm text-body">Select all that apply — the program will include alternatives for each.</p>
+                <p className="mb-3 text-sm text-body">Select all that apply. The program will include alternatives for each.</p>
                 <PillGroup
                   multiple
                   options={equipmentOptions}
@@ -443,7 +443,7 @@ export default function Onboarding({ initialProfile, onProfileChange, onComplete
                 />
               </Field>
               <Field label="Dietary Restrictions / Allergies">
-                <p className="mb-3 text-sm text-body">Select all that apply — your meal plan will be built around these.</p>
+                <p className="mb-3 text-sm text-body">Select all that apply. Your meal plan will be built around these.</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {dietaryOptions.map((option) => {
                     const selected = profile.dietaryRestrictions.split(',').map((s) => s.trim()).filter(Boolean).includes(option)

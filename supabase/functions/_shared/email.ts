@@ -11,8 +11,33 @@
 // it now says so at error level and reports back, so a caller can record the
 // failure rather than assume delivery.
 
-export const FROM_ADDRESS = Deno.env.get('EMAIL_FROM') || 'Elevate HNF <Lindsay@elevatehnf.com>'
+// The sender must be on a domain verified in the Resend account holding the API
+// key. What is verified is the subdomain support.elevatehnf.com, not the bare
+// domain, and sending from Lindsay@elevatehnf.com is what made every send fail
+// with "domain is not verified" — the key was never the problem.
+//
+// That mailbox does not receive mail, so every send sets a reply-to that does.
+// Verifying the root domain later makes Lindsay@elevatehnf.com usable again; a
+// single EMAIL_FROM secret switches it with no deploy.
+export const FROM_ADDRESS = Deno.env.get('EMAIL_FROM') || 'Elevate HNF <Lindsay@support.elevatehnf.com>'
 export const COACH_FALLBACK_EMAIL = 'Lindsay@elevatehnf.com'
+
+// Em dashes read as machine-written, and Lindsay's members should hear from her,
+// not from a template. Enforced here rather than by rewriting sentences, because
+// email text arrives from three places: the copy in these files, the placeholder
+// detailsTable renders for an empty field, and whatever a member typed into a
+// form. Only the last exit point sees all three.
+//
+// Entities are folded first, since escapeHtml runs before this and a member who
+// types an em dash still produces one in the final HTML. Ordinary hyphens are
+// left alone.
+export function withoutLongDashes(text: string) {
+  return String(text ?? '')
+    .replace(/&mdash;|&#8212;|&#x2014;/gi, '\u2014')
+    .replace(/&ndash;|&#8211;|&#x2013;/gi, '\u2013')
+    .replace(/\s*[\u2014\u2013]\s*/g, ' - ')
+    .replace(/^ +| +$/g, '')
+}
 
 export function escapeHtml(s: string) {
   return String(s ?? '')
@@ -47,7 +72,13 @@ export async function sendEmail(
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM_ADDRESS, to: [to], reply_to: options.replyTo, subject, html }),
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: [to],
+        reply_to: options.replyTo,
+        subject: withoutLongDashes(subject),
+        html: withoutLongDashes(html),
+      }),
     })
     if (!res.ok) {
       console.error(`[${tag}] Resend rejected the email`, res.status, await res.text().catch(() => ''))
@@ -65,6 +96,6 @@ export function detailsTable(fields: Record<string, string>) {
   return Object.entries(fields)
     .map(([label, val]) =>
       `<tr><td style="padding:4px 12px 4px 0;font-weight:bold">${escapeHtml(label)}</td>` +
-      `<td style="padding:4px 0">${escapeHtml(val || '—')}</td></tr>`)
+      `<td style="padding:4px 0">${escapeHtml(val || '-')}</td></tr>`)
     .join('')
 }

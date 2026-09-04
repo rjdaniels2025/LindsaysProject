@@ -42,7 +42,7 @@ function splitSections(content) {
 }
 
 function formatDateTime(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -88,9 +88,9 @@ function HistoryTable({ history }) {
           {sorted.slice(0, 40).map((entry, i) => (
             <tr key={`${entry.id}-${entry.date}-${i}`} className="border-b border-line/60 last:border-0">
               <td className="px-3 py-2 text-body">{formatDateTime(entry.date)}</td>
-              <td className="px-3 py-2 text-white">{entry.workout || '—'}</td>
-              <td className="px-3 py-2 text-white">{entry.name || '—'}</td>
-              <td className="px-3 py-2 text-accent">{entry.weight || '—'}</td>
+              <td className="px-3 py-2 text-white">{entry.workout || '-'}</td>
+              <td className="px-3 py-2 text-white">{entry.name || '-'}</td>
+              <td className="px-3 py-2 text-accent">{entry.weight || '-'}</td>
             </tr>
           ))}
         </tbody>
@@ -216,7 +216,7 @@ export default function AdminClientDetail({ client, onBack }) {
             <ProgressStat
               icon={Dumbbell}
               label="Sessions Done"
-              value={`${completedWorkouts.length} / ${totalWorkouts || profile.daysPerWeek || '—'}`}
+              value={`${completedWorkouts.length} / ${totalWorkouts || profile.daysPerWeek || '-'}`}
               sub="this week"
             />
             <ProgressStat icon={Clock} label="Last Logged" value={formatDateTime(lastLoggedDate)} />
