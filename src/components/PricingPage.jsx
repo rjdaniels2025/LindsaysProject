@@ -246,7 +246,7 @@ export default function PricingPage({
               >
                 <span className="min-w-0">
                   <span className="block font-heading text-base uppercase text-accent">
-                    {PROMO_NAME} — {activePromo.discount_percent}% off
+                    {PROMO_NAME}: {activePromo.discount_percent}% off
                   </span>
                   <span className="mt-0.5 block text-xs leading-5 text-body">
                     Code {activePromo.code}
@@ -265,7 +265,7 @@ export default function PricingPage({
                 <div className="flex items-center gap-2 text-sm">
                   <Tag size={15} className="text-accent" />
                   <span className="font-heading uppercase text-accent">{appliedCoupon.code}</span>
-                  <span className="text-body">— {appliedCoupon.discount_percent}% off applied</span>
+                  <span className="text-body">{appliedCoupon.discount_percent}% off applied</span>
                 </div>
                 <button type="button" onClick={removeCoupon} className="text-body transition hover:text-white">
                   <X size={16} />

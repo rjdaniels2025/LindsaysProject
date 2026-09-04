@@ -11,8 +11,8 @@ function Label({children}){return<span className="mb-2 block font-heading text-b
 function Pill({label,selected,onClick}){return<button type="button" onClick={onClick} className={`min-h-10 rounded-lg border px-3 py-2 text-left font-heading text-sm uppercase transition ${selected?'border-accent bg-accent text-black':'border-line bg-[#111] text-white hover:border-accent/60'}`}>{label}</button>}
 
 function ProfileDisplay({profile,onEdit}){
-  const eqLabel=Array.isArray(profile.equipment)?profile.equipment.join(', '):profile.equipment||'—'
-  const goalLabel=Array.isArray(profile.primaryGoal)?profile.primaryGoal.join(', '):profile.primaryGoal||'—'
+  const eqLabel=Array.isArray(profile.equipment)?profile.equipment.join(', '):profile.equipment||'-'
+  const goalLabel=Array.isArray(profile.primaryGoal)?profile.primaryGoal.join(', '):profile.primaryGoal||'-'
   const dietLabel=[profile.dietaryRestrictions,profile.dietaryOther].filter(Boolean).join(', ')||'None'
   const rows=[['Name',profile.name],['Age',profile.age],['Gender',profile.gender],['Height',profile.height],['Current Weight',profile.weightLbs?`${profile.weightLbs} lbs`:null],['Desired Weight',profile.desiredWeightLbs?`${profile.desiredWeightLbs} lbs`:'Not set'],['Experience',profile.experience],['Training Days',profile.daysPerWeek?`${profile.daysPerWeek} days/week`:null],['Equipment',eqLabel],['Goals',goalLabel],['Injuries',profile.limitations||'None'],['Dietary',dietLabel]].filter(([,v])=>v)
   return(
