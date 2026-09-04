@@ -156,14 +156,20 @@ function activityFactor(daysPerWeek: unknown) {
 function goalDirection(profile: Record<string, unknown>) {
   const cur = num(profile.weightLbs)
   const des = num(profile.desiredWeightLbs)
+  const goalsStr = (Array.isArray(profile.primaryGoal) ? profile.primaryGoal.join(' ') : String(profile.primaryGoal || '')).toLowerCase()
+  const wantsMuscle = /muscle|build|gain|mass|bulk|size/.test(goalsStr)
+  const wantsFatLoss = /lose|fat loss|weight loss|lean|slim|tone|cut/.test(goalsStr)
+  // Wanting both is recomposition, and it has to be decided before the weight
+  // comparison: someone eating at a mild deficit to lose fat while building
+  // muscle is not on a straight cut.
+  if (wantsMuscle && wantsFatLoss) return 'recomp'
   if (cur && des) {
     if (des < cur - 2) return 'cut'
     if (des > cur + 2) return 'bulk'
     if (Math.abs(des - cur) <= 2) return 'maintain'
   }
-  const goals = (Array.isArray(profile.primaryGoal) ? profile.primaryGoal.join(' ') : String(profile.primaryGoal || '')).toLowerCase()
-  if (/lose|fat loss|weight loss|lean|slim|tone|cut/.test(goals)) return 'cut'
-  if (/muscle|gain|build|mass|bulk|size|strength/.test(goals)) return 'bulk'
+  if (wantsFatLoss) return 'cut'
+  if (wantsMuscle) return 'bulk'
   return 'maintain'
 }
 
@@ -185,7 +191,7 @@ function nutritionTargets(profile: Record<string, unknown>) {
   const tdee = bmr * activityFactor(profile.daysPerWeek)
 
   const direction = goalDirection(profile)
-  let calories = direction === 'cut' ? tdee * 0.8 : direction === 'bulk' ? tdee * 1.12 : tdee
+  let calories = direction === 'cut' ? tdee * 0.8 : direction === 'recomp' ? tdee * 0.87 : direction === 'bulk' ? tdee * 1.12 : tdee
 
   // Two floors, because the first one was not enough on its own.
   //
@@ -195,7 +201,7 @@ function nutritionTargets(profile: Record<string, unknown>) {
   // and is the guard that would have caught every bad plan we found.
   calories = Math.max(calories, bmr, isFemale ? MIN_DAILY_CALORIES_FEMALE : MIN_DAILY_CALORIES_MALE)
 
-  const proteinG = Math.round(weightLbs * (direction === 'cut' ? 1.0 : 0.9))
+  const proteinG = Math.round(weightLbs * (direction === 'cut' ? 1.0 : direction === 'recomp' ? 1.0 : 0.9))
   const fatG = Math.round(weightLbs * 0.35)
   const carbsG = Math.max(40, Math.round((calories - proteinG * 4 - fatG * 9) / 4))
   const waterLiters = Math.min(4, Math.max(2.5, Math.round((weightLbs * 0.6 / 33.814) * 10) / 10))
@@ -264,6 +270,63 @@ function formatGoals(primaryGoal: unknown) {
   return Array.isArray(primaryGoal) ? primaryGoal.join(', ') : primaryGoal
 }
 
+// Equipment arrived as a single string originally and is an array now, so both
+// shapes have to keep working for profiles saved before the change.
+function equipmentList(profile: Record<string, unknown>): string[] {
+  const eq = profile.equipment
+  if (Array.isArray(eq)) return eq.map(String).filter(Boolean)
+  const s = String(eq || '').trim()
+  return s ? [s] : []
+}
+
+function formatEquipment(profile: Record<string, unknown>): string {
+  return equipmentList(profile).join(', ') || 'Not specified'
+}
+
+const EQUIPMENT_RANK = ['Full Gym', 'Home Gym', 'Minimal', 'Bodyweight Only']
+
+function primaryEquipment(profile: Record<string, unknown>): string {
+  const list = equipmentList(profile)
+  for (const rank of EQUIPMENT_RANK) {
+    if (list.some((e) => e.toLowerCase() === rank.toLowerCase())) return rank
+  }
+  return list[0] || 'Full Gym'
+}
+
+function hasMultipleEquipment(profile: Record<string, unknown>): boolean {
+  return equipmentList(profile).length > 1
+}
+
+// When a client has multiple equipment situations, every gym exercise gets a
+// home fallback appended, so a day they cannot reach the gym is not a lost day.
+function equipmentAlternativeRule(profile: Record<string, unknown>): string {
+  if (!hasMultipleEquipment(profile)) return ''
+  const fallbacks = equipmentList(profile).filter((e) => !/full gym/i.test(e))
+  const fallbackLabel = fallbacks.join(' or ')
+  return `- This client has multiple equipment situations: ${formatEquipment(profile)}. Build the program primarily for ${primaryEquipment(profile)}. For every exercise that uses gym machines or barbells, add a home fallback at the very end of the Cue field, after the form instruction, using this exact format: "Home alternative: (name a specific equivalent exercise using ${fallbackLabel})." The alternative must target the same muscle group. For exercises that are already bodyweight or need no equipment, write "Home alternative: same exercise." This gives the client a clear substitute on any day they cannot reach the gym.`
+}
+
+// Dietary restrictions are a safety matter, not a preference: the meal plan is
+// the one part of the program a client acts on without supervision.
+function dietaryLabel(profile: Record<string, unknown>) {
+  const selected = String(profile.dietaryRestrictions || '').trim()
+  const other = String(profile.dietaryOther || '').trim()
+  const parts = [selected, other].filter(Boolean).join(', ')
+  return parts || 'None reported'
+}
+
+function hasDietaryRestrictions(profile: Record<string, unknown>) {
+  const label = dietaryLabel(profile)
+  return label !== 'None reported' && !/^no restrictions$/i.test(label.trim())
+}
+
+function dietaryRules(profile: Record<string, unknown>) {
+  if (!hasDietaryRestrictions(profile)) {
+    return '- The client has no dietary restrictions. Build a varied and balanced meal plan.'
+  }
+  return `- DIETARY SAFETY IS NON-NEGOTIABLE. The client has these dietary restrictions and allergies: ${dietaryLabel(profile)}. You must STRICTLY follow these in every single meal option, snack, pre workout, post workout, and the grocery list. Do not include any ingredient, food, or product that conflicts with these restrictions anywhere in the meal plan. If the client is vegan, exclude all meat, fish, dairy, and eggs. If dairy-free, exclude all milk, cheese, yogurt, butter, and whey. If gluten-free, exclude all wheat, barley, rye, and regular oats. If there is a nut allergy, exclude all tree nuts and peanuts. Apply the same strict logic to any other restriction or allergy the client listed. Before finalising each meal option, check every ingredient against the restriction list.`
+}
+
 function hasRealLimitations(limitations: unknown) {
   const lim = String(limitations || '').trim()
   return Boolean(lim) && !/^(none|n\/?a|no|nope)\b/i.test(lim)
@@ -309,9 +372,11 @@ function nutritionGuidance(profile: Record<string, unknown>) {
   const dir =
     t.direction === 'cut'
       ? 'a calorie deficit for fat loss'
-      : t.direction === 'bulk'
-        ? 'a calorie surplus for muscle gain'
-        : 'maintenance calories for body recomposition'
+      : t.direction === 'recomp'
+        ? 'a mild calorie deficit for body recomposition (losing fat while building muscle)'
+        : t.direction === 'bulk'
+          ? 'a calorie surplus for muscle gain'
+          : 'maintenance calories for body recomposition'
   return `- These daily nutrition targets were calculated specifically for this client from their bodyweight, height, age, gender, and ${profile.daysPerWeek} training days per week, set to ${dir}. Use these EXACT numbers on the Calorie Target, Protein Target, Carb Target, Fat Target, and Water Target lines, and build all twelve meal options plus the snack, pre workout, and post workout so the full day adds up to them: Calorie Target ${t.calories} calories per day, Protein Target ${t.proteinG} grams per day, Carb Target ${t.carbsG} grams per day, Fat Target ${t.fatG} grams per day, Water Target ${t.waterLiters} liters per day. Briefly give the reason behind each target.`
 }
 
@@ -349,7 +414,8 @@ function programPrompt(
   { blockNumber = 1, progress = '', checkins = '', filmedExercises = [] as string[] } = {},
 ) {
   const periodization = selectPeriodization(profile.experience)
-  return `Generate a personalized science-based 4-week training block for this client. This is block ${blockNumber}. The periodization scheme is ${periodization.name}.${progress ? `\n\nProgress logged in the previous block (apply sensible progressive overload based on these real numbers — increase loads where the client clearly handled it): ${progress}` : ''}${checkins ? `\n\nWeekly check-ins from the previous block (use these to understand recovery, effort, and sticking points): ${checkins}` : ''}
+  const altRule = equipmentAlternativeRule(profile)
+  return `Generate a personalized science-based 4-week training block for this client. This is block ${blockNumber}. The periodization scheme is ${periodization.name}.${progress ? `\n\nProgress logged in the previous block (apply sensible progressive overload based on these real numbers, increasing loads where the client clearly handled it): ${progress}` : ''}${checkins ? `\n\nWeekly check-ins from the previous block (use these to understand recovery, effort, and sticking points): ${checkins}` : ''}
 
 Client profile:
 - Name: ${profile.name}
@@ -361,12 +427,14 @@ Client profile:
 - Primary goals: ${formatGoals(profile.primaryGoal)}
 - Training experience: ${profile.experience}
 - Training days per week: ${profile.daysPerWeek}
-- Equipment access: ${profile.equipment}
+- Equipment access: ${formatEquipment(profile)}
 - Injuries or limitations: ${profile.limitations || 'None reported'}
+- Dietary restrictions and allergies: ${dietaryLabel(profile)}
 ${profile.desiredWeightLbs ? `- Weight goal: Reach ${profile.desiredWeightLbs} lbs from current ${profile.weightLbs} lbs (${Number(profile.weightLbs) > Number(profile.desiredWeightLbs) ? `lose ${Number(profile.weightLbs) - Number(profile.desiredWeightLbs)} lbs` : `gain ${Number(profile.desiredWeightLbs) - Number(profile.weightLbs)} lbs`})` : ''}
 
 Include:
-${injuryRules(profile.limitations)}${filmedExercises.length ? `
+${injuryRules(profile.limitations)}
+${altRule ? `${altRule}\n` : ''}${filmedExercises.length ? `
 - Preferred exercise names: the coach has filmed her own demonstration for the movements listed here. When the plan already calls for one of these movements, write its name exactly as it appears in this list, matching the wording and spelling: ${filmedExercises.join('; ')}. This rule is about naming only. Never choose an exercise from this list over one that suits the client better, and never let it change the exercise selection, ordering, or the injury rules above.` : ''}
 - Start with a friendly "Today first" section that gives the user's first 3 actions in plain language
 - Use clear plain headings exactly named: Today First, Workouts, Meal Plan, Four Week Progression, Recovery, Track Progress, Why This Works
@@ -380,6 +448,7 @@ ${injuryRules(profile.limitations)}${filmedExercises.length ? `
 - Use real training volume: 3 to 5 working sets on main lifts, 2 to 4 on accessories. Several exercises per session. Scale intensity to experience.
 - Keep it safe: tell the user to choose a weight that makes the last 1 to 3 reps genuinely hard, add load or reps as they get stronger, and reduce weight if form breaks. Respect injuries over intensity.
 - Put a brief warmup and cooldown note on their own lines (not in exercise format) at the start and end of each session
+${dietaryRules(profile)}
 - In the Meal Plan section, create a detailed daily meal plan that is easy to follow and matched to the user's goal, body size, schedule, training days, equipment, and any limitations
 ${nutritionGuidance(profile)}
 - Scale every meal's portion sizes so the full day of meals actually adds up to the Calorie Target and the protein target for this client. A larger or heavier client gets bigger portions, a smaller or lighter client gets smaller portions. Do not use one size fits all portions, match them to this person's numbers.
