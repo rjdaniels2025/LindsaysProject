@@ -22,7 +22,7 @@ async function sendWelcomeEmail(to: string, name: string, endsAt: Date) {
     'Your free 7-day Elevate Kickstart has started',
     `<div style="font-family:sans-serif;color:#111">
       <h2>You're in, ${firstName}!</h2>
-      <p>Your free 7-day Elevate Kickstart is active right now — no confirmation needed.
+      <p>Your free 7-day Elevate Kickstart is active right now, with nothing to confirm.
       You have full access to your personalised program, macro targets, workout tracking
       and coaching, exactly like a paying member.</p>
       <p>Your trial runs until <strong>${escapeHtml(ends)}</strong>. Nothing is charged
@@ -95,7 +95,7 @@ Deno.serve(async (request) => {
       const msg = createError?.message || ''
       if (/already|registered|exists/i.test(msg)) {
         return jsonResponse(
-          { error: 'You already have an account with this email — log in instead.', existingAccount: true },
+          { error: 'You already have an account with this email. Please log in instead.', existingAccount: true },
           409,
         )
       }
