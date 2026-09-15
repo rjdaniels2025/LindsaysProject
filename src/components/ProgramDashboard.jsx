@@ -554,6 +554,39 @@ function parseMealPlan(content) {
   }
 }
 
+// Session-level warm-up and cool-down guidance. The generator writes these as
+// their own lines ("Warmup note: Walk 5 minutes, then...") and they are not
+// exercises, so the exercise parser drops them. Nothing else picked them up,
+// which meant a member saw the lifts and never the instruction to warm up
+// first: for a 61 year old beginner with a wrist, shoulder and leg to protect,
+// that is the part of the session that matters most.
+//
+// They also have to be excluded from the exercise list by name rather than by
+// shape. "...and 2 easy sets of the first press" contains the word "sets", so
+// hasExerciseDetail reads the warm-up note as an exercise line and it silently
+// consumed one of the ten exercise slots.
+const SESSION_NOTES = [
+  { key: 'warmupNote', pattern: /^warm\s?up(\s+note)?\s*[:.-]\s*/i },
+  { key: 'cooldownNote', pattern: /^cool\s?down(\s+note)?\s*[:.-]\s*/i },
+]
+
+function isSessionNote(line) {
+  return SESSION_NOTES.some(({ pattern }) => pattern.test(String(line).trim()))
+}
+
+// First of each wins: a session has one warm-up and one cool-down, and a later
+// stray mention should not overwrite the real instruction.
+function readSessionNotes(lines) {
+  const notes = { warmupNote: '', cooldownNote: '' }
+  for (const raw of lines) {
+    const line = String(raw).trim()
+    for (const { key, pattern } of SESSION_NOTES) {
+      if (!notes[key] && pattern.test(line)) notes[key] = line.replace(pattern, '').trim()
+    }
+  }
+  return notes
+}
+
 function parseWorkouts(content, fallbackItems) {
   const explicitWorkoutLines = sectionLines(content, 'Workouts', ['Meal Plan', 'Four Week Progression', 'Recovery', 'Track Progress', 'Why This Works'])
   const lines = explicitWorkoutLines.length ? explicitWorkoutLines : compactLines(extractSection(content, ['workouts', 'session', 'day'], 3000), 80)
@@ -573,8 +606,14 @@ function parseWorkouts(content, fallbackItems) {
     })
 
   if (!boundaryIndexes.length) {
-    const details = exerciseLines.length ? exerciseLines : fallbackWorkoutItems
-    return [{ title: 'Workout one', summary: details[0] || 'Your first guided workout.', details }]
+    const usable = exerciseLines.filter((l) => !isSessionNote(l))
+    const details = usable.length ? usable : fallbackWorkoutItems
+    return [{
+      title: 'Workout one',
+      summary: details[0] || 'Your first guided workout.',
+      details,
+      ...readSessionNotes(lines),
+    }]
   }
 
   return boundaryIndexes
@@ -582,12 +621,18 @@ function parseWorkouts(content, fallbackItems) {
     .map(({ line, index }, itemIndex) => {
       const next = boundaryIndexes[itemIndex + 1]?.index || lines.length
       const sectionLines = lines.slice(index + 1, next)
-      const structured = sectionLines.filter(hasExerciseDetail).slice(0, 10)
-      const unstructured = sectionLines
+      const exerciseCandidates = sectionLines.filter((l) => !isSessionNote(l))
+      const structured = exerciseCandidates.filter(hasExerciseDetail).slice(0, 10)
+      const unstructured = exerciseCandidates
         .filter((l) => !hasExerciseDetail(l) && l.trim().length > 10)
         .slice(0, 10)
       const details = structured.length ? structured : unstructured.length ? unstructured : fallbackWorkoutItems
-      return { title: line, summary: details[0] || 'A focused workout from your plan.', details }
+      return {
+        title: line,
+        summary: details[0] || 'A focused workout from your plan.',
+        details,
+        ...readSessionNotes(sectionLines),
+      }
     })
     .filter((workout) => workout.details.length)
 }
@@ -1483,6 +1528,17 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
 
           {/* Exercise list */}
           <div className="flex-1 overflow-y-auto">
+
+            {/* Warm-up guidance for the session, above the first lift because
+                that is the order it has to happen in. Amber matches the
+                per-exercise warm-up banner above. */}
+            {activeWorkout.warmupNote ? (
+              <div className="border-b border-line bg-amber-400/5 px-4 py-4">
+                <p className="font-heading text-sm uppercase text-amber-300">Warm-up first</p>
+                <p className="mt-1.5 text-sm leading-6 text-body">{activeWorkout.warmupNote}</p>
+              </div>
+            ) : null}
+
             {groups.map((group, gi) => {
               const primaryEx = group.exercises[0]
               const doneRounds = rounds[primaryEx.id] || 0
@@ -1611,6 +1667,15 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
                 </div>
               )
             })}
+
+            {/* Cool-down last, where a member reaches it after the final set. */}
+            {activeWorkout.cooldownNote ? (
+              <div className="border-b border-line bg-[#0f0f0f] px-4 py-4">
+                <p className="font-heading text-sm uppercase text-body">Cool-down</p>
+                <p className="mt-1.5 text-sm leading-6 text-body">{activeWorkout.cooldownNote}</p>
+              </div>
+            ) : null}
+
             <div className="h-8" />
           </div>
 
