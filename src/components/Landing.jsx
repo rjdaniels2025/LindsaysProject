@@ -272,13 +272,13 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
         </div>
       </section>
 
-      {/* Client testimonial */}
+      {/* Client testimonials */}
       <section className="relative overflow-hidden border-t border-white/10 bg-[#0b0b0b] px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(232,255,71,0.1),transparent_26rem)]" />
         <div className="relative z-10 mx-auto max-w-5xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
             <Quote size={15} aria-hidden="true" />
-            <span className="font-heading text-sm uppercase">Client Story</span>
+            <span className="font-heading text-sm uppercase">Client Stories</span>
           </div>
           <h2 className="mt-5 font-heading text-5xl uppercase leading-none text-white sm:text-6xl lg:text-7xl">
             Real People. Real Progress.
@@ -287,21 +287,56 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
             Hear what the Elevate journey is helping clients build beyond the workout.
           </p>
 
-          <figure className="mx-auto mt-10 max-w-4xl rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
-            <Quote size={38} className="text-accent" aria-hidden="true" />
-            <blockquote className="mt-5 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
-              “This is the best thing I’ve done for myself in a long time! I’m learning to prioritize myself, create healthy routines, set boundaries, and stay focused without feeling overwhelmed. I’m so grateful I took this step and started my journey with Elevate!”
-            </blockquote>
-            <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">
-                J
-              </span>
-              <div>
-                <p className="font-heading text-xl uppercase text-white">Jacquie</p>
-                <p className="text-sm text-body">Elevate client</p>
-              </div>
-            </figcaption>
-          </figure>
+          <div className="relative mt-10">
+            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-4" aria-label="Client testimonials carousel">
+              <article id="testimonial-jacquie" className="min-w-full snap-center">
+                <figure className="mx-auto max-w-4xl rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+                  <Quote size={38} className="text-accent" aria-hidden="true" />
+                  <blockquote className="mt-5 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
+                    “This is the best thing I’ve done for myself in a long time! I’m learning to prioritize myself, create healthy routines, set boundaries, and stay focused without feeling overwhelmed. I’m so grateful I took this step and started my journey with Elevate!”
+                  </blockquote>
+                  <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">J</span>
+                    <div>
+                      <p className="font-heading text-xl uppercase text-white">Jacquie</p>
+                      <p className="text-sm text-body">Elevate client</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </article>
+
+              <article id="testimonial-sameer" className="min-w-full snap-center">
+                <figure className="mx-auto max-w-4xl rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+                  <div className="mb-7 grid h-52 grid-cols-3 gap-2 overflow-hidden rounded-xl sm:h-72 sm:gap-3">
+                    <img src="/sameer-journey-2.webp" alt="Sameer earlier in his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
+                    <img src="/sameer-journey-1.webp" alt="Sameer during his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
+                    <img src="/sameer-journey-3.webp" alt="Sameer progressing in his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
+                  </div>
+                  <p className="font-heading text-2xl uppercase text-accent sm:text-3xl">Sameer’s Elevate Journey</p>
+                  <Quote size={38} className="mt-5 text-accent" aria-hidden="true" />
+                  <blockquote className="mt-5 space-y-4 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
+                    <p>“I started my health and fitness journey in February 2024, and since then, I’ve continued to grow, learn, and become a better version of myself. This journey has changed more than just my appearance—it has helped me build consistency, discipline, and healthier habits.</p>
+                    <p>I’m proud of how far I’ve come and excited to keep progressing. It’s been a journey, and I’m grateful to have kept showing up.”</p>
+                  </blockquote>
+                  <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">S</span>
+                    <div>
+                      <p className="font-heading text-xl uppercase text-white">Sameer</p>
+                      <p className="text-sm text-body">Elevate client</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </article>
+            </div>
+
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <a href="#testimonial-jacquie" className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent" aria-label="Show Jacquie testimonial">‹</a>
+              <a href="#testimonial-jacquie" className="h-2.5 w-8 rounded-full bg-accent" aria-label="Show Jacquie testimonial" />
+              <a href="#testimonial-sameer" className="h-2.5 w-2.5 rounded-full bg-white/30 transition hover:bg-white/60" aria-label="Show Sameer testimonial" />
+              <a href="#testimonial-sameer" className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent" aria-label="Show Sameer testimonial">›</a>
+            </div>
+            <p className="mt-3 text-sm text-body">Swipe or use the arrows to view each story.</p>
+          </div>
         </div>
       </section>
 
