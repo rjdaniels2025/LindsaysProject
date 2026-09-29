@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
 import PromoBanner from './PromoBanner.jsx'
 import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
@@ -41,6 +42,16 @@ const coachingPrinciples = [
 
 export default function Landing({ user, hasProgram, onStart, onApply, onPricing, onDashboard, onLogin, onSignOut, onAdmin }) {
   const appSettings = useAppSettings()
+  const [testimonialIndex, setTestimonialIndex] = useState(0)
+  const isSameerActive = testimonialIndex === 0
+
+  const showPreviousTestimonial = () => {
+    setTestimonialIndex((currentIndex) => (currentIndex === 0 ? 1 : 0))
+  }
+
+  const showNextTestimonial = () => {
+    setTestimonialIndex((currentIndex) => (currentIndex === 0 ? 1 : 0))
+  }
 
   return (
     <main className="min-h-screen bg-bg text-body">
@@ -287,26 +298,60 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
             Hear what the Elevate journey is helping clients build beyond the workout.
           </p>
 
-          <div className="relative mt-10">
-            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-4" aria-label="Client testimonials carousel">
-              <article id="testimonial-jacquie" className="min-w-full snap-center">
-                <figure className="mx-auto max-w-4xl rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
-                  <Quote size={38} className="text-accent" aria-hidden="true" />
-                  <blockquote className="mt-5 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
-                    “This is the best thing I’ve done for myself in a long time! I’m learning to prioritize myself, create healthy routines, set boundaries, and stay focused without feeling overwhelmed. I’m so grateful I took this step and started my journey with Elevate!”
-                  </blockquote>
-                  <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
-                    <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">J</span>
-                    <div>
-                      <p className="font-heading text-xl uppercase text-white">Jacquie</p>
-                      <p className="text-sm text-body">Elevate client</p>
-                    </div>
-                  </figcaption>
-                </figure>
-              </article>
+          <div className="mt-7 flex flex-col items-center gap-3">
+            <div className="flex items-center justify-center gap-3" aria-label="Testimonial navigation">
+              <button
+                type="button"
+                onClick={showPreviousTestimonial}
+                className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent"
+                aria-label="Previous testimonial"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestimonialIndex(0)}
+                className={`h-2.5 rounded-full transition-all ${isSameerActive ? 'w-8 bg-accent' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+                aria-label="Show Sameer testimonial"
+                aria-current={isSameerActive ? 'true' : undefined}
+              />
+              <button
+                type="button"
+                onClick={() => setTestimonialIndex(1)}
+                className={`h-2.5 rounded-full transition-all ${!isSameerActive ? 'w-8 bg-accent' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+                aria-label="Show Jacquie testimonial"
+                aria-current={!isSameerActive ? 'true' : undefined}
+              />
+              <button
+                type="button"
+                onClick={showNextTestimonial}
+                className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent"
+                aria-label="Next testimonial"
+              >
+                ›
+              </button>
+            </div>
+            <p className="text-sm text-body">
+              {isSameerActive ? '1 of 2 · Sameer' : '2 of 2 · Jacquie'}
+            </p>
+          </div>
 
-              <article id="testimonial-sameer" className="min-w-full snap-center">
-                <figure className="mx-auto max-w-4xl rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+          <div
+            className="relative mt-6"
+            onTouchStart={(event) => {
+              event.currentTarget.dataset.touchStartX = String(event.touches[0].clientX)
+            }}
+            onTouchEnd={(event) => {
+              const startX = Number(event.currentTarget.dataset.touchStartX)
+              const endX = event.changedTouches[0].clientX
+              if (Number.isFinite(startX) && Math.abs(startX - endX) > 50) {
+                setTestimonialIndex((currentIndex) => (currentIndex === 0 ? 1 : 0))
+              }
+            }}
+          >
+            {isSameerActive ? (
+              <article key="sameer" className="mx-auto max-w-4xl">
+                <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
                   <div className="mb-7 grid h-52 grid-cols-3 gap-2 overflow-hidden rounded-xl sm:h-72 sm:gap-3">
                     <img src="/sameer-journey-2.webp" alt="Sameer earlier in his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
                     <img src="/sameer-journey-1.webp" alt="Sameer during his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
@@ -327,15 +372,23 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                   </figcaption>
                 </figure>
               </article>
-            </div>
-
-            <div className="mt-5 flex items-center justify-center gap-3">
-              <a href="#testimonial-jacquie" className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent" aria-label="Show Jacquie testimonial">‹</a>
-              <a href="#testimonial-jacquie" className="h-2.5 w-8 rounded-full bg-accent" aria-label="Show Jacquie testimonial" />
-              <a href="#testimonial-sameer" className="h-2.5 w-2.5 rounded-full bg-white/30 transition hover:bg-white/60" aria-label="Show Sameer testimonial" />
-              <a href="#testimonial-sameer" className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent" aria-label="Show Sameer testimonial">›</a>
-            </div>
-            <p className="mt-3 text-sm text-body">Swipe or use the arrows to view each story.</p>
+            ) : (
+              <article key="jacquie" className="mx-auto max-w-4xl">
+                <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+                  <Quote size={38} className="text-accent" aria-hidden="true" />
+                  <blockquote className="mt-5 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
+                    “This is the best thing I’ve done for myself in a long time! I’m learning to prioritize myself, create healthy routines, set boundaries, and stay focused without feeling overwhelmed. I’m so grateful I took this step and started my journey with Elevate!”
+                  </blockquote>
+                  <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">J</span>
+                    <div>
+                      <p className="font-heading text-xl uppercase text-white">Jacquie</p>
+                      <p className="text-sm text-body">Elevate client</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </article>
+            )}
           </div>
         </div>
       </section>
