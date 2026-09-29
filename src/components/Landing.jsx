@@ -1,7 +1,6 @@
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
-import TestimonialCarousel from './TestimonialCarousel.jsx'
 import PromoBanner from './PromoBanner.jsx'
-import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
 import { transformationImage } from '../assets/transformationImage.js'
@@ -288,7 +287,21 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
             Hear what the Elevate journey is helping clients build beyond the workout.
           </p>
 
-          <TestimonialCarousel />
+          <figure className="mx-auto mt-10 max-w-4xl rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+            <Quote size={38} className="text-accent" aria-hidden="true" />
+            <blockquote className="mt-5 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
+              “This is the best thing I’ve done for myself in a long time! I’m learning to prioritize myself, create healthy routines, set boundaries, and stay focused without feeling overwhelmed. I’m so grateful I took this step and started my journey with Elevate!”
+            </blockquote>
+            <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">
+                J
+              </span>
+              <div>
+                <p className="font-heading text-xl uppercase text-white">Jacquie</p>
+                <p className="text-sm text-body">Elevate client</p>
+              </div>
+            </figcaption>
+          </figure>
         </div>
       </section>
 
