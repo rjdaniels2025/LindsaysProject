@@ -1,4 +1,5 @@
-import CinematicLandingHero from './ui/CinematicLandingHero.jsx'\nimport TestimonialCarousel from './TestimonialCarousel.jsx'
+import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
+import TestimonialCarousel from './TestimonialCarousel.jsx'
 import PromoBanner from './PromoBanner.jsx'
 import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
