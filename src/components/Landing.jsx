@@ -44,13 +44,15 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
   const appSettings = useAppSettings()
   const [testimonialIndex, setTestimonialIndex] = useState(0)
   const isSameerActive = testimonialIndex === 0
+  const isJacquieActive = testimonialIndex === 1
+  const isJasonActive = testimonialIndex === 2
 
   const showPreviousTestimonial = () => {
-    setTestimonialIndex((currentIndex) => (currentIndex === 0 ? 1 : 0))
+    setTestimonialIndex((currentIndex) => (currentIndex + 2) % 3)
   }
 
   const showNextTestimonial = () => {
-    setTestimonialIndex((currentIndex) => (currentIndex === 0 ? 1 : 0))
+    setTestimonialIndex((currentIndex) => (currentIndex + 1) % 3)
   }
 
   return (
@@ -318,9 +320,16 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
               <button
                 type="button"
                 onClick={() => setTestimonialIndex(1)}
-                className={`h-2.5 rounded-full transition-all ${!isSameerActive ? 'w-8 bg-accent' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+                className={`h-2.5 rounded-full transition-all ${isJacquieActive ? 'w-8 bg-accent' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
                 aria-label="Show Jacquie testimonial"
-                aria-current={!isSameerActive ? 'true' : undefined}
+                aria-current={isJacquieActive ? 'true' : undefined}
+              />
+              <button
+                type="button"
+                onClick={() => setTestimonialIndex(2)}
+                className={`h-2.5 rounded-full transition-all ${isJasonActive ? 'w-8 bg-accent' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+                aria-label="Show Jason testimonial"
+                aria-current={isJasonActive ? 'true' : undefined}
               />
               <button
                 type="button"
@@ -332,7 +341,7 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
               </button>
             </div>
             <p className="text-sm text-body">
-              {isSameerActive ? '1 of 2 · Sameer' : '2 of 2 · Jacquie'}
+              {isSameerActive ? '1 of 3 · Sameer' : isJacquieActive ? '2 of 3 · Jacquie' : '3 of 3 · Jason'}
             </p>
           </div>
 
@@ -345,7 +354,11 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
               const startX = Number(event.currentTarget.dataset.touchStartX)
               const endX = event.changedTouches[0].clientX
               if (Number.isFinite(startX) && Math.abs(startX - endX) > 50) {
-                setTestimonialIndex((currentIndex) => (currentIndex === 0 ? 1 : 0))
+                if (startX > endX) {
+                  showNextTestimonial()
+                } else {
+                  showPreviousTestimonial()
+                }
               }
             }}
           >
@@ -372,7 +385,7 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                   </figcaption>
                 </figure>
               </article>
-            ) : (
+            ) : isJacquieActive ? (
               <article key="jacquie" className="mx-auto max-w-4xl">
                 <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
                   <Quote size={38} className="text-accent" aria-hidden="true" />
@@ -383,6 +396,24 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                     <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">J</span>
                     <div>
                       <p className="font-heading text-xl uppercase text-white">Jacquie</p>
+                      <p className="text-sm text-body">Elevate client</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </article>
+            ) : (
+              <article key="jason" className="mx-auto max-w-4xl">
+                <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+                  <Quote size={38} className="text-accent" aria-hidden="true" />
+                  <blockquote className="mt-5 space-y-4 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
+                    <p>“Elevate has been instrumental in my health journey. I am 50 years old and been working out for many years. I been eating clean-ish but could never lose the weight I thought I should.</p>
+                    <p>After being guided and influenced by Elevate fitness, I went from 215lbs to 188lbs ripped with abs for the first time in my life.</p>
+                    <p>Thank you Elevate for the education in helping me see food and fitness differently.”</p>
+                  </blockquote>
+                  <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">J</span>
+                    <div>
+                      <p className="font-heading text-xl uppercase text-white">Jason</p>
                       <p className="text-sm text-body">Elevate client</p>
                     </div>
                   </figcaption>
