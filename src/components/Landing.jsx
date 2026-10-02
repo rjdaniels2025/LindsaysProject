@@ -47,13 +47,14 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
   const isJacquieActive = testimonialIndex === 1
   const isJasonActive = testimonialIndex === 2
   const isVictoriaActive = testimonialIndex === 3
+  const isGinaActive = testimonialIndex === 4
 
   const showPreviousTestimonial = () => {
-    setTestimonialIndex((currentIndex) => (currentIndex + 3) % 4)
+    setTestimonialIndex((currentIndex) => (currentIndex + 4) % 5)
   }
 
   const showNextTestimonial = () => {
-    setTestimonialIndex((currentIndex) => (currentIndex + 1) % 4)
+    setTestimonialIndex((currentIndex) => (currentIndex + 1) % 5)
   }
 
   return (
@@ -341,6 +342,13 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
               />
               <button
                 type="button"
+                onClick={() => setTestimonialIndex(4)}
+                className={`h-2.5 rounded-full transition-all ${isGinaActive ? 'w-8 bg-accent' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+                aria-label="Show Gina testimonial"
+                aria-current={isGinaActive ? 'true' : undefined}
+              />
+              <button
+                type="button"
                 onClick={showNextTestimonial}
                 className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-2xl text-white transition hover:border-accent/60 hover:text-accent"
                 aria-label="Next testimonial"
@@ -349,7 +357,7 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
               </button>
             </div>
             <p className="text-sm text-body">
-              {isSameerActive ? '1 of 4 · Sameer' : isJacquieActive ? '2 of 4 · Jacquie' : isJasonActive ? '3 of 4 · Jason' : '4 of 4 · Victoria'}
+              {isSameerActive ? '1 of 5 · Sameer' : isJacquieActive ? '2 of 5 · Jacquie' : isJasonActive ? '3 of 5 · Jason' : isVictoriaActive ? '4 of 5 · Victoria' : '5 of 5 · Gina'}
             </p>
           </div>
 
@@ -448,7 +456,7 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                   </figcaption>
                 </figure>
               </article>
-            ) : (
+            ) : isVictoriaActive ? (
               <article key="victoria" className="mx-auto max-w-4xl">
                 <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
                   <Quote size={38} className="text-accent" aria-hidden="true" />
@@ -460,6 +468,22 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
                     <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">V</span>
                     <div>
                       <p className="font-heading text-xl uppercase text-white">Victoria</p>
+                      <p className="text-sm text-body">Elevate client</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </article>
+            ) : (
+              <article key="gina" className="mx-auto max-w-4xl">
+                <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
+                  <Quote size={38} className="text-accent" aria-hidden="true" />
+                  <blockquote className="mt-5 text-xl font-medium leading-9 text-white sm:text-2xl sm:leading-10">
+                    “Working with Coach Duke (Lindsay) and being part of the Elevate Community has completely changed my approach to health and nutrition. I’m officially 37 lbs down without crash diets or extreme restrictions! Even while dealing with a long-standing back issue, Duke has continued to support, check in, and remind me that progress is about consistency, not perfection. I’m so proud of how far I’ve come and grateful to have someone who genuinely cares about my journey. Coach Duke and the Elevate Family are the real deal!”
+                  </blockquote>
+                  <figcaption className="mt-7 flex items-center gap-3 border-t border-white/10 pt-5">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-accent font-heading text-lg uppercase text-black">G</span>
+                    <div>
+                      <p className="font-heading text-xl uppercase text-white">Gina</p>
                       <p className="text-sm text-body">Elevate client</p>
                     </div>
                   </figcaption>
