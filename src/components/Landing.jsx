@@ -373,10 +373,31 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
             {isSameerActive ? (
               <article key="sameer" className="mx-auto max-w-4xl">
                 <figure className="rounded-2xl border border-accent/25 bg-gradient-to-br from-white/[0.06] to-accent/[0.04] p-6 text-left shadow-2xl shadow-black/40 sm:p-10">
-                  <div className="mb-7 grid h-52 grid-cols-3 gap-2 overflow-hidden rounded-xl sm:h-72 sm:gap-3">
-                    <img src="/sameer-journey-2.webp" alt="Sameer earlier in his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
-                    <img src="/sameer-journey-1.webp" alt="Sameer during his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
-                    <img src="/sameer-journey-3.webp" alt="Sameer progressing in his Elevate journey" loading="lazy" className="h-full w-full object-cover" />
+                  <div className="mb-7 grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="h-52 overflow-hidden rounded-xl border border-white/10 bg-black/40 sm:h-72 lg:h-[26rem] lg:p-2">
+                      <img
+                        src="/sameer-journey-2.webp"
+                        alt="Sameer earlier in his Elevate journey"
+                        loading="lazy"
+                        className="h-full w-full object-cover object-top lg:object-contain"
+                      />
+                    </div>
+                    <div className="h-52 overflow-hidden rounded-xl border border-white/10 bg-black/40 sm:h-72 lg:h-[26rem] lg:p-2">
+                      <img
+                        src="/sameer-journey-1.webp"
+                        alt="Sameer during his Elevate journey"
+                        loading="lazy"
+                        className="h-full w-full object-cover object-top lg:object-contain"
+                      />
+                    </div>
+                    <div className="h-52 overflow-hidden rounded-xl border border-white/10 bg-black/40 sm:h-72 lg:h-[26rem] lg:p-2">
+                      <img
+                        src="/sameer-journey-3.webp"
+                        alt="Sameer progressing in his Elevate journey"
+                        loading="lazy"
+                        className="h-full w-full object-cover object-top lg:object-contain"
+                      />
+                    </div>
                   </div>
                   <p className="font-heading text-2xl uppercase text-accent sm:text-3xl">Sameer’s Elevate Journey</p>
                   <Quote size={38} className="mt-5 text-accent" aria-hidden="true" />
