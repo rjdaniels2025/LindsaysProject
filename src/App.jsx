@@ -245,6 +245,31 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
   const isForgot = mode === 'forgot'
   const isReset = mode === 'reset'
 
+  function isTransientAuthError(authError) {
+    if (!authError) return false
+    const status = Number(authError.status || 0)
+    const code = String(authError.code || '')
+    const message = String(authError.message || '')
+    return status >= 500 || /timeout|unexpected_failure|database|network|fetch/i.test(`${code} ${message}`)
+  }
+
+  async function signInWithRetry(emailAddress, accountPassword) {
+    let result = await supabase.auth.signInWithPassword({
+      email: emailAddress,
+      password: accountPassword,
+    })
+
+    if (result.error && isTransientAuthError(result.error)) {
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      result = await supabase.auth.signInWithPassword({
+        email: emailAddress,
+        password: accountPassword,
+      })
+    }
+
+    return result
+  }
+
   async function submit(e) {
     e.preventDefault()
     setError('')
@@ -302,16 +327,19 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
               data: { name: name.trim(), phone: phone.trim() },
             },
           })
-        : await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
+        : await signInWithRetry(trimmedEmail, password)
 
       if (result.error) {
         const msg = result.error.message
+        const transientServiceError = !isCreating && isTransientAuthError(result.error)
         setError(
-          /already registered|already exists|user already/i.test(msg)
-            ? 'An account with this email already exists. Log in instead.'
-            : msg.includes('Email not confirmed')
-              ? 'Check your email and confirm your account before logging in.'
-              : msg,
+          transientServiceError
+            ? 'Member services are temporarily unavailable. Your account is safe. Please try again in a minute.'
+            : /already registered|already exists|user already/i.test(msg)
+              ? 'An account with this email already exists. Log in instead.'
+              : msg.includes('Email not confirmed')
+                ? 'Check your email and confirm your account before logging in.'
+                : msg,
         )
         if (/already registered|already exists|user already/i.test(msg)) {
           setMode('login')
