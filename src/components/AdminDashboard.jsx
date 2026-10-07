@@ -1012,6 +1012,7 @@ export default function AdminDashboard({ onBack }) {
   const [view, setView] = useState('clients')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [clientDataUnavailable, setClientDataUnavailable] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -1020,7 +1021,7 @@ export default function AdminDashboard({ onBack }) {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError('')
 
-    const [clientsRes, appsRes, videosRes, exercisesRes, linksRes] = await Promise.all([
+    const fetchDashboardData = () => Promise.all([
       supabase.rpc('get_admin_dashboard'),
       supabase.rpc('get_trial_applications'),
       supabase.rpc('list_exercise_videos'),
@@ -1028,9 +1029,27 @@ export default function AdminDashboard({ onBack }) {
       supabase.rpc('list_exercise_video_links'),
     ])
 
+    let results = await fetchDashboardData()
+    const hasTransientFailure = results.some(({ error: requestError }) => {
+      if (!requestError) return false
+      const status = Number(requestError.status || 0)
+      const code = String(requestError.code || '')
+      const message = String(requestError.message || '')
+      return status >= 500 || /timeout|PGRST003|57014|connection pool/i.test(`${code} ${message}`)
+    })
+
+    if (hasTransientFailure) {
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      results = await fetchDashboardData()
+    }
+
+    const [clientsRes, appsRes, videosRes, exercisesRes, linksRes] = results
+
     if (clientsRes.error) {
-      setError(clientsRes.error.message)
+      setClientDataUnavailable(true)
+      setError('Elevate could not reach the member database right now. No client data has been deleted. Please try Refresh again in a moment.')
     } else {
+      setClientDataUnavailable(false)
       setClients(clientsRes.data || [])
     }
     if (!appsRes.error) {
@@ -1166,9 +1185,14 @@ export default function AdminDashboard({ onBack }) {
         )}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 mb-8">
-          <StatCard icon={Users} label="Total Clients" value={totalClients} />
-          <StatCard icon={UserCheck} label="Active Members" value={activeCount} sub={`${totalClients - activeCount} inactive`} />
-          <StatCard icon={CalendarDays} label="New This Month" value={newThisMonth} />
+          <StatCard icon={Users} label="Total Clients" value={clientDataUnavailable ? '—' : totalClients} />
+          <StatCard
+            icon={UserCheck}
+            label="Active Members"
+            value={clientDataUnavailable ? '—' : activeCount}
+            sub={clientDataUnavailable ? 'temporarily unavailable' : `${totalClients - activeCount} inactive`}
+          />
+          <StatCard icon={CalendarDays} label="New This Month" value={clientDataUnavailable ? '—' : newThisMonth} />
           <StatCard icon={FileText} label="Active Trials" value={activeTrials} sub={`${applications.length} signups total`} />
         </div>
 
@@ -1227,6 +1251,22 @@ export default function AdminDashboard({ onBack }) {
             {[1, 2, 3].map((n) => (
               <div key={n} className="h-40 rounded-lg border border-line bg-card animate-pulse" />
             ))}
+          </div>
+        ) : clientDataUnavailable ? (
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-8 text-center">
+            <p className="font-heading text-2xl uppercase text-white">Client data temporarily unavailable</p>
+            <p className="mt-2 text-sm leading-6 text-body">
+              Your client records are still safe. The dashboard could not reach the database.
+            </p>
+            <button
+              type="button"
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 font-heading uppercase text-black transition hover:bg-white disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+              Try Again
+            </button>
           </div>
         ) : clients.length === 0 ? (
           <div className="rounded-lg border border-line bg-card p-8 text-center text-body">
