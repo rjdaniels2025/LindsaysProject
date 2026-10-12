@@ -565,23 +565,48 @@ function parseMealPlan(content) {
 // shape. "...and 2 easy sets of the first press" contains the word "sets", so
 // hasExerciseDetail reads the warm-up note as an exercise line and it silently
 // consumed one of the ten exercise slots.
+// The separator has to include a comma. cleanLine rewrites every dash as ", ",
+// so a note the generator wrote as "Warm up - walk 5 minutes" reaches here as
+// "Warm up,  walk 5 minutes" and a class of only [:.-] never matched it.
 const SESSION_NOTES = [
-  { key: 'warmupNote', pattern: /^warm\s?up(\s+note)?\s*[:.-]\s*/i },
-  { key: 'cooldownNote', pattern: /^cool\s?down(\s+note)?\s*[:.-]\s*/i },
+  { key: 'warmupNote', pattern: /^warm\s?up(\s+note)?\s*[:.,-]\s*/i },
+  { key: 'cooldownNote', pattern: /^cool\s?down(\s+note)?\s*[:.,-]\s*/i },
 ]
 
 function isSessionNote(line) {
   return SESSION_NOTES.some(({ pattern }) => pattern.test(String(line).trim()))
 }
 
+// Everything cleanLine does is right for an exercise line and the dash rule is
+// wrong for a sentence: it renders "band pull-aparts" as "band pull, aparts"
+// and "push-ups" as "push, ups". The note is matched on the cleaned line, so
+// the parser keeps working, but displayed from the line the coach typed.
+function proseLine(line) {
+  return String(line ?? '')
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^[-*]\s*/, '')
+    .replace(/^\d+\.\s*/, '')
+    .replace(/[#[\]{}*_`~|^=<>•·]/g, '')
+    .trim()
+}
+
+// Matched on the cleaned form rather than by position, because the cleaned and
+// raw line lists are not guaranteed to line up index for index.
+function sourceLineFor(cleaned, content) {
+  if (!content) return ''
+  const found = String(content).split('\n').find((raw) => cleanLine(raw) === cleaned)
+  return found ? proseLine(found) : ''
+}
+
 // First of each wins: a session has one warm-up and one cool-down, and a later
 // stray mention should not overwrite the real instruction.
-function readSessionNotes(lines) {
+function readSessionNotes(lines, content) {
   const notes = { warmupNote: '', cooldownNote: '' }
   for (const raw of lines) {
     const line = String(raw).trim()
     for (const { key, pattern } of SESSION_NOTES) {
-      if (!notes[key] && pattern.test(line)) notes[key] = line.replace(pattern, '').trim()
+      if (notes[key] || !pattern.test(line)) continue
+      notes[key] = (sourceLineFor(line, content) || line).replace(pattern, '').trim()
     }
   }
   return notes
@@ -612,7 +637,7 @@ function parseWorkouts(content, fallbackItems) {
       title: 'Workout one',
       summary: details[0] || 'Your first guided workout.',
       details,
-      ...readSessionNotes(lines),
+      ...readSessionNotes(lines, content),
     }]
   }
 
@@ -631,7 +656,7 @@ function parseWorkouts(content, fallbackItems) {
         title: line,
         summary: details[0] || 'A focused workout from your plan.',
         details,
-        ...readSessionNotes(sectionLines),
+        ...readSessionNotes(sectionLines, content),
       }
     })
     .filter((workout) => workout.details.length)

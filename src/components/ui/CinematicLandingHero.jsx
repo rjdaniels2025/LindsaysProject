@@ -817,7 +817,7 @@ export default function CinematicLandingHero({
               <span className="font-heading text-sm uppercase">Personalized Online Coaching</span>
             </div>
             <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
-              Your fitness plan, built around real life.
+              Online coaching, built around real life.
             </h1>
             <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
               Complete a quick assessment, choose your membership, and unlock personalized online coaching with a private dashboard for workouts, nutrition guidance, check-ins, and progress tracking.
