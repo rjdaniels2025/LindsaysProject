@@ -814,13 +814,13 @@ export default function CinematicLandingHero({
           <div className={`elevate-copy min-w-0 ${isStageFocused ? 'hidden' : ''}`}>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent sm:mb-5">
               <Activity size={15} />
-              <span className="font-heading text-sm uppercase">Personalized member dashboard</span>
+              <span className="font-heading text-sm uppercase">Personalized Online Coaching</span>
             </div>
             <h1 className="text-balance max-w-4xl font-heading text-4xl uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
               Your fitness plan, built around real life.
             </h1>
             <p className="mt-5 max-w-2xl text-balance text-base leading-7 text-body sm:text-lg">
-              Complete a quick assessment, choose your membership, and unlock a private dashboard with workouts, nutrition guidance, check-ins, and progress tracking.
+              Complete a quick assessment, choose your membership, and unlock personalized online coaching with a private dashboard for workouts, nutrition guidance, check-ins, and progress tracking.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {!hasProgram && (
