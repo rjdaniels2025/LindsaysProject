@@ -303,10 +303,14 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       return
     }
 
-    if (!email.trim() || !password || (isCreating && (!name.trim() || !phone.trim()))) {
-      setError('Complete every required field.')
-      return
-    }
+    // Named one field at a time, in the order they appear on the form. The old
+    // message was "Complete every required field", which told someone staring at
+    // four boxes nothing about which one they had missed — and the phone field
+    // is the one people skip, because nothing on screen says it is needed.
+    if (isCreating && !name.trim()) { setError('Enter your name.'); return }
+    if (isCreating && !phone.trim()) { setError('Enter a phone number so Lindsay can reach you.'); return }
+    if (!email.trim()) { setError('Enter your email address.'); return }
+    if (!password) { setError('Choose a password.'); return }
     if (password.length < 6) {
       setError('Use at least 6 characters for your password.')
       return
@@ -422,7 +426,15 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
               type="tel"
               autoComplete="tel"
               inputMode="tel"
+              required
+              aria-describedby="phone-why"
             />
+            {/* Asking for a phone number without saying why is the kind of thing
+                that quietly costs signups. One line of reassurance costs nothing
+                and is worth more than an asterisk. */}
+            <span id="phone-why" className="mt-2 block text-xs leading-5 text-body">
+              So Lindsay can reach you about your program. Never shared.
+            </span>
           </label>
         ) : null}
         {!isReset ? (
