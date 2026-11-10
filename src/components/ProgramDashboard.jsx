@@ -1472,11 +1472,23 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
       .map(({ ex, weight }) => ({ id: ex.id, name: ex.name, weight, workout: activeWorkout.title, date: stamp }))
     if (entries.length) setHistory((prev) => [...prev, ...entries])
     const nextCompleted = [...new Set([...completedWorkouts, workoutIdx])]
-    setCompletedWorkouts(nextCompleted)
+    const finishedWeek = allSessionsDone(nextCompleted, workouts.length)
     setSessionLog((prev) => [...prev.filter((s) => s.index !== workoutIdx), { index: workoutIdx, at: stamp }])
-    // Sessions can be done in any order now, so the next one to land on is the
-    // first still outstanding, not simply the next number along.
-    setWorkoutIdx(firstIncompleteWorkout(nextCompleted, workouts.length))
+
+    if (finishedWeek && week < BLOCK_WEEKS) {
+      // A training week is a complete rotation through every planned session.
+      // Clear only this week's completion markers so the next week starts at
+      // Workout 1 again, while keeping exercise history, weights, and session
+      // timestamps available for progress tracking.
+      setCompletedWorkouts([])
+      setWeek((current) => clampWeek(current + 1))
+      setWorkoutIdx(0)
+    } else {
+      setCompletedWorkouts(nextCompleted)
+      // Keep the completed markers in week four so the parent can recognise
+      // that the full four-week block is finished.
+      setWorkoutIdx(finishedWeek ? workoutIdx : firstIncompleteWorkout(nextCompleted, workouts.length))
+    }
     resetSession(true)
   }
 
