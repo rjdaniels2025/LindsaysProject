@@ -24,6 +24,7 @@ import {
 import { FormattedMessage } from '../utils/formatMessage.jsx'
 import ProfileEditor from './ProfileEditor.jsx'
 import { useAiVideo } from '../hooks/useAiVideo.js'
+import { auditProgram } from '../utils/programSafety.js'
 
 const views = [
   { id: 'today', label: 'Today', mobileLabel: 'Today', icon: Sparkles },
@@ -568,10 +569,35 @@ function parseMealPlan(content) {
 // The separator has to include a comma. cleanLine rewrites every dash as ", ",
 // so a note the generator wrote as "Warm up - walk 5 minutes" reaches here as
 // "Warm up,  walk 5 minutes" and a class of only [:.-] never matched it.
+// Which session a heading names. Shared by the note patterns and the boundary
+// test so the two can never disagree about what counts as a session.
+const SESSION_ORDINAL = String.raw`(?:one|two|three|four|five|six|seven|eight|\d+|[a-f])`
+
+// Some generators put the warm-up and cool-down on the heading line itself:
+//   "Workout One (Push): Warmup note, do 2 rounds of 10 band pull aparts..."
+//   "Workout One Cooldown: Walk 3 minutes easy, then stretch chest..."
+// Without the optional prefix those read as two more sessions rather than as
+// the notes belonging to Workout One, which is how a 4-session plan came to
+// show 8 cards, each cooldown card repeating the exercises above it.
+const SESSION_PREFIX = String.raw`(?:(?:workout|session|day)\s*${SESSION_ORDINAL}\s*(?:\([^)]*\))?\s*[:.,-]?\s*)?`
+
 const SESSION_NOTES = [
-  { key: 'warmupNote', pattern: /^warm\s?up(\s+note)?\s*[:.,-]\s*/i },
-  { key: 'cooldownNote', pattern: /^cool\s?down(\s+note)?\s*[:.,-]\s*/i },
+  { key: 'warmupNote', pattern: new RegExp(`^${SESSION_PREFIX}warm\\s?up(\\s+note)?\\s*[:.,-]\\s*`, 'i') },
+  { key: 'cooldownNote', pattern: new RegExp(`^${SESSION_PREFIX}cool\\s?down(\\s+note)?\\s*[:.,-]\\s*`, 'i') },
 ]
+
+// A heading that opens a session, and the cool-down heading that does not.
+const SESSION_HEADING = new RegExp(String.raw`^(?:workout|session|day)\s*${SESSION_ORDINAL}\b|^(?:upper|lower|full body|push|pull|legs)\b`, 'i')
+const COOLDOWN_HEADING = new RegExp(String.raw`^(?:workout|session|day)\s*${SESSION_ORDINAL}\s*(?:\([^)]*\))?\s+cool\s?down\b`, 'i')
+
+// The card shows the session, not the paragraph of warm-up instructions the
+// generator appended to it. Everything after the first colon is that prose and
+// is read back as the warm-up note instead.
+function sessionTitle(line) {
+  const text = String(line).trim()
+  const head = text.split(':')[0].trim()
+  return head && head.length <= 60 ? head : text
+}
 
 function isSessionNote(line) {
   return SESSION_NOTES.some(({ pattern }) => pattern.test(String(line).trim()))
@@ -627,7 +653,8 @@ function parseWorkouts(content, fallbackItems) {
     .map((line, index) => ({ line, index }))
     .filter(({ line }) => {
       if (hasExerciseDetail(line)) return false
-      return /^(workout|session|day)\s*(one|two|three|four|five|six|\d+|[a-f])\b|^(upper|lower|full body|push|pull|legs)\b/i.test(line)
+      if (COOLDOWN_HEADING.test(line)) return false
+      return SESSION_HEADING.test(line)
     })
 
   if (!boundaryIndexes.length) {
@@ -653,10 +680,12 @@ function parseWorkouts(content, fallbackItems) {
         .slice(0, 10)
       const details = structured.length ? structured : unstructured.length ? unstructured : fallbackWorkoutItems
       return {
-        title: line,
+        title: sessionTitle(line),
+        // The heading itself is included: when the warm-up is written onto it
+        // rather than onto its own line, that is the only place to find it.
         summary: details[0] || 'A focused workout from your plan.',
         details,
-        ...readSessionNotes(sectionLines, content),
+        ...readSessionNotes([line, ...sectionLines], content),
       }
     })
     .filter((workout) => workout.details.length)
@@ -1208,6 +1237,24 @@ function allSessionsDone(completedWorkouts, total) {
   return total > 0 && Array.from({ length: total }, (_, i) => i).every((i) => completedWorkouts.includes(i))
 }
 
+// Safety flags are keyed by the exercise name the audit read out of the program
+// text. sanitizeCopy has already turned every hyphen into ", ", so "Push-Up"
+// arrives as "Push, Up" on one side and may be written either way on the other.
+// Flatten both before comparing, exactly as programSafety's own matchable does.
+function flagKey(name) {
+  return String(name || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function findFlag(flags, name) {
+  if (!flags?.length || !name) return null
+  const key = flagKey(name)
+  if (!key) return null
+  return flags.find((flag) => {
+    const against = flagKey(flag.exercise)
+    return against && (against === key || key.includes(against) || against.includes(key))
+  }) || null
+}
+
 // ─── Clean workout player ────────────────────────────────────────────────────
 //
 // Single phase enum drives the entire UI. No booleans or null-encodes-state.
@@ -1227,7 +1274,7 @@ function allSessionsDone(completedWorkouts, total) {
 //
 // enterGroup() always initialises warm-ups for EVERY group, not just the first.
 
-function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, repContext }) {
+function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, repContext, safetyFlags = [] }) {
   // ── Persisted state ──────────────────────────────────────────────────────
   const initialCompleted = Array.isArray(log.completedWorkouts) ? log.completedWorkouts : []
   const [workoutIdx, setWorkoutIdx] = useState(() => firstIncompleteWorkout(initialCompleted, workouts.length))
@@ -1273,8 +1320,14 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
     const completedSets = Object.fromEntries(
       Object.entries(rounds).map(([k, n]) => [k, Array.from({ length: n }, (_, i) => i)])
     )
-    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week, sessionLog })
-  }, [completedWorkouts, rounds, exerciseWeights, history, week, sessionLog, onLogChange])
+    // sessionsPerWeek is persisted because the server trigger that rolls the
+    // week over used to count sessions by running a regex over the program
+    // text, and no regex matches this parser: it read 8 for a 4-session plan
+    // whose cool-downs were written as headings, and 0 for plans whose
+    // headings carry no parenthesised label. The parser already knows the
+    // number exactly, so it is the one that reports it.
+    onLogChange?.({ completedWorkouts, completedSets, exerciseWeights, history, week, sessionLog, sessionsPerWeek: workouts.length })
+  }, [completedWorkouts, rounds, exerciseWeights, history, week, sessionLog, workouts.length, onLogChange])
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const activeWorkout = workouts[workoutIdx] || workouts[0]
@@ -1325,6 +1378,24 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
   const doneExCount = exercises.filter((e) => (rounds[e.id] || 0) >= setCount(e)).length
 
   const weekComplete = allSessionsDone(completedWorkouts, workouts.length)
+
+  // Roll the week over once every session in it is done. This used to happen
+  // only in a database trigger that assumed 4 sessions a week, so a 3-session
+  // plan could never complete a week: the member stayed on Week 1 for ever and
+  // firstIncompleteWorkout, which clamps to the last session, kept naming that
+  // same last session as their next workout. Doing it here means it works for
+  // any plan length, because the count is this component's own.
+  //
+  // completedSets clears with the week. Exercise ids are positional, so the
+  // old counts would otherwise carry over and open week 2 already finished.
+  // history and sessionLog are the record of training done and are kept.
+  useEffect(() => {
+    if (!weekComplete || week >= BLOCK_WEEKS) return
+    setWeek((current) => Math.min(BLOCK_WEEKS, current + 1))
+    setCompletedWorkouts([])
+    setRounds({})
+    setWorkoutIdx(0)
+  }, [weekComplete, week])
 
   const lastLogged = useMemo(() => {
     if (!currentExercise) return null
@@ -1626,6 +1697,20 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
                               </p>
                             )}
                             <p className="font-heading text-xl uppercase text-white">{ex.name}</p>
+
+                            {/* The alternative to reach for if this one hurts.
+                                Advisory, not a prescription: Lindsay is the coach. */}
+                            {(() => {
+                              const flag = findFlag(safetyFlags, ex.name)
+                              return flag ? (
+                                <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-5 text-amber-300/90">
+                                  <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                                  <span>
+                                    With your {flag.limitation}, {flag.suggestion}, or ask Lindsay for a swap.
+                                  </span>
+                                </p>
+                              ) : null
+                            })()}
 
                             {/* Stats */}
                             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1990,7 +2075,16 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
     ? activeSectionItems
     : ['Open the "Why It Works" tab for the full plan.']
 
-  const safetyFlags = Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
+  // Audited here rather than read back from message.meta. The meta is written
+  // only when a program is generated, and the audit matched nothing at all
+  // until exerciseNameFrom was fixed -- so every member training today has an
+  // empty array stored and would never see a word about their own limitations.
+  // The stored flags stay as the fallback for anything the live audit misses.
+  const safetyFlags = useMemo(() => {
+    const live = auditProgram(message.content, profile?.limitations)
+    if (live.length) return live
+    return Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
+  }, [message.content, message.meta?.safetyFlags, profile?.limitations])
 
   return (
     <div className="mr-auto w-full max-w-5xl">
@@ -2130,6 +2224,7 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
               onLogChange={onWorkoutLogChange}
               openOnMount={openWorkoutOnMount}
               repContext={repContext}
+              safetyFlags={safetyFlags}
             />
           ) : null}
           {activeView === 'meal' ? <MealPlan items={mealPlan} /> : null}
