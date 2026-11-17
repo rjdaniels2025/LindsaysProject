@@ -795,6 +795,10 @@ function App() {
   // Restores an in-progress assessment saved to localStorage during signup, so a brand
   // new member who just confirmed their email keeps their answers even though nothing is
   // in the database yet. Only ever consumed in the email-confirmation path.
+  function hasStoredAssessment() {
+    try { return !!localStorage.getItem('elevate_draft') } catch { return false }
+  }
+
   const restoreSignupDraft = useCallback((summary) => {
     let storedDraft = null
     try {
@@ -1006,6 +1010,15 @@ function App() {
         return
       }
 
+      // Contact details are the last step, not the first. Reaching #apply
+      // without an assessment -- an old link, a stale history entry -- means
+      // there is nothing to build a plan from, so send them to take it.
+      if (next === 'apply' && !profileRef.current && !hasStoredAssessment()) {
+        replaceStage('assessment')
+        setStage('assessment')
+        return
+      }
+
       setStage(next)
     }
     window.addEventListener('hashchange', onNavigation)
@@ -1117,13 +1130,14 @@ function App() {
       return
     }
 
-    // New visitor: persist the assessment so it survives the email-confirmation redirect,
-    // then move on to account creation.
+    // New visitor: persist the assessment so it survives the sign-in round trip,
+    // then ask for contact details. That form is last on purpose -- asking for
+    // a name, email and phone before anyone has seen what they get is what the
+    // drop-off showed people abandoning.
     try { localStorage.setItem('elevate_draft', JSON.stringify(completedProfile)) } catch {
       // Account creation still works if local storage is unavailable.
     }
-    setAccountMode('create')
-    navigate('account')
+    navigate('apply')
   }
 
   async function sendMessage(text, meta = {}) {
@@ -1334,7 +1348,7 @@ function App() {
       user={user}
       hasProgram={hasProgramMessage(messages)}
       onStart={() => navigate('assessment')}
-      onApply={() => navigate('apply')}
+      onApply={() => navigate('assessment')}
       onPricing={openPricing}
       onDashboard={() => navigate('chat')}
       onLogin={openLogin}

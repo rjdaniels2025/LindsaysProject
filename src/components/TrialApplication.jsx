@@ -17,9 +17,6 @@ const defaultForm = {
   email: '',
   password: '',
   phone: '',
-  fitnessGoal: '',
-  biggestChallenge: '',
-  trackedMacros: '',
   company: '', // honeypot — must stay empty
 }
 
@@ -45,8 +42,6 @@ function validate(form) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = 'Please enter a valid email.'
   if (form.password.length < 8) errors.password = 'Use at least 8 characters.'
   if (!form.phone.trim()) errors.phone = 'Please enter a phone number.'
-  if (!form.fitnessGoal.trim()) errors.fitnessGoal = 'Tell us your main goal.'
-  if (!form.trackedMacros) errors.trackedMacros = 'Please choose one.'
   return errors
 }
 
@@ -66,7 +61,7 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
   async function handleSubmit(event) {
     event.preventDefault()
     setServerError('')
-    setTouched({ name: true, email: true, password: true, phone: true, fitnessGoal: true, trackedMacros: true })
+    setTouched({ name: true, email: true, password: true, phone: true })
     if (Object.keys(errors).length > 0) return
 
     if (!supabase) {
@@ -84,9 +79,6 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
           email: form.email,
           password: form.password,
           phone: form.phone,
-          fitnessGoal: form.fitnessGoal,
-          biggestChallenge: form.biggestChallenge,
-          trackedMacros: form.trackedMacros, // 'yes' | 'no'
           company: form.company,
         },
       })
@@ -98,17 +90,17 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
       track('Lead')
       track('StartTrial')
 
-      // Deliberately no localStorage profile draft here: a partial draft would
-      // make routeForState treat the assessment as done and generate a program
-      // from three fields. They take the real assessment, same as anyone else.
+      // The assessment is already done and sitting in localStorage by the time
+      // anyone reaches this form, so App restores it after sign-in and the plan
+      // builds straight away.
       const signIn = await supabase.auth.signInWithPassword({
         email: form.email.trim().toLowerCase(),
         password: form.password,
       })
       if (signIn.error) throw new Error(signIn.error.message)
 
-      // Hands off to App, which routes them into the assessment exactly as it
-      // does for a paid signup.
+      // Hands off to App, which restores the saved assessment and builds the
+      // plan, exactly as it does for a paid signup.
       await onAuthenticated?.()
     } catch (err) {
       setServerError(err.message || 'Something went wrong. Please try again.')
@@ -130,14 +122,15 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
         {/* Headline */}
         <div className="rounded-lg border border-accent/40 bg-accent/10 p-5 sm:p-6">
           <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-heading text-sm uppercase text-accent">
-            🔥 Free 7-Day Kickstart
+            🔥 Last step
           </span>
           <h1 className="mt-3 font-heading text-4xl uppercase leading-none text-white sm:text-5xl">
-            Apply for your FREE 7-Day Elevate Kickstart
+            Your plan is ready
           </h1>
           <p className="mt-3 text-sm leading-6 text-body">
-            Create your account and get full access for 7 days, with the same program, dashboard and
-            coaching a paying member gets. No card required, and it doesn&apos;t auto-charge.
+            Tell us where to send it. This creates your account and starts your free 7 days, with the
+            same program, dashboard and coaching a paying member gets. No card required, and it
+            doesn&apos;t auto-charge.
           </p>
         </div>
 
@@ -199,48 +192,6 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
             />
           </Field>
 
-          <Field label="Fitness goal" error={touched.fitnessGoal && errors.fitnessGoal}>
-            <input
-              type="text"
-              value={form.fitnessGoal}
-              onChange={(e) => setValue('fitnessGoal', e.target.value)}
-              placeholder="e.g. Lose fat, build strength, feel healthier"
-              className={inputClass(touched.fitnessGoal && errors.fitnessGoal)}
-            />
-          </Field>
-
-          <Field label="Biggest challenge">
-            <textarea
-              value={form.biggestChallenge}
-              onChange={(e) => setValue('biggestChallenge', e.target.value)}
-              placeholder="What's been holding you back?"
-              rows={3}
-              className={inputClass(false)}
-            />
-          </Field>
-
-          <Field label="Have you tracked macros before?" error={touched.trackedMacros && errors.trackedMacros}>
-            <div className="grid grid-cols-2 gap-3">
-              {['yes', 'no'].map((option) => {
-                const selected = form.trackedMacros === option
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setValue('trackedMacros', option)}
-                    className={`min-h-12 rounded-lg border px-4 py-3 font-heading text-lg uppercase transition ${
-                      selected
-                        ? 'border-accent bg-accent text-black'
-                        : 'border-line bg-[#111] text-white hover:border-accent/70'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                )
-              })}
-            </div>
-          </Field>
-
           {/* Honeypot — hidden from real users, catches bots */}
           <input
             type="text"
@@ -259,7 +210,7 @@ export default function TrialApplication({ onBack, onAuthenticated }) {
             disabled={submitting}
             className="mt-1 min-h-12 w-full rounded-lg bg-accent px-5 font-heading text-xl uppercase text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? 'Creating your account…' : 'Start my free 7 days'}
+            {submitting ? 'Building your plan…' : 'Get my plan'}
           </button>
           <p className="text-center text-xs leading-5 text-body">
             No payment details needed. Your trial simply ends after 7 days, and nothing is charged
