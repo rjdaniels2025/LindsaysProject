@@ -30,7 +30,20 @@ export function isFoundingOfferActive(now: number = Date.now()) {
   return now < FOUNDING_OFFER_ENDS_AT
 }
 
-export function getPriceId(billing: string, opts: { foundingActive?: boolean } = {}) {
+// Elevate Into 2027 holiday special: $1,249 one-time pay-in-full, registration
+// closing at the end of December 31, 2026 (midnight Eastern, which is EST and
+// so 05:00Z, not the 04:00Z the June founding deadline used). Keep in sync with
+// src/lib/holidayOffer.js on the frontend.
+export const HOLIDAY_OFFER_ENDS_AT = Date.parse('2027-01-01T05:00:00Z')
+
+export function isHolidayOfferActive(now: number = Date.now()) {
+  return now < HOLIDAY_OFFER_ENDS_AT
+}
+
+export function getPriceId(
+  billing: string,
+  opts: { foundingActive?: boolean; holidayActive?: boolean } = {},
+) {
   if (!['pay-in-full', 'monthly', 'biweekly'].includes(billing)) {
     throw new Error('Invalid billing option.')
   }
@@ -44,6 +57,19 @@ export function getPriceId(billing: string, opts: { foundingActive?: boolean } =
       throw new Error('Founding offer is active but STRIPE_PRICE_TRANSFORMATION_FOUNDING is not set.')
     }
     return foundingId
+  }
+
+  // The holiday special, same shape, with one deliberate difference: a missing
+  // price falls through to the regular one instead of throwing. The founding
+  // offer threw so nobody could be charged more than the advertised launch
+  // price, but that was a price configured before the offer went live. This one
+  // is advertised from the site, and the site only advertises it when the
+  // frontend window is open -- so a missing variable here means the promotion
+  // was never set up, and the right answer is regular pricing rather than a
+  // checkout that 500s for every customer.
+  if (billing === 'pay-in-full' && opts.holidayActive) {
+    const holidayId = Deno.env.get('STRIPE_PRICE_TRANSFORMATION_HOLIDAY')
+    if (holidayId) return holidayId
   }
 
   const envName = priceEnvName(billing as Billing)
