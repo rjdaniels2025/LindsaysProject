@@ -303,10 +303,14 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
       return
     }
 
-    if (!email.trim() || !password || (isCreating && (!name.trim() || !phone.trim()))) {
-      setError('Complete every required field.')
-      return
-    }
+    // Named one field at a time, in the order they appear on the form. The old
+    // message was "Complete every required field", which told someone staring at
+    // four boxes nothing about which one they had missed — and the phone field
+    // is the one people skip, because nothing on screen says it is needed.
+    if (isCreating && !name.trim()) { setError('Enter your name.'); return }
+    if (isCreating && !phone.trim()) { setError('Enter a phone number so Lindsay can reach you.'); return }
+    if (!email.trim()) { setError('Enter your email address.'); return }
+    if (!password) { setError('Choose a password.'); return }
     if (password.length < 6) {
       setError('Use at least 6 characters for your password.')
       return
@@ -422,7 +426,15 @@ function AccountGate({ onBack, onHome, onAuthenticated, onResetPassword, isPassw
               type="tel"
               autoComplete="tel"
               inputMode="tel"
+              required
+              aria-describedby="phone-why"
             />
+            {/* Asking for a phone number without saying why is the kind of thing
+                that quietly costs signups. One line of reassurance costs nothing
+                and is worth more than an asterisk. */}
+            <span id="phone-why" className="mt-2 block text-xs leading-5 text-body">
+              So Lindsay can reach you about your program. Never shared.
+            </span>
           </label>
         ) : null}
         {!isReset ? (
@@ -783,6 +795,10 @@ function App() {
   // Restores an in-progress assessment saved to localStorage during signup, so a brand
   // new member who just confirmed their email keeps their answers even though nothing is
   // in the database yet. Only ever consumed in the email-confirmation path.
+  function hasStoredAssessment() {
+    try { return !!localStorage.getItem('elevate_draft') } catch { return false }
+  }
+
   const restoreSignupDraft = useCallback((summary) => {
     let storedDraft = null
     try {
@@ -994,6 +1010,15 @@ function App() {
         return
       }
 
+      // Contact details are the last step, not the first. Reaching #apply
+      // without an assessment -- an old link, a stale history entry -- means
+      // there is nothing to build a plan from, so send them to take it.
+      if (next === 'apply' && !profileRef.current && !hasStoredAssessment()) {
+        replaceStage('assessment')
+        setStage('assessment')
+        return
+      }
+
       setStage(next)
     }
     window.addEventListener('hashchange', onNavigation)
@@ -1105,13 +1130,14 @@ function App() {
       return
     }
 
-    // New visitor: persist the assessment so it survives the email-confirmation redirect,
-    // then move on to account creation.
+    // New visitor: persist the assessment so it survives the sign-in round trip,
+    // then ask for contact details. That form is last on purpose -- asking for
+    // a name, email and phone before anyone has seen what they get is what the
+    // drop-off showed people abandoning.
     try { localStorage.setItem('elevate_draft', JSON.stringify(completedProfile)) } catch {
       // Account creation still works if local storage is unavailable.
     }
-    setAccountMode('create')
-    navigate('account')
+    navigate('apply')
   }
 
   async function sendMessage(text, meta = {}) {
@@ -1322,7 +1348,7 @@ function App() {
       user={user}
       hasProgram={hasProgramMessage(messages)}
       onStart={() => navigate('assessment')}
-      onApply={() => navigate('apply')}
+      onApply={() => navigate('assessment')}
       onPricing={openPricing}
       onDashboard={() => navigate('chat')}
       onLogin={openLogin}

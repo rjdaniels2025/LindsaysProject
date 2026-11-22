@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
-import { accessMonths, checkoutMode, getPriceId, isFoundingOfferActive, planNames, type Billing, type PlanId, stripeRequest } from '../_shared/stripe.ts'
+import { accessMonths, checkoutMode, getPriceId, isFoundingOfferActive, isHolidayOfferActive, planNames, type Billing, type PlanId, stripeRequest } from '../_shared/stripe.ts'
 
 type CheckoutBody = {
   billing?: Billing
@@ -84,7 +84,8 @@ Deno.serve(async (request) => {
     const billing: Billing = body.billing || 'monthly'
     const planId: PlanId = 'transformation'
     const foundingActive = isFoundingOfferActive()
-    const priceId = getPriceId(billing, { foundingActive })
+    const holidayActive = isHolidayOfferActive()
+    const priceId = getPriceId(billing, { foundingActive, holidayActive })
     const mode = checkoutMode(billing)
     const user = authData.user
     const params = new URLSearchParams()
@@ -101,6 +102,12 @@ Deno.serve(async (request) => {
     params.set('metadata[billing]', billing)
     params.set('metadata[plan_name]', planNames[planId])
     params.set('metadata[founding_offer]', billing === 'pay-in-full' && foundingActive ? 'true' : 'false')
+    // Records which price was actually taken, so Stripe's own reporting can
+    // separate holiday sales from regular ones without guessing from amounts.
+    params.set(
+      'metadata[holiday_offer]',
+      billing === 'pay-in-full' && !foundingActive && holidayActive ? 'true' : 'false',
+    )
 
     // The code is re-read here and never trusted from the client. The pricing
     // page can be told anything; what gets charged is decided from the row,

@@ -19,7 +19,14 @@ const RULES = [
   {
     limitation: /shoulder|rotator cuff|labrum|impingement/i,
     label: 'shoulder',
-    risky: /overhead press|military press|behind (the )?neck|upright row|\bdips?\b|push press|snatch/i,
+    // Only the literal phrase "overhead press" used to match, so a program
+    // built around a "Machine Shoulder Press" flagged nothing for a member
+    // whose own words were "difficult extending, exercises over head like chin
+    // up". These are the same movement written differently, not a wider net:
+    // anything that presses or hangs overhead. Lateral raises are deliberately
+    // left out -- they are as often rehab as aggravation, and that call is
+    // Lindsay's to make, not a keyword's.
+    risky: /overhead|over head|shoulder press|military press|behind (the )?neck|upright row|\bdips?\b|push press|snatch|chin ?up|pull ?up/i,
     suggestion: 'try neutral-grip dumbbell presses, landmine presses, or cable work in a pain-free range instead',
   },
   {

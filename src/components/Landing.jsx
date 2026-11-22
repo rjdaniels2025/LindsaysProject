@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
 import PromoBanner from './PromoBanner.jsx'
-import { ArrowRight, BadgeDollarSign, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import HolidayBanner from './HolidayBanner.jsx'
+import { ArrowRight, BadgeDollarSign, Check, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
+import {
+  HOLIDAY_PAY_IN_FULL_PRICE,
+  HOLIDAY_REGULAR_PRICE,
+  HOLIDAY_SAVING,
+  isHolidayOfferActive,
+} from '../lib/holidayOffer.js'
 import { useAppSettings } from '../hooks/useAppSettings.js'
 import { transformationImage } from '../assets/transformationImage.js'
 
@@ -40,6 +47,15 @@ const coachingPrinciples = [
   },
 ]
 
+const holidayIncluded = [
+  'Customized workout programs',
+  'Personalized nutrition guidance',
+  'Weekly check-ins and accountability',
+  'Ongoing coaching and support',
+  'Private Elevate WhatsApp community',
+  '7-day FREE trial',
+]
+
 export default function Landing({ user, hasProgram, onStart, onApply, onPricing, onDashboard, onLogin, onSignOut, onAdmin }) {
   const appSettings = useAppSettings()
   const [testimonialIndex, setTestimonialIndex] = useState(0)
@@ -59,6 +75,7 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
 
   return (
     <main className="min-h-screen bg-bg text-body">
+      <HolidayBanner onPricing={onPricing} />
       <PromoBanner onPricing={onPricing} />
       <CinematicLandingHero
         user={user}
@@ -71,7 +88,91 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
         onSignOut={onSignOut}
       />
 
-      {/* Free 7-Day Kickstart lead-capture CTA */}
+      {/* Elevate Into 2027 holiday special. Sits directly under the hero, above
+          the free-trial block, and disappears on its own on January 1. */}
+      {isHolidayOfferActive() && (
+        <section className="border-b border-accent/30 bg-[#0b0b0b] px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="font-heading text-lg uppercase tracking-wide text-accent sm:text-xl">
+              Elevate Health &amp; Fitness
+            </p>
+            <h2 className="mt-3 font-heading text-5xl uppercase leading-none text-accent sm:text-6xl">
+              Elevate Into 2027
+            </h2>
+            <p className="mt-4 font-heading text-3xl uppercase leading-tight text-white sm:text-4xl">
+              New Year. New Strength. New You.
+            </p>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
+              Don&apos;t wait for January to start investing in yourself. Give yourself the gift of
+              better health, strength and confidence.
+            </p>
+
+            <hr className="my-8 border-0 border-t border-line" />
+
+            <p className="font-heading text-2xl uppercase text-white sm:text-3xl">
+              6-Month Personalized Coaching
+            </p>
+            <p className="mt-3 font-heading text-6xl uppercase leading-none text-accent sm:text-7xl">
+              {HOLIDAY_PAY_IN_FULL_PRICE}
+            </p>
+            <p className="mt-3 text-lg text-body/60 line-through">
+              {HOLIDAY_REGULAR_PRICE} Regular Price
+            </p>
+            <p className="mt-4 font-heading text-3xl uppercase text-accent sm:text-4xl">
+              Save {HOLIDAY_SAVING}!
+            </p>
+
+            <div className="mt-10 text-left">
+              <p className="font-heading text-xl uppercase text-white">What&apos;s Included</p>
+              <ul className="mt-4 grid gap-3">
+                {holidayIncluded.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-base leading-7 text-white">
+                    <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-black">
+                      <Check size={12} />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* One block, as in the artwork: the line and the action read as a
+                single thing rather than a heading with a button under it. */}
+            <button
+              type="button"
+              onClick={onApply}
+              className="mt-8 w-full rounded-lg bg-accent px-6 py-5 text-left transition hover:bg-white"
+            >
+              <span className="block font-heading text-2xl uppercase leading-tight text-black sm:text-3xl">
+                Your Journey Starts Here
+              </span>
+              <span className="mt-2 flex items-center gap-2 font-heading text-xl uppercase text-black sm:text-2xl">
+                Claim Your 7-Day Free Trial
+                <ArrowRight size={20} />
+              </span>
+            </button>
+
+            <p className="mt-6 font-heading text-xl uppercase text-accent sm:text-2xl">
+              Register by December 31, 2026
+            </p>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-body">
+              Special holiday pricing. Coaching begins January 2027. Six-month commitment. Terms
+              apply.
+            </p>
+
+            <p className="mt-8 font-heading text-2xl uppercase text-white sm:text-3xl">
+              Elevate Health &amp; Fitness
+            </p>
+            <p className="mt-2 text-sm leading-6 text-body">
+              Stronger habits. Stronger mindset. Stronger you.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* Free 7-Day Kickstart CTA. It opens the assessment, same as every
+          other call to action here: contact details are asked for at the end,
+          once there is a plan to hand over. */}
       <section className="border-y border-accent/30 bg-gradient-to-br from-[#14160a] via-[#0b0b0b] to-[#14160a] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-heading text-sm uppercase text-accent">
@@ -81,15 +182,16 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
             Try Elevate free for 7 days
           </h2>
           <p className="max-w-2xl text-base leading-7 text-body sm:text-lg">
-            Apply for your FREE 7-Day Elevate Kickstart. Tell us your goal and Lindsay will personally reach
-            out to build your macros, meal guide, and workout plan.
+            Answer a few questions about your goal, your training and anything you are working around.
+            Your macros, meal guide and workout plan are built from your answers, and Lindsay coaches you
+            through all 7 days. No card required.
           </p>
           <button
             type="button"
             onClick={onApply}
             className="group inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-heading text-lg uppercase text-black transition hover:bg-white"
           >
-            Apply Now
+            Start Your Free 7 Days
             <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>

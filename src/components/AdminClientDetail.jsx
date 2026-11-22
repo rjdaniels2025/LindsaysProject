@@ -205,7 +205,15 @@ export default function AdminClientDetail({ client, onBack }) {
         {safetyFlags.length > 0 && (
           <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-            <span>Safety flags: {safetyFlags.join(', ')}</span>
+            {/* These are objects, not strings. join() rendered the whole row
+                as "[object Object]", which told Lindsay nothing. */}
+            <span>
+              Safety flags:{' '}
+              {safetyFlags
+                .map((flag) =>
+                  typeof flag === 'string' ? flag : `${flag.exercise} (${flag.limitation})`)
+                .join(', ')}
+            </span>
           </div>
         )}
 

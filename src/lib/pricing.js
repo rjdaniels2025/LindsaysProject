@@ -3,6 +3,12 @@
 // read the same numbers: a second copy of these prices would drift, and the
 // symptom would be ad reporting quietly disagreeing with Stripe.
 import { isFoundingOfferActive, FOUNDING_PAY_IN_FULL_PRICE } from './foundingOffer.js'
+import {
+  isHolidayOfferActive,
+  HOLIDAY_LAST_DAY,
+  HOLIDAY_PAY_IN_FULL_PRICE,
+  HOLIDAY_SAVING,
+} from './holidayOffer.js'
 
 const baseBillingOptions = [
   {
@@ -34,21 +40,38 @@ const baseBillingOptions = [
   },
 ]
 
-// While the founding offer is live, the one-time pay-in-full price drops to $999.
-// After June 30 2026 this returns the regular options unchanged.
-export function getBillingOptions(foundingActive) {
-  if (!foundingActive) return baseBillingOptions
-  return baseBillingOptions.map((option) =>
-    option.id === 'pay-in-full'
+// Both promotions discount the one-time pay-in-full price and nothing else.
+// Outside their windows this returns the regular options unchanged, so the
+// offers end on their own with no deploy.
+//
+// Callers pass nothing and get today's pricing. The flags exist so a caller can
+// ask what pricing looked like, or would look like, at another moment -- which
+// is how the date behaviour is tested without touching the system clock.
+export function getBillingOptions(
+  foundingActive = isFoundingOfferActive(),
+  holidayActive = isHolidayOfferActive(),
+) {
+  // Founding first: it is the older and deeper discount, so if the two windows
+  // ever overlapped nobody would be charged the higher of the two.
+  const promo = foundingActive
+    ? {
+        price: FOUNDING_PAY_IN_FULL_PRICE,
+        badge: 'Founding Offer',
+        highlight: 'Save $500, ends June 30',
+        description: 'Founding-client launch price. One payment, full 6-month access.',
+      }
+    : holidayActive
       ? {
-          ...option,
-          price: FOUNDING_PAY_IN_FULL_PRICE,
-          originalPrice: option.price,
-          badge: 'Founding Offer',
-          highlight: 'Save $500, ends June 30',
-          description: 'Founding-client launch price. One payment, full 6-month access.',
+          price: HOLIDAY_PAY_IN_FULL_PRICE,
+          badge: 'Holiday Special',
+          highlight: `Save ${HOLIDAY_SAVING}, register by ${HOLIDAY_LAST_DAY}`,
+          description: 'Elevate Into 2027 holiday price. One payment, full 6-month access.',
         }
-      : option,
+      : null
+
+  if (!promo) return baseBillingOptions
+  return baseBillingOptions.map((option) =>
+    option.id === 'pay-in-full' ? { ...option, ...promo, originalPrice: option.price } : option,
   )
 }
 
@@ -57,7 +80,8 @@ export function getBillingOptions(foundingActive) {
 // same table the page displays — a second copy of these prices would drift and
 // quietly misreport ad revenue.
 export function billingChargeAmount(billingId, now = new Date()) {
-  const option = getBillingOptions(isFoundingOfferActive(now)).find((o) => o.id === billingId)
+  const option = getBillingOptions(isFoundingOfferActive(now), isHolidayOfferActive(now))
+    .find((o) => o.id === billingId)
   if (!option) return null
   const amount = Number.parseFloat(String(option.price).replace(/[^0-9.]/g, ''))
   return Number.isFinite(amount) && amount > 0 ? amount : null

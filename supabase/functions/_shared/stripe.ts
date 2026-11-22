@@ -30,7 +30,28 @@ export function isFoundingOfferActive(now: number = Date.now()) {
   return now < FOUNDING_OFFER_ENDS_AT
 }
 
-export function getPriceId(billing: string, opts: { foundingActive?: boolean } = {}) {
+// Elevate Into 2027 holiday special: $1,249 one-time pay-in-full, registration
+// closing at the end of December 31, 2026 (midnight Eastern, which is EST and
+// so 05:00Z, not the 04:00Z the June founding deadline used). Keep in sync with
+// src/lib/holidayOffer.js on the frontend.
+export const HOLIDAY_OFFER_ENDS_AT = Date.parse('2027-01-01T05:00:00Z')
+
+export function isHolidayOfferActive(now: number = Date.now()) {
+  return now < HOLIDAY_OFFER_ENDS_AT
+}
+
+// The holiday price, created on the elevate_transformation product on
+// 2026-11-22. A Stripe price id is a public identifier -- it travels in checkout
+// URLs and sits in client-side integrations -- so it belongs in the code rather
+// than in a secret. The other price ids are environment variables so a
+// test-mode deployment can point at test-mode prices, not to hide them, and the
+// variable still wins here wherever one is set.
+const HOLIDAY_PRICE_ID = 'price_1UecTT3kbzfxIBE5JhM1KOVF'
+
+export function getPriceId(
+  billing: string,
+  opts: { foundingActive?: boolean; holidayActive?: boolean } = {},
+) {
   if (!['pay-in-full', 'monthly', 'biweekly'].includes(billing)) {
     throw new Error('Invalid billing option.')
   }
@@ -44,6 +65,13 @@ export function getPriceId(billing: string, opts: { foundingActive?: boolean } =
       throw new Error('Founding offer is active but STRIPE_PRICE_TRANSFORMATION_FOUNDING is not set.')
     }
     return foundingId
+  }
+
+  // The holiday special. Unlike the founding branch above there is nothing to
+  // throw over: the price is known, so this always resolves to something
+  // chargeable and the advertised $1,249 is what gets taken.
+  if (billing === 'pay-in-full' && opts.holidayActive) {
+    return Deno.env.get('STRIPE_PRICE_TRANSFORMATION_HOLIDAY') || HOLIDAY_PRICE_ID
   }
 
   const envName = priceEnvName(billing as Billing)
