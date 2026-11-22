@@ -40,6 +40,14 @@ export function isHolidayOfferActive(now: number = Date.now()) {
   return now < HOLIDAY_OFFER_ENDS_AT
 }
 
+// The holiday price, created on the elevate_transformation product on
+// 2026-11-22. A Stripe price id is a public identifier -- it travels in checkout
+// URLs and sits in client-side integrations -- so it belongs in the code rather
+// than in a secret. The other price ids are environment variables so a
+// test-mode deployment can point at test-mode prices, not to hide them, and the
+// variable still wins here wherever one is set.
+const HOLIDAY_PRICE_ID = 'price_1UecTT3kbzfxIBE5JhM1KOVF'
+
 export function getPriceId(
   billing: string,
   opts: { foundingActive?: boolean; holidayActive?: boolean } = {},
@@ -59,17 +67,11 @@ export function getPriceId(
     return foundingId
   }
 
-  // The holiday special, same shape, with one deliberate difference: a missing
-  // price falls through to the regular one instead of throwing. The founding
-  // offer threw so nobody could be charged more than the advertised launch
-  // price, but that was a price configured before the offer went live. This one
-  // is advertised from the site, and the site only advertises it when the
-  // frontend window is open -- so a missing variable here means the promotion
-  // was never set up, and the right answer is regular pricing rather than a
-  // checkout that 500s for every customer.
+  // The holiday special. Unlike the founding branch above there is nothing to
+  // throw over: the price is known, so this always resolves to something
+  // chargeable and the advertised $1,249 is what gets taken.
   if (billing === 'pay-in-full' && opts.holidayActive) {
-    const holidayId = Deno.env.get('STRIPE_PRICE_TRANSFORMATION_HOLIDAY')
-    if (holidayId) return holidayId
+    return Deno.env.get('STRIPE_PRICE_TRANSFORMATION_HOLIDAY') || HOLIDAY_PRICE_ID
   }
 
   const envName = priceEnvName(billing as Billing)
