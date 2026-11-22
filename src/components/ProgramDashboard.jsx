@@ -1379,24 +1379,6 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
 
   const weekComplete = allSessionsDone(completedWorkouts, workouts.length)
 
-  // Roll the week over once every session in it is done. This used to happen
-  // only in a database trigger that assumed 4 sessions a week, so a 3-session
-  // plan could never complete a week: the member stayed on Week 1 for ever and
-  // firstIncompleteWorkout, which clamps to the last session, kept naming that
-  // same last session as their next workout. Doing it here means it works for
-  // any plan length, because the count is this component's own.
-  //
-  // completedSets clears with the week. Exercise ids are positional, so the
-  // old counts would otherwise carry over and open week 2 already finished.
-  // history and sessionLog are the record of training done and are kept.
-  useEffect(() => {
-    if (!weekComplete || week >= BLOCK_WEEKS) return
-    setWeek((current) => Math.min(BLOCK_WEEKS, current + 1))
-    setCompletedWorkouts([])
-    setRounds({})
-    setWorkoutIdx(0)
-  }, [weekComplete, week])
-
   const lastLogged = useMemo(() => {
     if (!currentExercise) return null
     for (let i = history.length - 1; i >= 0; i--) {
@@ -1554,6 +1536,12 @@ function WorkoutTracker({ workouts, log = {}, onLogChange, openOnMount = false, 
       setCompletedWorkouts([])
       setWeek((current) => clampWeek(current + 1))
       setWorkoutIdx(0)
+      // The set counts have to go with them. Exercise ids are positional
+      // (`${index}-${detail.slice(0, 24)}`), so without this last week's
+      // completed rounds match the new week's exercises and week two opens
+      // already finished. History, weights and timestamps are the record of
+      // training done and are deliberately kept.
+      setRounds({})
     } else {
       setCompletedWorkouts(nextCompleted)
       // Keep the completed markers in week four so the parent can recognise
@@ -2096,7 +2084,10 @@ export default function ProgramDashboard({ message, profile, programCreatedAt, w
     const live = auditProgram(message.content, profile?.limitations)
     if (live.length) return live
     return Array.isArray(message.meta?.safetyFlags) ? message.meta.safetyFlags : []
-  }, [message.content, message.meta?.safetyFlags, profile?.limitations])
+    // Depends on message.meta rather than message.meta?.safetyFlags: the React
+    // Compiler infers the former and refuses to keep a memo whose stated
+    // dependency is narrower than the one it works out for itself.
+  }, [message.content, message.meta, profile?.limitations])
 
   return (
     <div className="mr-auto w-full max-w-5xl">
