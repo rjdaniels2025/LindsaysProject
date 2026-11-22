@@ -2,7 +2,7 @@ import { useState } from 'react'
 import CinematicLandingHero from './ui/CinematicLandingHero.jsx'
 import PromoBanner from './PromoBanner.jsx'
 import HolidayBanner from './HolidayBanner.jsx'
-import { ArrowRight, BadgeDollarSign, Check, CheckCircle2, Clock, ExternalLink, Gift, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
+import { ArrowRight, BadgeDollarSign, Check, CheckCircle2, Clock, ExternalLink, Handshake, HeartPulse, Link2, LogIn, Mail, Quote, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 import { isFoundingOfferActive } from '../lib/foundingOffer.js'
 import {
   HOLIDAY_PAY_IN_FULL_PRICE,
@@ -91,45 +91,43 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
       {/* Elevate Into 2027 holiday special. Sits directly under the hero, above
           the free-trial block, and disappears on its own on January 1. */}
       {isHolidayOfferActive() && (
-        <section className="border-b border-accent/30 bg-gradient-to-br from-[#14160a] via-[#0b0b0b] to-[#14160a] px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-          <div className="mx-auto max-w-4xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-heading text-sm uppercase text-accent">
-              <Gift size={15} aria-hidden="true" /> Holiday Special
-            </span>
-            <h2 className="mt-4 font-heading text-5xl uppercase leading-none text-white sm:text-6xl">
+        <section className="border-b border-accent/30 bg-[#0b0b0b] px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="font-heading text-lg uppercase tracking-wide text-accent sm:text-xl">
+              Elevate Health &amp; Fitness
+            </p>
+            <h2 className="mt-3 font-heading text-5xl uppercase leading-none text-accent sm:text-6xl">
               Elevate Into 2027
             </h2>
-            <p className="mt-3 font-heading text-xl uppercase tracking-wide text-accent sm:text-2xl">
-              New year. New strength. New you.
+            <p className="mt-4 font-heading text-3xl uppercase leading-tight text-white sm:text-4xl">
+              New Year. New Strength. New You.
             </p>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-body sm:text-lg">
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-body sm:text-lg">
               Don&apos;t wait for January to start investing in yourself. Give yourself the gift of
               better health, strength and confidence.
             </p>
 
-            <div className="mx-auto mt-8 max-w-md rounded-lg border border-accent/40 bg-accent/10 p-6">
-              <p className="font-heading text-sm uppercase tracking-wide text-body">
-                6-Month Personalized Coaching
-              </p>
-              <p className="mt-2 font-heading text-6xl uppercase leading-none text-white">
-                {HOLIDAY_PAY_IN_FULL_PRICE}
-              </p>
-              <p className="mt-2 text-sm text-body">
-                <span className="line-through text-body/60">{HOLIDAY_REGULAR_PRICE}</span> regular price
-              </p>
-              <p className="mt-3 inline-flex rounded-full bg-accent px-4 py-1 font-heading text-lg uppercase text-black">
-                Save {HOLIDAY_SAVING}
-              </p>
-            </div>
+            <hr className="my-8 border-0 border-t border-line" />
 
-            <div className="mt-8 text-left">
-              <p className="text-center font-heading text-sm uppercase tracking-wide text-accent">
-                What&apos;s included
-              </p>
-              <ul className="mx-auto mt-3 grid max-w-2xl gap-2 sm:grid-cols-2">
+            <p className="font-heading text-2xl uppercase text-white sm:text-3xl">
+              6-Month Personalized Coaching
+            </p>
+            <p className="mt-3 font-heading text-6xl uppercase leading-none text-accent sm:text-7xl">
+              {HOLIDAY_PAY_IN_FULL_PRICE}
+            </p>
+            <p className="mt-3 text-lg text-body/60 line-through">
+              {HOLIDAY_REGULAR_PRICE} Regular Price
+            </p>
+            <p className="mt-4 font-heading text-3xl uppercase text-accent sm:text-4xl">
+              Save {HOLIDAY_SAVING}!
+            </p>
+
+            <div className="mt-10 text-left">
+              <p className="font-heading text-xl uppercase text-white">What&apos;s Included</p>
+              <ul className="mt-4 grid gap-3">
                 {holidayIncluded.map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-sm leading-6 text-white">
-                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-black">
+                  <li key={item} className="flex items-start gap-3 text-base leading-7 text-white">
+                    <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent text-black">
                       <Check size={12} />
                     </span>
                     {item}
@@ -138,20 +136,35 @@ export default function Landing({ user, hasProgram, onStart, onApply, onPricing,
               </ul>
             </div>
 
-            <p className="mt-8 font-heading text-2xl uppercase text-white">Your journey starts here</p>
+            {/* One block, as in the artwork: the line and the action read as a
+                single thing rather than a heading with a button under it. */}
             <button
               type="button"
               onClick={onApply}
-              className="group mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-heading text-lg uppercase text-black transition hover:bg-white"
+              className="mt-8 w-full rounded-lg bg-accent px-6 py-5 text-left transition hover:bg-white"
             >
-              Claim Your 7-Day Free Trial
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+              <span className="block font-heading text-2xl uppercase leading-tight text-black sm:text-3xl">
+                Your Journey Starts Here
+              </span>
+              <span className="mt-2 flex items-center gap-2 font-heading text-xl uppercase text-black sm:text-2xl">
+                Claim Your 7-Day Free Trial
+                <ArrowRight size={20} />
+              </span>
             </button>
-            <p className="mt-3 font-heading text-sm uppercase tracking-wide text-accent">
+
+            <p className="mt-6 font-heading text-xl uppercase text-accent sm:text-2xl">
               Register by December 31, 2026
             </p>
-            <p className="mx-auto mt-4 max-w-2xl text-xs leading-5 text-body/70">
-              Special holiday pricing. Coaching begins January 2027. Six-month commitment. Terms apply.
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-body">
+              Special holiday pricing. Coaching begins January 2027. Six-month commitment. Terms
+              apply.
+            </p>
+
+            <p className="mt-8 font-heading text-2xl uppercase text-white sm:text-3xl">
+              Elevate Health &amp; Fitness
+            </p>
+            <p className="mt-2 text-sm leading-6 text-body">
+              Stronger habits. Stronger mindset. Stronger you.
             </p>
           </div>
         </section>
